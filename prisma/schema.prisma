@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model OuraToken {
+  id           Int      @id @default(autoincrement())
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  scope        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model DailyReadiness {
+  id                        String   @id
+  day                       DateTime @unique
+  score                     Int?
+  temperatureDeviation      Float?
+  temperatureTrendDeviation Float?
+  hrvBalance                Int?
+  bodyTemperature           Int?
+  recoveryIndex             Int?
+  restingHeartRate          Int?
+  sleepBalance              Int?
+  activityBalance           Int?
+  createdAt                 DateTime @default(now())
+}
+
+model DailySleep {
+  id                 String   @id
+  day                DateTime @unique
+  score              Int?
+  totalSleepDuration Int?
+  remSleepDuration   Int?
+  deepSleepDuration  Int?
+  lightSleepDuration Int?
+  sleepEfficiency    Int?
+  latency            Int?
+  averageHeartRate   Float?
+  lowestHeartRate    Int?
+  averageHrv         Int?
+  createdAt          DateTime @default(now())
+}
+
+model DailyStress {
+  id           String   @id
+  day          DateTime @unique
+  stressHigh   Int?
+  recoveryHigh Int?
+  daySummary   String?
+  createdAt    DateTime @default(now())
+}
+
+model HeartRateSample {
+  id        Int      @id @default(autoincrement())
+  bpm       Int
+  source    String
+  timestamp DateTime
+
+  @@unique([timestamp, source])
+}
+
+model CyclePhaseLog {
+  id        Int      @id @default(autoincrement())
+  day       DateTime @unique
+  phase     String   // menstrual | follicular | ovulation | luteal
+  source    String   @default("manual")
+  createdAt DateTime @default(now())
+}
+
+model SyncLog {
+  id        Int      @id @default(autoincrement())
+  syncDate  DateTime @default(now())
+  status    String   // success | partial | failed
+  details   String?
+  createdAt DateTime @default(now())
+}
