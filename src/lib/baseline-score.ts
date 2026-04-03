@@ -57,10 +57,19 @@ function sleepQualityScore(
 }
 
 // Temp deviation: closer to 0 is better, larger deviations reduce score
-// Used as cycle proxy — luteal phase shows elevated temps
-function tempDeviationScore(deviation: number | null): number | null {
+// Cycle-phase-aware: luteal phase naturally elevates temp by ~0.3-0.5°C,
+// so we offset the deviation before scoring to avoid penalizing normal physiology
+function tempDeviationScore(deviation: number | null, cyclePhase: string | null): number | null {
   if (deviation == null) return null;
-  const absDev = Math.abs(deviation);
+  let adjusted = deviation;
+  if (cyclePhase === "luteal") {
+    // Luteal phase: +0.3-0.5°C is expected. Shift baseline so 0.4°C reads as ~0
+    adjusted = deviation - 0.4;
+  } else if (cyclePhase === "ovulation") {
+    // Ovulation: slight elevation is normal
+    adjusted = deviation - 0.15;
+  }
+  const absDev = Math.abs(adjusted);
   // 0°C deviation = 90 score, ±0.5°C = 60, ±1.0°C = 30
   const score = 90 - absDev * 60;
   return clamp(Math.round(score), 0, 100);
@@ -72,37 +81,59 @@ export function computeBaselineScore(
   hrvFourteenDay: number | null,
   deepSleep: number | null,
   remSleep: number | null,
-  tempDev: number | null
+  tempDev: number | null,
+  cyclePhase?: string | null
 ): BaselineScore {
   const hrv = hrvTrendScore(hrvThreeDay, hrvFourteenDay);
   const sleep = sleepQualityScore(deepSleep, remSleep);
-  const temp = tempDeviationScore(tempDev);
+  // Bug 5 fix: cycle-phase-aware temp scoring — don't penalize normal luteal elevation
+  const temp = tempDeviationScore(tempDev, cyclePhase ?? null);
+
+  // Bug 4 fix: redistribute weights when components are null instead of scoring them as 0
+  const rawComponents = [
+    { key: "readiness" as const, value: readinessScore, baseWeight: 0.4 },
+    { key: "hrvTrend" as const, value: hrv, baseWeight: 0.25 },
+    { key: "sleepQuality" as const, value: sleep, baseWeight: 0.2 },
+    { key: "tempDeviation" as const, value: temp, baseWeight: 0.15 },
+  ];
+
+  const availableWeight = rawComponents
+    .filter((c) => c.value != null)
+    .reduce((sum, c) => sum + c.baseWeight, 0);
+
+  const scale = availableWeight > 0 ? 1 / availableWeight : 0;
 
   const components = {
     readiness: {
       value: readinessScore,
-      weight: 0.4,
-      weighted: (readinessScore ?? 0) * 0.4,
+      weight: readinessScore != null ? 0.4 * scale : 0,
+      weighted: readinessScore != null ? readinessScore * 0.4 * scale : 0,
     },
-    hrvTrend: { value: hrv, weight: 0.25, weighted: (hrv ?? 0) * 0.25 },
+    hrvTrend: {
+      value: hrv,
+      weight: hrv != null ? 0.25 * scale : 0,
+      weighted: hrv != null ? hrv * 0.25 * scale : 0,
+    },
     sleepQuality: {
       value: sleep,
-      weight: 0.2,
-      weighted: (sleep ?? 0) * 0.2,
+      weight: sleep != null ? 0.2 * scale : 0,
+      weighted: sleep != null ? sleep * 0.2 * scale : 0,
     },
     tempDeviation: {
       value: temp,
-      weight: 0.15,
-      weighted: (temp ?? 0) * 0.15,
+      weight: temp != null ? 0.15 * scale : 0,
+      weighted: temp != null ? temp * 0.15 * scale : 0,
     },
   };
 
-  const overall = Math.round(
-    components.readiness.weighted +
-      components.hrvTrend.weighted +
-      components.sleepQuality.weighted +
-      components.tempDeviation.weighted
-  );
+  const overall = availableWeight > 0
+    ? Math.round(
+        components.readiness.weighted +
+          components.hrvTrend.weighted +
+          components.sleepQuality.weighted +
+          components.tempDeviation.weighted
+      )
+    : 0;
 
   let color: "green" | "yellow" | "red";
   let label: string;
@@ -176,13 +207,20 @@ export async function getTodayScore(): Promise<BaselineScore | null> {
       ? baselineHrv.reduce((a, b) => a + b, 0) / baselineHrv.length
       : null;
 
+  // Get current cycle phase for temp deviation adjustment
+  const phaseLog = await prisma.cyclePhaseLog.findFirst({
+    where: { day: { lte: today } },
+    orderBy: { day: "desc" },
+  });
+
   return computeBaselineScore(
     readiness.score,
     hrvThreeDay,
     hrvFourteenDay,
     sleep?.deepSleepDuration ?? null,
     sleep?.remSleepDuration ?? null,
-    readiness.temperatureDeviation
+    readiness.temperatureDeviation,
+    phaseLog?.phase
   );
 }
 

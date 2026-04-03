@@ -81,3 +81,95 @@ model SyncLog {
   details   String?
   createdAt DateTime @default(now())
 }
+
+// --- Mind Mode ---
+
+model Experiment {
+  id                  String          @id @default(cuid())
+  title               String
+  hypothesis          String
+  independentVariable String
+  dependentVariable   String
+  dependentMetric     String          // field name: deepSleepDuration, averageHrv, score, etc.
+  metricSource        String          // DailySleep | DailyReadiness | DailyStress | HeartRateSample
+  lagDays             Int             @default(0) // 0 = same day, 1 = next day, etc.
+  startDate           DateTime
+  endDate             DateTime?
+  minDays             Int             @default(14)
+  status              String          @default("draft") // draft | active | completed | analyzed
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  logs                ExperimentLog[]
+  tags                ActivityTag[]
+}
+
+model ExperimentLog {
+  id               String     @id @default(cuid())
+  experimentId     String
+  experiment       Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  day              DateTime
+  independentValue Boolean    // true = condition applied, false = control
+  intensity        Float?     // optional 0.0-1.0 for variable-dose experiments
+  notes            String?
+  createdAt        DateTime   @default(now())
+
+  @@unique([experimentId, day])
+}
+
+model ActivityTag {
+  id           String      @id @default(cuid())
+  tag          String
+  category     String      // music | breathing | caffeine | alcohol | meditation | exercise | social | study | custom
+  timestamp    DateTime    @default(now())
+  metadata     String?     // JSON string for flexible extra data
+  experimentId String?
+  experiment   Experiment? @relation(fields: [experimentId], references: [id])
+  createdAt    DateTime    @default(now())
+}
+
+model NutritionLog {
+  id        String           @id @default(cuid())
+  day       DateTime         @unique
+  calories  Float            @default(0)
+  protein   Float            @default(0)
+  carbs     Float            @default(0)
+  fat       Float            @default(0)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  entries   NutritionEntry[]
+}
+
+model NutritionEntry {
+  id             String       @id @default(cuid())
+  nutritionLogId String
+  nutritionLog   NutritionLog @relation(fields: [nutritionLogId], references: [id], onDelete: Cascade)
+  description    String       // "3 eggs", "200g ground beef"
+  calories       Float
+  protein        Float
+  carbs          Float
+  fat            Float
+  quantity       Float        @default(1) // parsed quantity
+  unit           String       @default("serving") // g, oz, cup, serving
+  foodName       String       // normalized name from USDA match
+  mealType       String       @default("snack") // breakfast | lunch | dinner | snack
+  eatenAt        DateTime     @default(now()) // actual time the food was eaten
+  createdAt      DateTime     @default(now())
+}
+
+model EnvReading {
+  id          String   @id @default(cuid())
+  deviceId    String   @default("env-sensor-bedroom")
+  timestamp   DateTime
+  pm25        Float?
+  temperature Float?
+  humidity    Float?
+  pressure    Float?
+  noiseDb     Float?
+  lux         Float?
+  createdAt   DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([deviceId, timestamp])
+}

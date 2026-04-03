@@ -40,17 +40,28 @@ export function CyclePhaseSelector({
 }) {
   const [selected, setSelected] = useState(currentPhase);
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const activePhase = phases.find((p) => p.id === selected);
 
   function handleSelect(phaseId: string) {
+    const previous = selected;
     setSelected(phaseId);
+    setError(null);
     startTransition(async () => {
-      await fetch("/api/cycle-phase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase: phaseId }),
-      });
+      try {
+        const res = await fetch("/api/cycle-phase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: phaseId }),
+        });
+        if (!res.ok) {
+          throw new Error("Save failed");
+        }
+      } catch {
+        setSelected(previous);
+        setError("Failed to save — try again");
+      }
     });
   }
 
@@ -94,6 +105,9 @@ export function CyclePhaseSelector({
           </button>
         ))}
       </div>
+      {error && (
+        <p className="mt-2 text-xs text-red-400">{error}</p>
+      )}
       {activePhase && (
         <div className="mt-4 rounded-lg bg-[var(--color-surface-2)] p-3 text-xs leading-relaxed text-[var(--color-text-muted)]">
           <span className="font-medium text-[var(--color-text)]">

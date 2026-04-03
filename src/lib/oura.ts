@@ -61,6 +61,14 @@ async function refreshAccessToken(
   return data.access_token;
 }
 
+async function forceRefreshToken(): Promise<string> {
+  const token = await prisma.ouraToken.findFirst({
+    orderBy: { updatedAt: "desc" },
+  });
+  if (!token) throw new Error("No Oura token found. Please authenticate first.");
+  return refreshAccessToken(token.id, token.refreshToken);
+}
+
 export async function ouraFetch<T>(
   endpoint: string,
   params: Record<string, string>
@@ -69,27 +77,36 @@ export async function ouraFetch<T>(
   const url = new URL(`${OURA_API_BASE}/${endpoint}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
-  if (res.status === 401) {
-    // Token invalid — force refresh and retry once
-    const freshToken = await getValidToken();
-    const retry = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${freshToken}` },
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
     });
-    if (!retry.ok) throw new Error(`Oura API error: ${retry.status}`);
-    return retry.json();
-  }
 
-  if (res.status === 429) {
-    throw new Error("Oura API rate limited. Try again later.");
-  }
+    if (res.status === 401) {
+      // Force refresh — don't re-call getValidToken which may return the same expired token
+      const freshToken = await forceRefreshToken();
+      const retry = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${freshToken}` },
+        signal: controller.signal,
+      });
+      if (!retry.ok) throw new Error(`Oura API error: ${retry.status}`);
+      return retry.json();
+    }
 
-  if (!res.ok) {
-    throw new Error(`Oura API error: ${res.status} ${await res.text()}`);
-  }
+    if (res.status === 429) {
+      throw new Error("Oura API rate limited. Try again later.");
+    }
 
-  return res.json();
+    if (!res.ok) {
+      throw new Error(`Oura API error: ${res.status} ${await res.text()}`);
+    }
+
+    return res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
 }

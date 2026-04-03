@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getTodayScore, getWeekSnapshots } from "@/lib/baseline-score";
 import { BaselineScoreCard } from "@/components/dashboard/baseline-score-card";
@@ -5,6 +6,7 @@ import { TrendChart } from "@/components/dashboard/trend-chart";
 import { CyclePhaseSelector } from "@/components/dashboard/cycle-phase-selector";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { SyncButton } from "@/components/dashboard/sync-button";
+import { MacroSummary } from "@/components/dashboard/macro-summary";
 
 function formatDuration(seconds: number | null): string {
   if (seconds == null) return "—";
@@ -24,6 +26,7 @@ export default async function Dashboard() {
   let currentPhase: string | null = null;
   let lastSync = null;
   let isConnected = false;
+  let nutritionLog: { calories: number; protein: number; carbs: number; fat: number; entries: unknown[] } | null = null;
 
   try {
     const token = await prisma.ouraToken.findFirst();
@@ -60,6 +63,11 @@ export default async function Dashboard() {
         where: { day: today },
       });
       currentPhase = phaseLog?.phase ?? null;
+
+      nutritionLog = await prisma.nutritionLog.findUnique({
+        where: { day: today },
+        include: { entries: true },
+      });
     }
   } catch {
     // DB not connected yet — show empty state
@@ -80,6 +88,12 @@ export default async function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href="/mind"
+            className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium transition-colors hover:bg-white/20"
+          >
+            Mind Mode
+          </Link>
           {isConnected ? (
             <SyncButton />
           ) : (
@@ -152,6 +166,22 @@ export default async function Dashboard() {
 
       {/* Cycle Phase */}
       <CyclePhaseSelector currentPhase={currentPhase} />
+
+      {/* Nutrition */}
+      <MacroSummary
+        compact
+        data={
+          nutritionLog
+            ? {
+                calories: nutritionLog.calories,
+                protein: nutritionLog.protein,
+                carbs: nutritionLog.carbs,
+                fat: nutritionLog.fat,
+                entryCount: nutritionLog.entries.length,
+              }
+            : null
+        }
+      />
 
       {/* Sleep Breakdown */}
       {todaySleep && (

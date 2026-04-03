@@ -6,9 +6,8 @@ function formatDate(d: Date): string {
 }
 
 function daysAgo(n: number): Date {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d;
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - n));
 }
 
 interface OuraListResponse<T> {
@@ -91,6 +90,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
   let sleepCount = 0;
   let stressCount = 0;
   let hrCount = 0;
+  const errors: string[] = [];
 
   // Sync readiness
   try {
@@ -129,7 +129,9 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       readinessCount++;
     }
   } catch (e) {
-    console.error("Readiness sync failed:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Readiness sync failed:", msg);
+    errors.push(`readiness: ${msg}`);
   }
 
   // Sync sleep (daily summary + period details)
@@ -189,7 +191,9 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       sleepCount++;
     }
   } catch (e) {
-    console.error("Sleep sync failed:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Sleep sync failed:", msg);
+    errors.push(`sleep: ${msg}`);
   }
 
   // Sync stress
@@ -217,7 +221,9 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       stressCount++;
     }
   } catch (e) {
-    console.error("Stress sync failed:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Stress sync failed:", msg);
+    errors.push(`stress: ${msg}`);
   }
 
   // Sync heart rate (use datetime params, store resting samples)
@@ -251,18 +257,27 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       }
     }
   } catch (e) {
-    console.error("Heart rate sync failed:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Heart rate sync failed:", msg);
+    errors.push(`heartrate: ${msg}`);
   }
 
-  // Log sync result
+  // Log sync result with accurate status
+  const status = errors.length === 0
+    ? "success"
+    : errors.length === 4
+      ? "failed"
+      : "partial";
+
   await prisma.syncLog.create({
     data: {
-      status: "success",
+      status,
       details: JSON.stringify({
         readiness: readinessCount,
         sleep: sleepCount,
         stress: stressCount,
         heartrate: hrCount,
+        ...(errors.length > 0 && { errors }),
       }),
     },
   });

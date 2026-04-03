@@ -13,7 +13,9 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.82.0",
     "@prisma/client": "^6.5.0",
+    "jstat": "^1.9.6",
     "next": "^15.3.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
