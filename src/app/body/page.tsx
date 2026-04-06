@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { getLocalDay } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import {
   readinessTier,
@@ -24,10 +25,7 @@ import { weightTrendDirection } from "@/lib/tdee";
 export const dynamic = "force-dynamic";
 
 export default async function BodyPage() {
-  const now = new Date();
-  const localToday = new Date(
-    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
-  );
+  const localToday = getLocalDay();
 
   // Week window (Monday-Sunday)
   const weekStart = new Date(localToday);

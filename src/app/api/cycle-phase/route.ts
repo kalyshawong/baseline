@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getLocalDay } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
 
 export async function GET() {
   try {
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const today = getLocalDay();
 
     const phase = await prisma.cyclePhaseLog.findUnique({
       where: { day: today },
@@ -30,8 +30,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const today = getLocalDay();
 
     const result = await prisma.cyclePhaseLog.upsert({
       where: { day: today },

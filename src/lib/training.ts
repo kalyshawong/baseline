@@ -5,14 +5,15 @@
 
 // --- Estimated 1RM (Epley formula) ---
 // Research: Epley (1985); used extensively across strength literature
-export function estimate1RM(weight: number, reps: number): number {
-  if (reps <= 0) return 0;
+export function estimate1RM(weight: number | null | undefined, reps: number | null | undefined): number {
+  if (weight == null || reps == null || weight <= 0 || reps <= 0) return 0;
   if (reps === 1) return weight;
   return weight * (1 + reps / 30);
 }
 
 // --- Volume load ---
-export function setVolume(weight: number, reps: number): number {
+export function setVolume(weight: number | null | undefined, reps: number | null | undefined): number {
+  if (weight == null || reps == null) return 0;
   return weight * reps;
 }
 
@@ -75,9 +76,9 @@ export function volumeStatusLabel(status: VolumeStatus): { label: string; color:
 // --- RPE autoregulation ---
 // Research: Zourdos 2016
 export function suggestLoadChange(
-  recentRPEs: number[]
+  recentRPEs: number[] | null | undefined
 ): "increase" | "hold" | "decrease" {
-  if (recentRPEs.length === 0) return "hold";
+  if (!Array.isArray(recentRPEs) || recentRPEs.length === 0) return "hold";
   const avg = recentRPEs.reduce((a, b) => a + b, 0) / recentRPEs.length;
   if (avg <= 6.5) return "increase";
   if (avg >= 9.0) return "decrease";
@@ -87,9 +88,9 @@ export function suggestLoadChange(
 // --- RPE creep detection (fatigue accumulation) ---
 // Returns true if RPE has increased 1+ point at similar loads across 2+ sessions
 export function detectRpeCreep(
-  sessions: Array<{ weight: number; rpe: number | null; date: Date }>
+  sessions: Array<{ weight: number; rpe: number | null; date: Date }> | null | undefined
 ): boolean {
-  if (sessions.length < 2) return false;
+  if (!Array.isArray(sessions) || sessions.length < 2) return false;
   const withRpe = sessions.filter((s) => s.rpe != null);
   if (withRpe.length < 2) return false;
 
@@ -109,7 +110,8 @@ export function detectRpeCreep(
 
 // --- HRV Coefficient of Variation ---
 // Research: Flatt & Esco 2016 — elevated CV signals overreaching
-export function hrvCV(values: number[]): number | null {
+export function hrvCV(values: number[] | null | undefined): number | null {
+  if (!Array.isArray(values)) return null;
   const valid = values.filter((v) => v != null && v > 0);
   if (valid.length < 3) return null;
   const mean = valid.reduce((a, b) => a + b, 0) / valid.length;
@@ -155,7 +157,8 @@ export function computeFatigueScore(signals: FatigueSignals): {
 
 // --- Protein target ---
 // Research: Morton 2018 meta-analysis — 1.6 g/kg captures 95% of hypertrophy benefit
-export function proteinTarget(bodyWeightKg: number): number {
+export function proteinTarget(bodyWeightKg: number | null | undefined): number {
+  if (bodyWeightKg == null || bodyWeightKg <= 0) return 0;
   return Math.round(bodyWeightKg * 1.6);
 }
 
@@ -171,15 +174,16 @@ export function perMealProteinStatus(grams: number, age = 30): "low" | "good" | 
 // --- Energy availability ---
 // Research: Loucks 2011 — below 30 kcal/kg FFM impairs recovery
 export function energyAvailability(
-  caloriesConsumed: number,
-  exerciseCalories: number,
-  ffmKg: number
+  caloriesConsumed: number | null | undefined,
+  exerciseCalories: number | null | undefined,
+  ffmKg: number | null | undefined
 ): number | null {
-  if (ffmKg <= 0) return null;
+  if (caloriesConsumed == null || exerciseCalories == null || ffmKg == null || ffmKg <= 0) return null;
   return (caloriesConsumed - exerciseCalories) / ffmKg;
 }
 
-export function ffmFromBodyComposition(weightKg: number, bodyFatPct: number): number {
+export function ffmFromBodyComposition(weightKg: number | null | undefined, bodyFatPct: number | null | undefined): number {
+  if (weightKg == null || bodyFatPct == null || weightKg <= 0) return 0;
   return weightKg * (1 - bodyFatPct / 100);
 }
 

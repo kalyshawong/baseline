@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getLocalDay } from "@/lib/date-utils";
 import { compoundContributions, volumeZones, estimate1RM } from "@/lib/training";
 import { apiError } from "@/lib/utils";
 
@@ -12,8 +13,7 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const weeks = Math.min(parseInt(url.searchParams.get("weeks") ?? "8"), 13); // Cap at ~90 days
 
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const today = getLocalDay();
 
     // Start of the oldest week window (Monday)
     const dayOfWeek = today.getUTCDay() || 7;

@@ -41,6 +41,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
   const [isPending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // New goal form state
   const [title, setTitle] = useState("");
@@ -62,6 +63,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
     e.preventDefault();
     if (!title.trim()) return;
 
+    setError(null);
     startTransition(async () => {
       const res = await fetch("/api/goals", {
         method: "POST",
@@ -79,27 +81,42 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
         setGoals([...goals, created]);
         resetForm();
         router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Failed to create goal");
       }
     });
   }
 
-  function updateGoalStatus(id: string, status: string) {
+  function updateGoalStatus(id: string, newStatus: string) {
+    const prevGoals = [...goals];
+    setGoals(goals.map((g) => (g.id === id ? { ...g, status: newStatus } : g)));
     startTransition(async () => {
-      await fetch(`/api/goals/${id}`, {
+      const res = await fetch(`/api/goals/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: newStatus }),
       });
-      setGoals(goals.map((g) => (g.id === id ? { ...g, status } : g)));
-      router.refresh();
+      if (res.ok) {
+        router.refresh();
+      } else {
+        setGoals(prevGoals);
+        setError("Failed to update goal");
+      }
     });
   }
 
   function deleteGoal(id: string) {
+    const prevGoals = [...goals];
+    setGoals(goals.filter((g) => g.id !== id));
     startTransition(async () => {
-      await fetch(`/api/goals/${id}`, { method: "DELETE" });
-      setGoals(goals.filter((g) => g.id !== id));
-      router.refresh();
+      const res = await fetch(`/api/goals/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.refresh();
+      } else {
+        setGoals(prevGoals);
+        setError("Failed to delete goal");
+      }
     });
   }
 
@@ -108,6 +125,11 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+          {error}
+        </div>
+      )}
       {/* Add button / form */}
       {!showForm ? (
         <button

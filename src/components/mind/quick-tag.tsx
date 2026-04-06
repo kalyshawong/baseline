@@ -73,6 +73,10 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
           setActiveCategory(null);
         }, 1500);
         router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setFlash(null);
+        setTagNotes(`Error: ${data.error ?? "Failed to save tag"}`);
       }
     });
   }

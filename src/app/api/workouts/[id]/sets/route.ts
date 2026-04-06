@@ -19,6 +19,16 @@ export async function POST(
       );
     }
 
+    // BUG-011: Input validation
+    const errors: string[] = [];
+    if (typeof reps !== "number" || reps < 1 || reps > 100) errors.push("reps must be 1-100");
+    if (typeof weight !== "number" || weight < 0 || weight > 1000) errors.push("weight must be 0-1000");
+    if (rpe != null && (typeof rpe !== "number" || rpe < 1 || rpe > 10)) errors.push("RPE must be 1-10");
+    if (setNumber != null && (typeof setNumber !== "number" || setNumber < 1 || setNumber > 50)) errors.push("setNumber must be 1-50");
+    if (errors.length > 0) {
+      return NextResponse.json({ error: errors.join("; ") }, { status: 400 });
+    }
+
     // Detect PR: compare new e1RM against all previous non-warmup sets for this exercise
     let isPR = false;
     if (!isWarmup) {

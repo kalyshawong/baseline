@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 interface Entry {
@@ -32,10 +32,12 @@ function formatTime(iso: string): string {
 export function NutritionLog({ entries }: { entries: Entry[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   if (entries.length === 0) return null;
 
   function handleDelete(entryId: string) {
+    setError(null);
     startTransition(async () => {
       const res = await fetch("/api/nutrition", {
         method: "DELETE",
@@ -44,6 +46,8 @@ export function NutritionLog({ entries }: { entries: Entry[] }) {
       });
       if (res.ok) {
         router.refresh();
+      } else {
+        setError("Failed to delete entry");
       }
     });
   }
@@ -67,6 +71,9 @@ export function NutritionLog({ entries }: { entries: Entry[] }) {
       <h2 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Today&apos;s Food Log
       </h2>
+      {error && (
+        <p className="mb-2 text-xs text-red-400">{error}</p>
+      )}
       <div className="space-y-4">
         {sortedGroups.map(([mealType, items]) => {
           const totalCals = Math.round(items.reduce((s, e) => s + e.calories, 0));

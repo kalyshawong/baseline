@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getLocalDay } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
@@ -27,8 +28,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { weightKg, bodyFatPct, muscleMassKg, notes, date } = body;
 
-    if (typeof weightKg !== "number" || weightKg <= 0) {
-      return NextResponse.json({ error: "weightKg is required" }, { status: 400 });
+    // BUG-012: Input validation
+    const errors: string[] = [];
+    if (typeof weightKg !== "number" || weightKg < 20 || weightKg > 500) {
+      errors.push("weightKg must be 20-500");
+    }
+    if (bodyFatPct != null && (typeof bodyFatPct !== "number" || bodyFatPct < 1 || bodyFatPct > 80)) {
+      errors.push("bodyFatPct must be 1-80");
+    }
+    if (muscleMassKg != null && (typeof muscleMassKg !== "number" || muscleMassKg < 10 || muscleMassKg > 200)) {
+      errors.push("muscleMassKg must be 10-200");
+    }
+    if (errors.length > 0) {
+      return NextResponse.json({ error: errors.join("; ") }, { status: 400 });
     }
 
     // Upsert by day (local date)
@@ -36,9 +48,7 @@ export async function POST(request: NextRequest) {
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
       day = new Date(date + "T00:00:00.000Z");
     } else {
-      const now = new Date();
-      const localDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      day = new Date(localDateStr + "T00:00:00.000Z");
+      day = getLocalDay();
     }
 
     const log = await prisma.weightLog.upsert({

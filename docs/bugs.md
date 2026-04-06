@@ -66,37 +66,37 @@
 - **Severity:** HIGH
 - **File:** `src/app/page.tsx`, multiple components
 - **Description:** Date construction using `new Date()` without timezone handling means users in UTC-8 (Pacific) could see tomorrow's or yesterday's data depending on time of day. Affects the dashboard, workout logging, and all daily data views.
-- **Suggested Fix:** Standardize on a `getLocalDay()` utility that returns the user's local date as a UTC midnight timestamp. Use this consistently across all date comparisons. Consider storing user timezone in `UserProfile`.
+- **Status:** FIXED — `getLocalDay()` and `getLocalDayStr()` in `src/lib/date-utils.ts`. Replaced 11 ad-hoc constructions across 9 server-side files.
 
 ### BUG-009: No error feedback in 8+ client components
 - **Severity:** HIGH
 - **Files:** `src/components/body/workout-logger.tsx`, `src/components/mind/quick-tag.tsx`, `src/components/mind/nutrition-input.tsx`, `src/components/goals/goals-manager.tsx`, `src/components/weight/weight-input.tsx`, `src/components/dashboard/sync-button.tsx`, and others
 - **Description:** Client components that call API routes use `fetch()` without checking response status or showing error messages to the user. Failed saves, deletes, and updates happen silently — the user thinks their action succeeded when it didn't.
-- **Suggested Fix:** Add response status checking after every `fetch()`. Show toast notifications for errors. For form submissions, revert optimistic updates on failure.
+- **Status:** FIXED — all fetch calls now check `res.ok`, show inline error messages on failure, and revert optimistic updates where applicable.
 
 ### BUG-010: Cycle phase selector optimistic update doesn't revert on failure
 - **Severity:** HIGH
 - **File:** `src/components/dashboard/cycle-phase-selector.tsx`
 - **Description:** When the user selects a cycle phase, the UI updates immediately (optimistic update) but if the API call fails, the UI stays on the new phase while the database has the old one. No error message is shown.
-- **Suggested Fix:** Store the previous phase value. On API failure, revert the UI state and show an error toast.
+- **Status:** FIXED — stores previous phase, reverts on failure, shows inline error (fixed in earlier session).
 
 ### BUG-011: Missing input validation on workout set data
 - **Severity:** HIGH
 - **File:** `src/app/api/workouts/[id]/sets/route.ts`
 - **Description:** The sets API accepts reps, weight, and RPE values without validation. Negative weights, 0 reps, RPE > 10, and extremely large numbers are all accepted and stored. This corrupts volume calculations, e1RM estimates, and progressive overload tracking.
-- **Suggested Fix:** Validate: reps (1–100), weight (0–1000 kg), RPE (1–10), setNumber (1–50). Return 400 with specific field errors for invalid values.
+- **Status:** FIXED — validates reps (1-100), weight (0-1000), RPE (1-10), setNumber (1-50). Returns 400 with specific field errors.
 
 ### BUG-012: Missing input validation on weight logging
 - **Severity:** HIGH
 - **File:** `src/app/api/weight/route.ts`
 - **Description:** Weight entries accept any float value including negatives and extreme values. No validation on bodyFatPct (should be 0–100) or muscleMassKg (should be positive and less than total weight).
-- **Suggested Fix:** Validate: weightKg (20–500), bodyFatPct (1–80), muscleMassKg (10–200). Return 400 for out-of-range values.
+- **Status:** FIXED — validates weightKg (20-500), bodyFatPct (1-80), muscleMassKg (10-200). Returns 400 with specific field errors.
 
 ### BUG-013: Training utility functions have no input validation
 - **Severity:** HIGH
 - **File:** `src/lib/training.ts`
 - **Description:** All exported functions (`detectRpeCreep`, `hrvCV`, `computeFatigueScore`, etc.) assume valid input arrays and objects. Passing `null`, `undefined`, or empty arrays causes runtime crashes. These functions are called from coach-context and API routes.
-- **Suggested Fix:** Add null/undefined guards at the top of each function. Return `null` for invalid inputs instead of crashing. Add `Array.isArray()` checks before array operations.
+- **Status:** FIXED — all exported functions accept `null | undefined` inputs, use `Array.isArray()` guards, return 0 or null for invalid inputs.
 
 ---
 
@@ -215,7 +215,7 @@
 | Severity | Count | Status |
 |----------|-------|--------|
 | Critical | 7 | **All 7 FIXED** |
-| High | 6 | All open — fix before shipping to others |
+| High | 6 | **All 6 FIXED** |
 | Medium | 10 | All open — fix when convenient |
 | Low | 7 | All open — nice to fix |
 | **Total** | **30** | |

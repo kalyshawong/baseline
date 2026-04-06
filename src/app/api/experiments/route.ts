@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getLocalDay } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
@@ -40,8 +41,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const today = getLocalDay();
 
     const experiment = await prisma.experiment.create({
       data: {

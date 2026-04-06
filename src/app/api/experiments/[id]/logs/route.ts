@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getLocalDay } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
 
 export async function GET(
@@ -35,12 +36,7 @@ export async function POST(
       return NextResponse.json({ error: "independentValue is required" }, { status: 400 });
     }
 
-    const dayDate = day
-      ? new Date(day)
-      : (() => {
-          const now = new Date();
-          return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-        })();
+    const dayDate = day ? new Date(day) : getLocalDay();
 
     // Upsert log (one per experiment per day)
     const log = await prisma.experimentLog.upsert({

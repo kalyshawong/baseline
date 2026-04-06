@@ -57,6 +57,7 @@ export function WorkoutLogger({
   const [weight, setWeight] = useState<number>(0);
   const [rpe, setRpe] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   // Rest timer
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
@@ -146,20 +147,26 @@ export function WorkoutLogger({
 
   async function logSet() {
     if (!selectedExercise || reps <= 0 || weight < 0) return;
+    setError(null);
 
     startTransition(async () => {
-      const res = await fetch(`/api/workouts/${sessionId}/sets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          exerciseId: selectedExercise.id,
-          setNumber: exerciseSetCount + 1,
-          reps,
-          weight,
-          rpe,
-        }),
-      });
-      if (res.ok) {
+      try {
+        const res = await fetch(`/api/workouts/${sessionId}/sets`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            exerciseId: selectedExercise.id,
+            setNumber: exerciseSetCount + 1,
+            reps,
+            weight,
+            rpe,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          setError(data.error ?? "Failed to log set");
+          return;
+        }
         const newSet = await res.json();
         setSets([
           ...sets,
@@ -176,33 +183,42 @@ export function WorkoutLogger({
             isPR: newSet.isPR,
           },
         ]);
-        // Start rest timer
         setTimerSeconds(0);
         setTimerRunning(true);
         setRpe(null);
+      } catch {
+        setError("Failed to log set — check connection");
       }
     });
   }
 
   async function deleteSet(setId: string) {
     startTransition(async () => {
-      await fetch(`/api/workouts/${sessionId}/sets/${setId}`, {
+      const res = await fetch(`/api/workouts/${sessionId}/sets/${setId}`, {
         method: "DELETE",
       });
-      setSets(sets.filter((s) => s.id !== setId));
+      if (res.ok) {
+        setSets(sets.filter((s) => s.id !== setId));
+      } else {
+        setError("Failed to delete set");
+      }
     });
   }
 
   async function finishWorkout() {
     startTransition(async () => {
-      await fetch(`/api/workouts/${sessionId}`, {
+      const res = await fetch(`/api/workouts/${sessionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           completedAt: new Date().toISOString(),
         }),
       });
-      router.push("/body");
+      if (res.ok) {
+        router.push("/body");
+      } else {
+        setError("Failed to finish workout");
+      }
     });
   }
 
@@ -328,6 +344,12 @@ export function WorkoutLogger({
           </div>
 
           {/* Previous session reference */}
+          {error && (
+            <div className="mb-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+              {error}
+            </div>
+          )}
+
           {/* RPE-based load suggestion */}
           {currentSuggestion && currentSuggestion.avgRpe != null && (
             <div

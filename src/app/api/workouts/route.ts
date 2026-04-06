@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getLocalDay } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import { apiError } from "@/lib/utils";
 
@@ -30,10 +31,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { templateName, date } = body;
 
-    const now = new Date();
     const sessionDate = date
       ? new Date(date + "T00:00:00.000Z")
-      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      : getLocalDay();
 
     // Snapshot readiness + cycle phase at session start
     const score = await getScoreForDate(sessionDate);

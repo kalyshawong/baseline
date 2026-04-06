@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { getLocalDay } from "./date-utils";
 import { getScoreForDate } from "./baseline-score";
 import {
   readinessTier,
@@ -28,9 +29,7 @@ import { generateInsights } from "./insights";
 export async function buildCoachContext(): Promise<string> {
   try {
   const now = new Date();
-  const localToday = new Date(
-    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
-  );
+  const localToday = getLocalDay();
 
   // BUG-006 fix: use Promise.allSettled so partial failures don't crash the whole context
   function val<T>(r: PromiseSettledResult<T>, fallback: T): T {
