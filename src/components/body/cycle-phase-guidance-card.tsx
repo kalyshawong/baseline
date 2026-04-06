@@ -32,6 +32,24 @@ export function CyclePhaseGuidanceCard({ guidance }: { guidance: CyclePhaseGuida
           Volume adjustment: {Math.round((1 - guidance.volumeMod) * 100)}% reduction
         </p>
       )}
+      {guidance.aclWarning && (
+        <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300 leading-relaxed">
+          <p className="font-semibold text-red-400">Joint awareness (Hewett 2007, Wojtys 2002)</p>
+          <p className="mt-1">
+            ACL injury risk is 3-6x higher during ovulation. 72.5% of ACL injuries in non-OC users occur in the preovulatory/ovulatory window.
+          </p>
+          <ul className="mt-2 list-disc ml-4 space-y-0.5">
+            <li>Avoid maximal plyometrics and high-impact cutting drills</li>
+            <li>Reduce heavy single-leg loading (lunges, split squats at max)</li>
+            <li>Add 5-10 min proprioceptive warm-up (single-leg balance, controlled decel)</li>
+            <li>Use knee sleeves for heavy squats and lunges</li>
+            <li>Focus on controlled landing mechanics on all jumps</li>
+          </ul>
+          <p className="mt-2 text-[var(--color-text-muted)]">
+            This is informational, not restrictive — many athletes train through ovulation without issue.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -126,7 +126,7 @@ export default async function BodyPage() {
     .map((s) => s.averageHrv)
     .filter((v): v is number => v != null);
   const cv = hrvCV(hrvValues);
-  const hrvCvElevated = cv != null && cv > 8; // rough threshold
+  const hrvCvElevated = cv != null && cv > 10; // Flatt & Esco 2016: elevated CV signals overreaching
 
   // --- Fatigue score ---
   const volumeApproachingMRV = Object.entries(muscleSets).some(
@@ -152,14 +152,65 @@ export default async function BodyPage() {
     }
   }
 
+  // --- Compute real fatigue signals from data ---
+  // HRV below baseline: compare latest 2 days vs 14-day mean
+  const hrvMean = hrvValues.length >= 5
+    ? hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length
+    : null;
+  const hrvStdDev = hrvMean != null && hrvValues.length >= 5
+    ? Math.sqrt(hrvValues.reduce((s, v) => s + (v - hrvMean) ** 2, 0) / (hrvValues.length - 1))
+    : null;
+  const recentHrv2 = hrvValues.slice(0, 2);
+  const hrvBelowBaseline = hrvMean != null && hrvStdDev != null && recentHrv2.length === 2
+    && recentHrv2.every((v) => v < hrvMean - hrvStdDev);
+
+  // RHR elevated: check if lowest HR has been 5+ BPM above average for 3+ days
+  const lowestHRValues = recentSleep
+    .map((s) => s.lowestHeartRate)
+    .filter((v): v is number => v != null);
+  const rhrMean = lowestHRValues.length >= 5
+    ? lowestHRValues.reduce((a, b) => a + b, 0) / lowestHRValues.length
+    : null;
+  const rhrElevated = rhrMean != null && lowestHRValues.slice(0, 3).length === 3
+    && lowestHRValues.slice(0, 3).every((v) => v > rhrMean + 5);
+
+  // Weeks since last deload: count consecutive weeks with sessions
+  const allSessions = await prisma.workoutSession.findMany({
+    where: { completedAt: { not: null } },
+    orderBy: { date: "desc" },
+    select: { date: true },
+    take: 60,
+  });
+  let weeksSinceDeload = 0;
+  if (allSessions.length > 0) {
+    const weekSet = new Set<string>();
+    for (const s of allSessions) {
+      const d = s.date;
+      const dow = d.getUTCDay() || 7;
+      const weekStart = new Date(d);
+      weekStart.setUTCDate(d.getUTCDate() - (dow - 1));
+      weekSet.add(weekStart.toISOString().split("T")[0]);
+    }
+    // Count consecutive weeks backwards from current week
+    const sortedWeeks = Array.from(weekSet).sort().reverse();
+    for (let i = 0; i < sortedWeeks.length; i++) {
+      if (i === 0) { weeksSinceDeload++; continue; }
+      const prev = new Date(sortedWeeks[i - 1] + "T00:00:00Z");
+      const curr = new Date(sortedWeeks[i] + "T00:00:00Z");
+      const diff = (prev.getTime() - curr.getTime()) / (7 * 24 * 3600 * 1000);
+      if (Math.abs(diff - 1) < 0.5) weeksSinceDeload++;
+      else break;
+    }
+  }
+
   const fatigue = computeFatigueScore({
-    weeksSinceLastDeload: 0, // not tracked yet — placeholder
-    hrvBelowBaseline: false,
+    weeksSinceLastDeload: weeksSinceDeload,
+    hrvBelowBaseline,
     hrvCvElevated,
     sleepQualityDecline: recentSleep
       .slice(0, 3)
       .every((s) => (s.score ?? 100) < 70),
-    rhrElevated: false,
+    rhrElevated,
     rpeCreep: anyRpeCreep,
     volumeApproachingMRV,
   });
@@ -196,7 +247,7 @@ export default async function BodyPage() {
       />
 
       {/* Readiness tier */}
-      <ReadinessTierCard tier={tier} baselineScore={score?.overall ?? null} />
+      <ReadinessTierCard tier={tier} baselineScore={score?.overall ?? null} hrvCv={cv} />
 
       {/* Cycle phase guidance */}
       {guidance && <CyclePhaseGuidanceCard guidance={guidance} />}
@@ -215,17 +266,46 @@ export default async function BodyPage() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-                Fatigue Signal
+                Fatigue Signal (Pritchard 2024, Cadegiani 2019)
               </p>
               <p className="mt-1 text-sm font-semibold">{fatigue.recommendation}</p>
             </div>
-            <span className="font-mono text-2xl font-bold">{fatigue.score}</span>
+            <div className="text-right">
+              <span className="font-mono text-2xl font-bold">{fatigue.score}</span>
+              <p className="text-[10px] text-[var(--color-text-muted)]">/8 composite</p>
+            </div>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--color-text-muted)]">
-            {hrvCvElevated && <span>HRV CV elevated ({cv?.toFixed(1)}%)</span>}
-            {anyRpeCreep && <span>RPE creep detected</span>}
-            {volumeApproachingMRV && <span>Volume near MRV</span>}
+          <div className="mt-3 space-y-1 text-xs">
+            {weeksSinceDeload >= 5 && (
+              <p className="text-amber-400">
+                {weeksSinceDeload} consecutive training weeks (deload every 5-6 per Pritchard)
+              </p>
+            )}
+            {hrvBelowBaseline && (
+              <p className="text-amber-400">HRV &gt;1 SD below 14-day baseline for 2+ days</p>
+            )}
+            {hrvCvElevated && (
+              <p className="text-amber-400">HRV CV elevated: {cv?.toFixed(1)}% (Flatt threshold: 10%)</p>
+            )}
+            {recentSleep.slice(0, 3).every((s) => (s.score ?? 100) < 70) && (
+              <p className="text-amber-400">Sleep score &lt;70 for 3+ nights</p>
+            )}
+            {rhrElevated && (
+              <p className="text-amber-400">Resting HR elevated 5+ BPM above baseline for 3+ mornings</p>
+            )}
+            {anyRpeCreep && (
+              <p className="text-red-400 font-medium">RPE creep: +1 point at same loads over recent sessions (2× weight)</p>
+            )}
+            {volumeApproachingMRV && (
+              <p className="text-amber-400">Volume approaching/at MRV in 1+ muscle groups</p>
+            )}
           </div>
+          {fatigue.score >= 3 && (
+            <div className="mt-3 rounded-lg bg-[var(--color-surface-2)] p-3 text-xs text-[var(--color-text-muted)]">
+              <p className="font-medium text-white">Deload protocol:</p>
+              <p className="mt-1">Reduce volume 40-60% for 1 week. Maintain training frequency and intensity (keep same loads, fewer sets). Resume normal programming after 7 days.</p>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,6 +1,6 @@
 # Baseline — Bug Audit
 
-**Last Updated:** 2026-04-06
+**Last Updated:** 2026-04-06 (critical fixes applied)
 **Audited By:** Claude (automated review)
 **TypeScript Check:** Clean (`npx tsc --noEmit` — 0 errors)
 **Build Check:** Timed out in sandbox (resource limitation, not code error)
@@ -220,10 +220,10 @@
 | Low | 7 | All open — nice to fix |
 | **Total** | **30** | |
 
-**Priority order for fixes:**
-1. BUG-003 (add try-catch to all API routes) — highest impact, affects everything
-2. BUG-005 (safe JSON parsing utility) — prevents crashes across multiple features
-3. BUG-001 (Oura token refresh) — blocks reliable data sync
-4. BUG-002 (sync error tracking) — blocks debugging sync issues
-5. BUG-004 (coach rate limiting) — prevents runaway API costs
-6. BUG-008 (timezone standardization) — affects data accuracy for all daily views
+**Next priority fixes (criticals complete):**
+1. BUG-008 (timezone standardization) — affects data accuracy for all daily views
+2. BUG-009 (error feedback in client components) — users can't tell when saves fail
+3. BUG-011 (workout set validation) — garbage data corrupts progressive overload tracking
+4. BUG-013 (training utility input guards) — runtime crashes from null/undefined inputs
+5. BUG-012 (weight log validation) — negative/extreme values break TDEE calculation
+6. BUG-010 (cycle phase optimistic revert) — UI/DB state desync

@@ -16,7 +16,7 @@
 - [x] Set up environment variable management (.env, .env.example)
 - [x] Configure .gitignore
 
-### Oura Integration — Done (with open bugs)
+### Oura Integration — Done (critical bugs fixed)
 
 - [x] Register app on Oura developer portal
 - [x] Implement OAuth2 authorization flow (redirect → callback → token exchange)
@@ -185,18 +185,17 @@
 - [x] Workout trends API endpoint
 - [x] Trends charts component
 
-### Training Intelligence — Partial
+### Training Intelligence — Done
 
 - [x] Readiness tier card with training recommendations
 - [x] Cycle phase guidance card with phase-specific advice
 - [x] RPE suggestions API endpoint
 - [x] Training utility functions (`src/lib/training.ts`): RPE creep detection, HRV CV, fatigue score
-- [ ] HRV CV as overreaching signal (UI not connected)
-- [ ] Deload recommendation engine (logic exists, no UI trigger)
-- [ ] ACL injury risk flag during ovulation (not implemented)
-- [ ] Volume zone alerts (below MEV, approaching MRV)
-- [ ] Weekly sets per muscle group tracking (UI)
-- [ ] MEV/MAV/MRV volume zone display
+- [x] HRV CV overreaching badge on readiness tier card (threshold: 10%, Flatt & Esco 2016)
+- [x] Deload detection card: composite fatigue score from real data (weeksSinceDeload, HRV below baseline, HRV CV, sleep decline, RHR elevated, RPE creep, volume near MRV) with deload protocol display
+- [x] ACL injury risk flag during ovulation: expanded warning with specific training recs (Hewett 2007, Wojtys 2002)
+- [x] Volume zone alerts: below MEV (red), approaching MRV (yellow/red) inline banners
+- [x] MEV/MAV/MRV volume zone display: color-coded position markers per zone status
 
 ### Coach — Done (new feature, unplanned)
 
@@ -228,13 +227,13 @@
 - [x] Global navigation component
 - [x] Date navigation component (shared across pages)
 
-### Nutrition Integration — Partial
+### Nutrition Integration — Done
 
 - [x] Show protein intake (from existing NutritionLog)
 - [x] Nutrition check component on body page
-- [ ] Daily protein vs 1.6 g/kg target comparison
-- [ ] Per-meal protein flag (>30g threshold)
-- [ ] Energy availability warning (<30 kcal/kg FFM)
+- [x] Daily protein vs 1.6 g/kg target comparison (Morton 2018) — bar + percentage
+- [x] Per-meal protein flag: <20g yellow, >30g amber excess (Moore 2009)
+- [x] Energy availability warning: <30 kcal/kg FFM (Loucks 2011) with red alert card
 
 ---
 
@@ -281,15 +280,15 @@
 
 *Full details in `docs/bugs.md` (30 bugs cataloged)*
 
-### Critical (7) — Must fix before next feature build
+### Critical (7) — All FIXED
 
-- [ ] BUG-001: Oura 401 retry returns same expired token (`src/lib/oura.ts`)
-- [ ] BUG-002: Sync errors swallowed silently (`src/lib/sync.ts`)
-- [ ] BUG-003: 25/27 API routes missing try-catch error handling
-- [ ] BUG-004: Coach endpoint has no rate limiting on Claude API
-- [ ] BUG-005: JSON.parse without try-catch in multiple locations
-- [ ] BUG-006: coach-context.ts buildCoachContext() has no error boundary
-- [ ] BUG-007: N+1 query in workout trends
+- [x] BUG-001: Oura 401 retry — `forceRefreshToken()` bypasses cache, max 1 retry, 30s timeout
+- [x] BUG-002: Sync errors — per-endpoint error tracking, partial/failed status in SyncLog
+- [x] BUG-003: API error handling — `apiError()` utility, all 45 handlers wrapped in try-catch
+- [x] BUG-004: Coach rate limiting — 10 req/min limiter, 5-min context cache, model via env var
+- [x] BUG-005: JSON safety — `safeJsonParse()` utility, replaced all raw JSON.parse() calls
+- [x] BUG-006: Coach context — `Promise.allSettled`, `?.` on nested access, fallback context
+- [x] BUG-007: Workout trends — confirmed single query with `include`, added 13-week cap
 
 ### High (6) — Fix before shipping to others
 
