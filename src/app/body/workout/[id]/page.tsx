@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { WorkoutLogger } from "@/components/body/workout-logger";
 import { workoutTemplates } from "@/lib/exercise-library";
+import { safeJsonParse } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -39,11 +40,11 @@ export default async function WorkoutPage({
         where: { name: session.templateName },
       });
       if (custom) {
-        const parsed = JSON.parse(custom.exercises) as Array<{
+        const parsed = safeJsonParse<Array<{
           exerciseName: string;
           targetSets: number;
           targetReps: number;
-        }>;
+        }>>(custom.exercises, []);
         templateExercises = parsed.map((e) => ({
           name: e.exerciseName,
           targetSets: e.targetSets,

@@ -14,45 +14,49 @@
 - **File:** `src/lib/oura.ts`
 - **Description:** When the Oura API returns a 401, the retry logic calls `getValidToken()` again, which may return the same expired token from the database if the refresh hasn't completed yet. This creates an infinite retry loop or repeated 401 failures.
 - **Suggested Fix:** Add a `forceRefresh` parameter to `getValidToken()`. On 401 retry, call `getValidToken(true)` to bypass the expiry check and force a token refresh. Add a retry counter (max 1 retry) to prevent infinite loops.
-- **Status:** Open (Phase 1)
+- **Status:** FIXED — `forceRefreshToken()` bypasses cache on 401, max 1 retry, 30s timeout
 
 ### BUG-002: Sync errors swallowed silently
 - **Severity:** CRITICAL
 - **File:** `src/lib/sync.ts`
 - **Description:** When individual endpoint syncs fail (readiness, sleep, stress, etc.), the errors are caught but SyncLog always records status as "success". Users have no visibility into partial sync failures.
 - **Suggested Fix:** Track per-endpoint status. If any endpoint fails, set SyncLog status to "partial" with details listing which endpoints failed. If all fail, set "failed". Surface the status in the sync button UI.
-- **Status:** Open (Phase 1)
+- **Status:** FIXED — per-endpoint error tracking, partial/failed status in SyncLog
 
 ### BUG-003: 25/27 API routes have no try-catch error handling
 - **Severity:** CRITICAL
 - **File:** Multiple — all `src/app/api/**/route.ts`
 - **Description:** Only 2 of 27 API route handlers (`/coach` and `/sync`) wrap their logic in try-catch blocks. The remaining 25 routes will crash with unhandled exceptions on malformed JSON, database errors, missing records, or constraint violations. Users see generic 500 errors with no useful feedback.
-- **Routes without error handling:** `/auth/oura/callback`, `/experiments`, `/workouts`, `/weight`, `/nutrition`, `/exercises`, `/profile`, `/goals`, `/templates`, `/tags`, `/cycle-phase`, `/env-readings`, and all sub-routes.
 - **Suggested Fix:** Add try-catch to every route handler. Return structured error responses: `{ error: string, status: number }`. For `request.json()` parsing, catch `SyntaxError` and return 400. For Prisma `P2025` (record not found), return 404. For all other errors, return 500 with generic message and log the full error server-side.
+- **Status:** FIXED — `apiError()` utility in `src/lib/utils.ts`. All 45 handler functions across 26 route files wrapped in try-catch. SyntaxError→400, P2025→404, P2002→409, else→500 with server-side logging.
 
 ### BUG-004: Coach endpoint has no rate limiting on Claude API
 - **Severity:** CRITICAL
 - **File:** `src/app/api/coach/route.ts`
 - **Description:** Every message to the Coach sends a full context payload (up to 541 lines of aggregated data from `coach-context.ts`) to the Anthropic API with no rate limiting, request throttling, or cost tracking. A user rapidly sending messages could rack up significant API costs. The `buildCoachContext()` function also runs 14+ database queries per request with no caching.
 - **Suggested Fix:** Add request throttling (e.g., max 10 requests/minute per session). Cache the coach context for 5 minutes (it only changes on data sync). Add a token/cost counter that logs usage. Consider streaming responses to improve UX.
+- **Status:** FIXED — in-memory rate limiter (10 req/min), 5-minute context cache, model string via env var
 
 ### BUG-005: JSON.parse without try-catch in multiple locations
 - **Severity:** CRITICAL
 - **File:** `src/lib/coach-context.ts`, `src/components/body/workout-logger.tsx`, template parsing
 - **Description:** Several locations call `JSON.parse()` on database fields (e.g., `WorkoutTemplate.exercises` stored as JSON string, `ActivityTag.metadata`) without try-catch. Corrupted or malformed JSON data will crash the entire page or API route.
 - **Suggested Fix:** Create a `safeJsonParse<T>(str: string, fallback: T): T` utility. Replace all raw `JSON.parse()` calls with it.
+- **Status:** FIXED — `safeJsonParse()` in `src/lib/utils.ts`. Replaced in templates route, workout page, usda.ts.
 
 ### BUG-006: coach-context.ts buildCoachContext() has no error boundary
 - **Severity:** CRITICAL
 - **File:** `src/lib/coach-context.ts`
 - **Description:** The `buildCoachContext()` function runs 14+ Prisma queries in `Promise.all` with no wrapper try-catch. If any single query fails (database timeout, connection issue), the entire coach feature crashes. The function also accesses nested properties (`score.components.readiness.value`) without full null-chain validation.
 - **Suggested Fix:** Wrap `buildCoachContext()` in try-catch. Use `Promise.allSettled` instead of `Promise.all` so partial data can still build a useful context. Add null-chain operators (`?.`) for all nested property access.
+- **Status:** FIXED — `Promise.allSettled` with `val()` extractor, `?.` on nested access, try-catch returns fallback context string on total failure
 
 ### BUG-007: N+1 query in workout trends
 - **Severity:** CRITICAL
 - **File:** `src/app/api/workouts/trends/route.ts`
 - **Description:** Workout trend calculations likely fetch sessions then individually query sets and exercises for each session, creating an N+1 query pattern. With months of workout data, this will cause significant database load and slow page loads.
 - **Suggested Fix:** Use Prisma `include` or `select` with nested relations to fetch sessions with their sets and exercises in a single query. Add pagination (limit to last 90 days by default).
+- **Status:** FIXED — already used single query with `include`; added 13-week (90-day) cap on `weeks` param
 
 ---
 
@@ -210,7 +214,7 @@
 
 | Severity | Count | Status |
 |----------|-------|--------|
-| Critical | 7 | All open — must fix before next feature build |
+| Critical | 7 | **All 7 FIXED** |
 | High | 6 | All open — fix before shipping to others |
 | Medium | 10 | All open — fix when convenient |
 | Low | 7 | All open — nice to fix |

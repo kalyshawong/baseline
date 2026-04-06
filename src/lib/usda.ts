@@ -55,7 +55,13 @@ Use standard USDA nutritional values. Be accurate with portion sizes — "1 cup 
   }
 
   try {
-    const parsed: MacroEstimate[] = JSON.parse(jsonMatch[0]);
+    let parsed: MacroEstimate[];
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      console.error("Failed to parse Claude macro response:", jsonMatch[0].slice(0, 200));
+      return [];
+    }
     return parsed.map((item) => ({
       description: item.description || rawInput,
       foodName: item.foodName || item.description,

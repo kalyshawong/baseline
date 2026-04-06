@@ -26,27 +26,18 @@ import { generateInsights } from "./insights";
  * advice instead of generic wellness tips.
  */
 export async function buildCoachContext(): Promise<string> {
+  try {
   const now = new Date();
   const localToday = new Date(
     Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
   );
 
-  const [
-    score,
-    todayReadiness,
-    todaySleep,
-    todayStress,
-    todayActivity,
-    phaseLog,
-    recentSleep,
-    todayNutrition,
-    recentSessions,
-    weekSets,
-    weightLogs,
-    profile,
-    activeExperiments,
-    goals,
-  ] = await Promise.all([
+  // BUG-006 fix: use Promise.allSettled so partial failures don't crash the whole context
+  function val<T>(r: PromiseSettledResult<T>, fallback: T): T {
+    return r.status === "fulfilled" ? r.value : fallback;
+  }
+
+  const results = await Promise.allSettled([
     getScoreForDate(localToday),
     prisma.dailyReadiness.findFirst({
       where: { day: { lte: localToday } },
@@ -109,6 +100,29 @@ export async function buildCoachContext(): Promise<string> {
     }),
   ]);
 
+  const score = val(results[0], null);
+  const todayReadiness = val(results[1], null);
+  const todaySleep = val(results[2], null);
+  const todayStress = val(results[3], null);
+  const todayActivity = val(results[4], null);
+  const phaseLog = val(results[5], null);
+  const recentSleep = val(results[6], [] as Array<{ averageHrv: number | null }>);
+  const todayNutrition = val(results[7], null) as {
+    calories: number; protein: number; carbs: number; fat: number;
+    entries: Array<{ mealType: string; protein: number }>;
+  } | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recentSessions = val(results[8], []) as any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const weekSets = val(results[9], []) as any[];
+  const weightLogs = val(results[10], []) as Array<{ weightKg: number; bodyFatPct: number | null; day: Date }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const profile = val(results[11], null) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeExperiments = val(results[12], []) as any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const goals = val(results[13], []) as any[];
+
   // ---- Build context sections ----
   const lines: string[] = [];
   lines.push(`# User State (${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })})`);
@@ -139,10 +153,10 @@ export async function buildCoachContext(): Promise<string> {
     lines.push(`- Training tier: ${tier.tier.toUpperCase()} — ${tier.recommendation}`);
     lines.push(`- Volume mod: ${Math.round(tier.volumeMod * 100)}% · Intensity mod: ${Math.round(tier.intensityMod * 100)}%`);
     lines.push(`- Components:`);
-    lines.push(`  - Readiness: ${score.components.readiness.value ?? "—"}`);
-    lines.push(`  - HRV trend: ${score.components.hrvTrend.value ?? "—"}`);
-    lines.push(`  - Sleep quality: ${score.components.sleepQuality.value ?? "—"}`);
-    lines.push(`  - Temp deviation: ${score.components.tempDeviation.value ?? "—"}`);
+    lines.push(`  - Readiness: ${score?.components?.readiness?.value ?? "—"}`);
+    lines.push(`  - HRV trend: ${score?.components?.hrvTrend?.value ?? "—"}`);
+    lines.push(`  - Sleep quality: ${score?.components?.sleepQuality?.value ?? "—"}`);
+    lines.push(`  - Temp deviation: ${score?.components?.tempDeviation?.value ?? "—"}`);
     lines.push("");
   }
 
@@ -222,9 +236,9 @@ export async function buildCoachContext(): Promise<string> {
     if (last.sessionVolume != null) lines.push(`  - Total volume: ${Math.round(last.sessionVolume)}`);
     if (last.sessionRPE != null) lines.push(`  - Session RPE: ${last.sessionRPE}/10`);
     // Top compound lift e1RM
-    const compoundSets = last.sets.filter((s) => ["Back Squat", "Bench Press", "Deadlift", "Overhead Press"].includes(s.exercise.name));
+    const compoundSets = (last.sets ?? []).filter((s: { exercise?: { name: string }; weight: number; reps: number }) => ["Back Squat", "Bench Press", "Deadlift", "Overhead Press"].includes(s.exercise?.name ?? ""));
     for (const s of compoundSets) {
-      lines.push(`  - ${s.exercise.name}: ${s.weight} × ${s.reps} (e1RM ≈ ${Math.round(estimate1RM(s.weight, s.reps))})`);
+      lines.push(`  - ${s.exercise?.name}: ${s.weight} × ${s.reps} (e1RM ≈ ${Math.round(estimate1RM(s.weight, s.reps))})`);
     }
   }
   lines.push("");
@@ -337,6 +351,10 @@ export async function buildCoachContext(): Promise<string> {
   }
 
   return lines.join("\n");
+  } catch (error) {
+    console.error("buildCoachContext failed:", error);
+    return "# User State\n\nContext unavailable — some data queries failed. Advise based on the conversation history.\n";
+  }
 }
 
 export const COACH_SYSTEM_PROMPT = `You are **Baseline Coach**, a science-backed personal performance advisor embedded in the user's self-tracking application. You have full, real-time access to the user's biometric, training, nutrition, cycle, and goal data — this is not a generic chatbot, you are advising based on their actual state.
