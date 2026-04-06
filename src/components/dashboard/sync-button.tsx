@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 export function SyncButton() {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<string | null>(null);
 
@@ -14,10 +16,9 @@ export function SyncButton() {
         const data = await res.json();
         if (data.success) {
           setResult(
-            `Synced: ${data.synced.readiness}r ${data.synced.sleep}s ${data.synced.stress}st ${data.synced.heartrate}hr`
+            `Synced: ${data.synced.readiness}r ${data.synced.sleep}s ${data.synced.stress}st ${data.synced.heartrate}hr ${data.synced.activity ?? 0}a`
           );
-          // Refresh the page to show new data
-          setTimeout(() => window.location.reload(), 1000);
+          router.refresh();
         } else {
           setResult(`Error: ${data.error}`);
         }

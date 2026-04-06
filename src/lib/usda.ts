@@ -14,6 +14,9 @@ export interface MacroEstimate {
 }
 
 export async function estimateMacros(rawInput: string): Promise<MacroEstimate[]> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY not set — add it to .env");
+  }
   const message = await client.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 1024,

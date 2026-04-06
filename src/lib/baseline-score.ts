@@ -162,11 +162,13 @@ function utcDaysAgo(from: Date, n: number): Date {
   return d;
 }
 
-export async function getTodayScore(): Promise<BaselineScore | null> {
-  const today = utcToday();
+export async function getScoreForDate(forDate?: Date): Promise<BaselineScore | null> {
+  const today = forDate ?? utcToday();
 
-  const readiness = await prisma.dailyReadiness.findUnique({
-    where: { day: today },
+  // Use most recent readiness (handles timezone edge cases and missing today's sync)
+  const readiness = await prisma.dailyReadiness.findFirst({
+    where: { day: { lte: today } },
+    orderBy: { day: "desc" },
   });
 
   if (!readiness) return null;
@@ -224,8 +226,8 @@ export async function getTodayScore(): Promise<BaselineScore | null> {
   );
 }
 
-export async function getWeekSnapshots(): Promise<DaySnapshot[]> {
-  const today = utcToday();
+export async function getWeekSnapshots(forDate?: Date): Promise<DaySnapshot[]> {
+  const today = forDate ?? utcToday();
   const sevenDaysAgo = utcDaysAgo(today, 7);
 
   const [readinessData, sleepData, stressData] = await Promise.all([

@@ -57,20 +57,29 @@ function ComponentBar({
   );
 }
 
-export function BaselineScoreCard({ score }: { score: BaselineScore | null }) {
+export function BaselineScoreCard({
+  score,
+  isConnected,
+}: {
+  score: BaselineScore | null;
+  isConnected: boolean;
+}) {
   if (!score) {
     return (
       <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
         <p className="text-[var(--color-text-muted)]">
-          No data yet. Connect your Oura ring and sync to see your Baseline
-          Score.
+          {isConnected
+            ? "No readiness data yet. Hit Sync to pull your latest Oura data."
+            : "Connect your Oura ring and sync to see your Baseline Score."}
         </p>
-        <a
-          href="/api/auth/oura"
-          className="mt-4 inline-block rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20 transition-colors"
-        >
-          Connect Oura
-        </a>
+        {!isConnected && (
+          <a
+            href="/api/auth/oura"
+            className="mt-4 inline-block rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20 transition-colors"
+          >
+            Connect Oura
+          </a>
+        )}
       </div>
     );
   }

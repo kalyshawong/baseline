@@ -48,6 +48,23 @@ model DailySleep {
   createdAt          DateTime @default(now())
 }
 
+model DailyActivity {
+  id                        String   @id
+  day                       DateTime @unique
+  score                     Int?
+  activeCalories            Int?
+  totalCalories             Int?
+  steps                     Int?
+  equivalentWalkingDistance Int?
+  highActivityTime          Int?     // seconds
+  mediumActivityTime        Int?
+  lowActivityTime           Int?
+  sedentaryTime             Int?
+  restingTime               Int?
+  metMinutes                Int?
+  createdAt                 DateTime @default(now())
+}
+
 model DailyStress {
   id           String   @id
   day          DateTime @unique
@@ -156,6 +173,131 @@ model NutritionEntry {
   mealType       String       @default("snack") // breakfast | lunch | dinner | snack
   eatenAt        DateTime     @default(now()) // actual time the food was eaten
   createdAt      DateTime     @default(now())
+}
+
+// --- Body Mode ---
+
+model Exercise {
+  id              String       @id @default(cuid())
+  name            String       @unique
+  muscleGroup     String       // chest | back | shoulders | biceps | triceps | quads | hamstrings | glutes | calves | core
+  secondaryMuscle String?
+  movementPattern String       // push | pull | hinge | squat | carry | isolation | olympic
+  equipment       String       // barbell | dumbbell | cable | machine | bodyweight | kettlebell | band
+  isCompound      Boolean      @default(false)
+  defaultSets     Int          @default(3)
+  defaultReps     Int          @default(10)
+  notes           String?
+  createdAt       DateTime     @default(now())
+
+  sets            WorkoutSet[]
+}
+
+model WorkoutSession {
+  id             String       @id @default(cuid())
+  date           DateTime
+  startedAt      DateTime     @default(now())
+  completedAt    DateTime?
+  durationMin    Int?
+  readinessScore Int?
+  cyclePhase     String?
+  sessionRPE     Int?
+  sessionVolume  Float?
+  notes          String?
+  templateName   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  sets           WorkoutSet[]
+}
+
+model WorkoutSet {
+  id          String         @id @default(cuid())
+  sessionId   String
+  session     WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exerciseId  String
+  exercise    Exercise       @relation(fields: [exerciseId], references: [id])
+  setNumber   Int
+  reps        Int
+  weight      Float
+  rpe         Int?
+  restSeconds Int?
+  isWarmup    Boolean        @default(false)
+  isPR        Boolean        @default(false)
+  notes       String?
+  createdAt   DateTime       @default(now())
+
+  @@index([sessionId])
+  @@index([exerciseId])
+}
+
+model WorkoutTemplate {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  split     String   @default("custom") // PPL | Upper/Lower | custom
+  exercises String   // JSON array of { exerciseName, targetSets, targetReps }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserProfile {
+  id                 Int      @id @default(1)
+  bodyWeightKg       Float?
+  bodyFatPct         Float?
+  heightCm           Float?
+  age                Int?
+  sex                String?  // female | male
+  experienceLevel    String   @default("intermediate") // beginner | intermediate | advanced
+  activityLevel      String   @default("moderate") // sedentary | light | moderate | active | very_active
+  goal               String   @default("maintain") // lose | maintain | gain
+  targetWeightKg     Float?
+  dailyCalorieTarget Int?
+  unit               String   @default("lb") // lb | kg
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Goal {
+  id        String    @id @default(cuid())
+  title     String
+  type      String    // weight | race | exam | performance | habit | custom
+  target    String?   // free-form target description
+  deadline  DateTime?
+  status    String    @default("active") // active | completed | abandoned
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model ChatSession {
+  id        String        @id @default(cuid())
+  title     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String      // user | assistant
+  content   String
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId])
+}
+
+model WeightLog {
+  id           String   @id @default(cuid())
+  day          DateTime @unique
+  weightKg     Float
+  bodyFatPct   Float?
+  muscleMassKg Float?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model EnvReading {

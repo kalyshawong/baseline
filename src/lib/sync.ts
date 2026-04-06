@@ -76,11 +76,29 @@ interface OuraHeartRate {
   timestamp: string;
 }
 
+interface OuraActivity {
+  id: string;
+  day: string;
+  score: number | null;
+  active_calories: number | null;
+  total_calories: number | null;
+  steps: number | null;
+  equivalent_walking_distance: number | null;
+  high_activity_time: number | null;
+  medium_activity_time: number | null;
+  low_activity_time: number | null;
+  sedentary_time: number | null;
+  resting_time: number | null;
+  meters_to_target: number | null;
+  met?: { interval: number; items: number[] };
+}
+
 export async function syncOuraData(lookbackDays = 7): Promise<{
   readiness: number;
   sleep: number;
   stress: number;
   heartrate: number;
+  activity: number;
 }> {
   const startDate = formatDate(daysAgo(lookbackDays));
   const endDate = formatDate(new Date());
@@ -90,6 +108,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
   let sleepCount = 0;
   let stressCount = 0;
   let hrCount = 0;
+  let activityCount = 0;
   const errors: string[] = [];
 
   // Sync readiness
@@ -262,10 +281,63 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     errors.push(`heartrate: ${msg}`);
   }
 
+  // Sync daily activity
+  try {
+    const activity = await ouraFetch<OuraListResponse<OuraActivity>>(
+      "daily_activity",
+      params
+    );
+    for (const a of activity.data) {
+      // Compute total MET minutes if available (rough: sum of items × interval / 60)
+      const metMinutes = a.met?.items
+        ? Math.round(
+            a.met.items.reduce((s, v) => s + v, 0) * ((a.met.interval ?? 60) / 60)
+          )
+        : null;
+
+      await prisma.dailyActivity.upsert({
+        where: { id: a.id },
+        update: {
+          score: a.score,
+          activeCalories: a.active_calories,
+          totalCalories: a.total_calories,
+          steps: a.steps,
+          equivalentWalkingDistance: a.equivalent_walking_distance,
+          highActivityTime: a.high_activity_time,
+          mediumActivityTime: a.medium_activity_time,
+          lowActivityTime: a.low_activity_time,
+          sedentaryTime: a.sedentary_time,
+          restingTime: a.resting_time,
+          metMinutes,
+        },
+        create: {
+          id: a.id,
+          day: new Date(a.day),
+          score: a.score,
+          activeCalories: a.active_calories,
+          totalCalories: a.total_calories,
+          steps: a.steps,
+          equivalentWalkingDistance: a.equivalent_walking_distance,
+          highActivityTime: a.high_activity_time,
+          mediumActivityTime: a.medium_activity_time,
+          lowActivityTime: a.low_activity_time,
+          sedentaryTime: a.sedentary_time,
+          restingTime: a.resting_time,
+          metMinutes,
+        },
+      });
+      activityCount++;
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Activity sync failed:", msg);
+    errors.push(`activity: ${msg}`);
+  }
+
   // Log sync result with accurate status
   const status = errors.length === 0
     ? "success"
-    : errors.length === 4
+    : errors.length === 5
       ? "failed"
       : "partial";
 
@@ -277,6 +349,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
         sleep: sleepCount,
         stress: stressCount,
         heartrate: hrCount,
+        activity: activityCount,
         ...(errors.length > 0 && { errors }),
       }),
     },
@@ -287,5 +360,6 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     sleep: sleepCount,
     stress: stressCount,
     heartrate: hrCount,
+    activity: activityCount,
   };
 }

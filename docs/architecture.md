@@ -1,34 +1,52 @@
 # Baseline — System Architecture
 
-**Last Updated:** 2026-04-02
-**Status:** Phase 1 Design
+**Last Updated:** 2026-04-06
+**Status:** Phase 2b (Body Mode in progress)
 
 ---
 
 ## High-Level Overview
 
-Baseline is a monolithic web application with a clear separation between data ingestion, business logic, and presentation. It is designed for single-user self-hosting in Phase 1, with a path toward multi-user and cloud deployment in later phases.
+Baseline is a full-stack Next.js application that combines biometric data ingestion, strength training logging, cognitive self-experimentation, and AI-powered coaching into a single self-hosted system. It is designed for single-user operation with a path toward multi-user deployment.
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  React Frontend                  │
-│         (Vite + React + TailwindCSS)             │
-├─────────────────────────────────────────────────┤
-│                  FastAPI Backend                  │
-│  ┌───────────┬──────────┬──────────────────────┐ │
-│  │  Oura     │ Workout  │  Recommendations     │ │
-│  │  Sync     │ Logger   │  Engine              │ │
-│  ├───────────┼──────────┼──────────────────────┤ │
-│  │  Cycle    │ Mind     │  Dashboard           │ │
-│  │  Tracker  │ Mode     │  Aggregator          │ │
-│  └───────────┴──────────┴──────────────────────┘ │
-├─────────────────────────────────────────────────┤
-│          PostgreSQL + TimescaleDB                │
-│       (biometrics, workouts, experiments)        │
-└─────────────────────────────────────────────────┘
-         ▲              ▲              ▲
-         │              │              │
-    Oura API V2    HealthKit (V2)   Arduino (V2/V3)
+┌─────────────────────────────────────────────────────────────┐
+│                    Next.js 15 (App Router)                   │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                  React 19 Frontend                     │ │
+│  │  ┌──────────┬──────────┬─────────┬────────┬─────────┐ │ │
+│  │  │Dashboard │ Mind     │ Body    │ Coach  │ Goals   │ │ │
+│  │  │+ Score   │ Mode     │ Mode    │ (Chat) │ + Weight│ │ │
+│  │  └──────────┴──────────┴─────────┴────────┴─────────┘ │ │
+│  └────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │               API Routes (/api/*)                      │ │
+│  │  ┌────────┬──────────┬─────────┬──────────┬────────┐  │ │
+│  │  │ Oura   │Experiment│Workout  │ Coach    │Nutrition│  │ │
+│  │  │ Sync   │ CRUD     │ CRUD    │ Chat     │ Logger │  │ │
+│  │  ├────────┼──────────┼─────────┼──────────┼────────┤  │ │
+│  │  │ Auth   │ Tags     │Exercise │ Goals    │Weight  │  │ │
+│  │  │ OAuth2 │ CRUD     │ Library │ CRUD     │ CRUD   │  │ │
+│  │  └────────┴──────────┴─────────┴──────────┴────────┘  │ │
+│  └────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                 Business Logic Layer                    │ │
+│  │  ┌──────────────┬───────────────┬───────────────────┐  │ │
+│  │  │ Baseline     │ Correlation   │ Training          │  │ │
+│  │  │ Score Engine │ Engine (stats)│ Intelligence      │  │ │
+│  │  ├──────────────┼───────────────┼───────────────────┤  │ │
+│  │  │ Coach Context│ TDEE          │ Nutrition (Claude) │  │ │
+│  │  │ Aggregator   │ Estimator     │ Macro Parser      │  │ │
+│  │  └──────────────┴───────────────┴───────────────────┘  │ │
+│  └────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│              Prisma ORM → SQLite Database                    │
+│  (biometrics, workouts, experiments, nutrition, chat, goals) │
+└─────────────────────────────────────────────────────────────┘
+        ▲              ▲              ▲              ▲
+        │              │              │              │
+   Oura API V2    Anthropic API   ESP32 Sensor   Arduino IMU
+   (biometrics)   (coach + food)  (environment)  (velocity)
 ```
 
 ---
@@ -37,311 +55,234 @@ Baseline is a monolithic web application with a clear separation between data in
 
 | Layer | Technology | Rationale |
 |---|---|---|
-| **Frontend** | React + Vite + TailwindCSS | Fast dev iteration, rich component ecosystem, utility-first styling |
-| **Backend** | Python + FastAPI | Async-first, excellent for data pipelines, strong typing with Pydantic |
-| **Database** | PostgreSQL + TimescaleDB | Robust relational DB with first-class time-series support via hypertables |
-| **ORM** | SQLAlchemy 2.0 | Mature, async-compatible, works well with Alembic migrations |
-| **Migrations** | Alembic | Standard for SQLAlchemy projects |
-| **Task scheduling** | APScheduler (or cron) | Lightweight daily sync jobs; no need for Celery at single-user scale |
-| **Containerization** | Docker Compose | Single command to spin up entire stack locally |
-| **Auth (Oura)** | OAuth2 via `httpx` | Async HTTP client for token management and API calls |
-| **Auth (App)** | Session-based (FastAPI) | Simple for single-user. JWT option for multi-user V2 |
-| **Charts** | Recharts or Chart.js | Lightweight, React-native charting for dashboards |
+| **Framework** | Next.js 15 (App Router) | Full-stack React with API routes, SSR, and file-based routing |
+| **Frontend** | React 19 + Tailwind CSS 4 | Server components, streaming, utility-first styling |
+| **Language** | TypeScript 5.8 | End-to-end type safety |
+| **Database** | SQLite via Prisma | Zero-config, embedded, sufficient for single-user. Migrate to PostgreSQL for multi-user. |
+| **ORM** | Prisma | Type-safe queries, schema-driven migrations, excellent DX |
+| **Charts** | Recharts | Lightweight, React-native charting with responsive containers |
+| **Statistics** | jstat | Welch's t-test, t-distribution CDF for correlation engine |
+| **AI** | @anthropic-ai/sdk | Claude API for nutrition macro estimation and coaching chat |
+| **Auth (Oura)** | OAuth2 | Token exchange and refresh via Oura API V2 |
+| **Styling** | Tailwind CSS 4 | Utility-first, no separate CSS files, responsive by default |
 
 ---
 
-## Backend Architecture
-
-### Module Structure
+## Application Structure
 
 ```
 baseline/
-├── api/
-│   ├── routes/
-│   │   ├── auth.py          # Oura OAuth2 flow
-│   │   ├── workouts.py      # Workout CRUD
-│   │   ├── exercises.py     # Exercise library
-│   │   ├── biometrics.py    # Biometric data queries
-│   │   ├── cycle.py         # Cycle phase logging
-│   │   ├── dashboard.py     # Aggregated daily view
-│   │   └── experiments.py   # Mind Mode (V2)
-│   └── dependencies.py      # Shared deps (DB session, auth)
-├── core/
-│   ├── config.py             # Settings via pydantic-settings
-│   ├── database.py           # SQLAlchemy engine + session
-│   └── security.py           # Token encryption, session mgmt
-├── models/
-│   ├── user.py
-│   ├── biometric.py          # Readiness, sleep, activity, HR, etc.
-│   ├── workout.py            # Session, set, exercise
-│   ├── cycle.py              # Phase log
-│   └── experiment.py         # Mind Mode (V2)
-├── schemas/
-│   ├── biometric.py          # Pydantic request/response models
-│   ├── workout.py
-│   ├── cycle.py
-│   └── experiment.py
-├── services/
-│   ├── oura_client.py        # Oura API V2 wrapper
-│   ├── oura_sync.py          # Daily sync job logic
-│   ├── recommendation.py     # Training intensity engine
-│   ├── cycle_logic.py        # Phase detection + adjustments
-│   ├── overload_tracker.py   # Progressive overload calculations
-│   └── correlation.py        # Mind Mode stats engine (V2)
-├── tasks/
-│   └── scheduler.py          # APScheduler job definitions
-├── migrations/
-│   └── versions/             # Alembic migration files
-├── main.py                   # FastAPI app entry point
-└── seed.py                   # Demo/test data seeder
+├── prisma/
+│   ├── schema.prisma          # 18 models, ~300 lines
+│   ├── seed-exercises.ts      # Exercise library seeder
+│   └── migrations/
+├── src/
+│   ├── app/
+│   │   ├── page.tsx           # Dashboard (home)
+│   │   ├── layout.tsx         # Root layout + global nav
+│   │   ├── mind/
+│   │   │   ├── page.tsx       # Mind Mode dashboard
+│   │   │   └── layout.tsx
+│   │   ├── body/
+│   │   │   ├── page.tsx       # Body Mode (workout list)
+│   │   │   └── workout/
+│   │   │       ├── new/page.tsx    # New workout flow
+│   │   │       └── [id]/page.tsx   # Workout detail
+│   │   ├── coach/
+│   │   │   └── page.tsx       # AI coaching chat
+│   │   ├── goals/
+│   │   │   └── page.tsx       # Goals manager
+│   │   └── api/
+│   │       ├── auth/oura/         # OAuth2 flow (2 routes)
+│   │       ├── sync/              # Oura data sync
+│   │       ├── cycle-phase/       # Cycle phase logging
+│   │       ├── experiments/       # Experiment CRUD + analyze (4 routes)
+│   │       ├── tags/              # Activity tag CRUD
+│   │       ├── nutrition/         # Nutrition logging
+│   │       ├── env-readings/      # Environment sensor data
+│   │       ├── exercises/         # Exercise library
+│   │       ├── workouts/          # Workout CRUD + sets + trends (7 routes)
+│   │       ├── templates/         # Workout templates (2 routes)
+│   │       ├── coach/             # AI coach chat + sessions (2 routes)
+│   │       ├── goals/             # Goal CRUD (2 routes)
+│   │       ├── weight/            # Weight log CRUD (2 routes)
+│   │       └── profile/           # User profile
+│   ├── components/
+│   │   ├── dashboard/             # Score card, sync button, activity, calories (7)
+│   │   ├── mind/                  # Experiments, tags, nutrition, insights (8)
+│   │   ├── body/                  # Workout logger, trends, volume zones (6)
+│   │   ├── coach/                 # Chat interface (1)
+│   │   ├── goals/                 # Goals manager (1)
+│   │   ├── weight/                # Weight input, trends, TDEE, goals (5)
+│   │   ├── date-nav.tsx           # Shared date navigation
+│   │   └── nav.tsx                # Global navigation bar
+│   └── lib/
+│       ├── db.ts                  # Prisma client singleton
+│       ├── oura.ts                # Oura API client + token management
+│       ├── sync.ts                # Data sync orchestration
+│       ├── baseline-score.ts      # Composite score calculation
+│       ├── correlation.ts         # Welch's t-test + Cohen's d
+│       ├── insights.ts            # Passive tag-to-biometric correlation
+│       ├── experiment-templates.ts # 5 pre-seeded experiment templates
+│       ├── usda.ts                # Claude-powered macro estimation
+│       ├── coach-context.ts       # 14-query context builder for AI coach
+│       ├── training.ts            # RPE creep, HRV CV, fatigue scoring
+│       ├── tdee.ts                # TDEE estimation from weight + calories
+│       ├── exercise-library.ts    # Exercise definitions
+│       └── date-utils.ts          # Date utilities
+└── docs/
+    ├── PRD.md
+    ├── architecture.md            # This file
+    ├── task-tracker.md
+    ├── bugs.md                    # 30 cataloged bugs
+    ├── session-log.md
+    ├── phase-2-spec.md            # Mind Mode spec
+    ├── phase-3-spec.md            # Body Mode spec
+    ├── body-mode-research.md      # 27 peer-reviewed citations
+    ├── arduino-build-guide.md     # IMU hardware + firmware spec
+    ├── oura-api-research.md
+    ├── cycle-phase-logic.md
+    ├── competitive-analysis.md
+    └── build-sequence-rationale.md
 ```
-
-### Key Design Decisions
-
-**Why FastAPI over Django:** Baseline is API-first with a React frontend. FastAPI's async support, automatic OpenAPI docs, and Pydantic integration make it ideal for a data-heavy application. Django's ORM and admin panel aren't needed.
-
-**Why TimescaleDB over plain Postgres:** Biometric data is inherently time-series. TimescaleDB hypertables give automatic time-based partitioning, efficient range queries, and built-in aggregation functions (e.g., `time_bucket`) without changing the Postgres tooling.
-
-**Why monolith over microservices:** Single user, single developer, Phase 1. A monolith with clean module boundaries is faster to build and easier to debug. Extract services later if needed.
 
 ---
 
-## Database Schema (Phase 1)
+## Database Schema (18 models)
 
-### Core Tables
+### Biometric Data (from Oura)
+- **OuraToken** — OAuth2 access/refresh tokens with expiry
+- **DailyReadiness** — Score, temp deviation, HRV balance, recovery index
+- **DailySleep** — Score, durations (total/REM/deep/light), efficiency, HRV, HR
+- **DailyActivity** — Steps, calories (active/total), active time by intensity
+- **DailyStress** — Stress/recovery highs, day summary
+- **HeartRateSample** — BPM + source + timestamp (unique on timestamp+source)
+- **CyclePhaseLog** — Manual phase logging (menstrual/follicular/ovulation/luteal)
+- **SyncLog** — Sync status and details
 
-**users**
-- `id` (UUID, PK)
-- `email` (string, unique)
-- `name` (string)
-- `oura_access_token` (encrypted string)
-- `oura_refresh_token` (encrypted string)
-- `oura_token_expires_at` (timestamp)
-- `created_at`, `updated_at`
+### Mind Mode
+- **Experiment** — Hypothesis, IV/DV, metric source, lag days, status lifecycle
+- **ExperimentLog** — Daily treatment/control log with optional intensity
+- **ActivityTag** — Quick-tagged activities with category, timestamp, optional experiment link
+- **NutritionLog** — Daily macro totals (calories, protein, carbs, fat)
+- **NutritionEntry** — Per-food breakdown with Claude-estimated macros
 
-**biometric_daily** (TimescaleDB hypertable, partitioned by `day`)
-- `id` (UUID, PK)
-- `user_id` (FK → users)
-- `day` (date)
-- `source` (enum: oura, healthkit, manual)
-- `readiness_score` (integer, nullable)
-- `sleep_score` (integer, nullable)
-- `activity_score` (integer, nullable)
-- `hrv_average` (float, nullable)
-- `rhr` (integer, nullable)
-- `temperature_deviation` (float, nullable)
-- `stress_high_seconds` (integer, nullable)
-- `recovery_high_seconds` (integer, nullable)
-- `resilience_level` (string, nullable)
-- `vo2_max` (float, nullable)
-- `total_sleep_seconds` (integer, nullable)
-- `deep_sleep_seconds` (integer, nullable)
-- `rem_sleep_seconds` (integer, nullable)
-- `sleep_efficiency` (integer, nullable)
-- `raw_json` (JSONB — full API response for future field extraction)
-- `synced_at` (timestamp)
+### Body Mode
+- **Exercise** — Library of exercises with muscle group, movement pattern, equipment
+- **WorkoutSession** — Training session with date, RPE, volume, readiness context
+- **WorkoutSet** — Individual set: reps × weight × RPE, warmup/PR flags
+- **WorkoutTemplate** — Reusable workout templates (exercises stored as JSON)
 
-**exercises**
-- `id` (UUID, PK)
-- `user_id` (FK → users)
-- `name` (string)
-- `muscle_group` (enum: chest, back, shoulders, arms, legs, core, full_body)
-- `movement_pattern` (enum: push, pull, hinge, squat, carry, isolation, cardio)
-- `equipment` (enum: barbell, dumbbell, cable, machine, bodyweight, kettlebell, other)
-- `notes` (text, nullable)
-- `is_active` (boolean, default true)
+### User & Goals
+- **UserProfile** — Body stats, experience level, activity level, goals, unit preference
+- **Goal** — Typed goals (weight/race/exam/performance/habit) with deadline and status
+- **WeightLog** — Daily weight + optional body fat and muscle mass
 
-**workout_sessions**
-- `id` (UUID, PK)
-- `user_id` (FK → users)
-- `date` (date)
-- `started_at` (timestamp)
-- `finished_at` (timestamp, nullable)
-- `readiness_score` (integer, nullable — snapshot from that day)
-- `cycle_phase` (enum, nullable — snapshot from that day)
-- `notes` (text, nullable)
-- `total_volume` (float, computed — sum of sets × reps × weight)
+### Coach
+- **ChatSession** — Conversation thread with title
+- **ChatMessage** — Individual messages (user/assistant) with session FK
 
-**workout_sets**
-- `id` (UUID, PK)
-- `session_id` (FK → workout_sessions)
-- `exercise_id` (FK → exercises)
-- `set_number` (integer)
-- `reps` (integer)
-- `weight_kg` (float)
-- `rpe` (float, nullable — rate of perceived exertion 1–10)
-- `notes` (text, nullable)
-- `velocity_mean` (float, nullable — V2, from IMU)
-
-**cycle_phase_log**
-- `id` (UUID, PK)
-- `user_id` (FK → users)
-- `date` (date)
-- `phase` (enum: menstrual, follicular, ovulation, luteal)
-- `source` (enum: manual, auto_temp, healthkit)
-- `confidence` (enum: high, medium, low)
-- `notes` (text, nullable)
-
-### Indexes
-
-- `biometric_daily`: composite index on (`user_id`, `day`), hypertable time index on `day`
-- `workout_sessions`: index on (`user_id`, `date`)
-- `workout_sets`: index on (`session_id`), index on (`exercise_id`)
-- `cycle_phase_log`: index on (`user_id`, `date`)
+### Environment
+- **EnvReading** — Sensor data: PM2.5, temperature, humidity, pressure, noise, light
 
 ---
 
 ## Data Flow
 
 ### Daily Oura Sync
-
 ```
-[Cron / APScheduler: 6:00 AM]
-        │
-        ▼
-[oura_sync.py: check token validity]
-        │
-        ├── expired? → refresh_token flow → update DB
-        │
-        ▼
-[oura_client.py: GET each endpoint for yesterday]
-        │
-        ▼
-[Parse responses → map to biometric_daily schema]
-        │
-        ▼
-[Upsert into biometric_daily (ON CONFLICT update)]
-        │
-        ▼
-[Log sync status + timestamp]
+[User clicks Sync / Scheduled trigger]
+  → POST /api/sync (with SYNC_API_KEY)
+  → getValidToken() — check expiry, refresh if needed
+  → Fetch: readiness, sleep, activity, stress, heart rate
+  → Upsert each record by day (unique constraint)
+  → Log to SyncLog (status + details)
+```
+
+### Baseline Score Calculation
+```
+[Dashboard loads / date changes]
+  → getScoreForDate(date)
+  → Fetch: latest readiness, sleep (with HRV), 3-day + 14-day HRV, cycle phase
+  → Compute: readiness (40%) + HRV trend (25%) + sleep quality (20%) + temp deviation (15%)
+  → Null components excluded with weight redistribution
+  → Cycle-phase-aware temp scoring (luteal −0.4°C, ovulation −0.15°C)
+  → Return: { overall, color, label, components }
+```
+
+### Coach Chat
+```
+[User sends message]
+  → POST /api/coach
+  → buildCoachContext() — 14 Prisma queries aggregating all user data
+  → Anthropic API: system prompt + context + conversation history
+  → Stream response to UI
+  → Save both messages to ChatSession/ChatMessage
+```
+
+### Nutrition Logging
+```
+[User types "3 eggs and toast"]
+  → POST /api/nutrition
+  → estimateMacros(text) via Claude API — returns per-food breakdown
+  → Create NutritionEntry records for each food item
+  → Upsert NutritionLog daily totals (sum of entries)
 ```
 
 ### Workout Logging
-
 ```
-[User opens Body Mode]
-        │
-        ▼
-[Frontend: GET /dashboard → readiness + cycle phase + recommendation]
-        │
-        ▼
-[User starts workout → POST /workouts/sessions]
-        │
-        ▼
-[User logs sets → POST /workouts/sessions/{id}/sets]
-        │ (each set saved immediately — no data loss on crash)
-        ▼
-[User finishes → PATCH /workouts/sessions/{id} (finished_at, total_volume)]
-        │
-        ▼
-[Frontend shows session summary + progressive overload comparison]
-```
-
-### Training Recommendation Engine
-
-```
-[GET /dashboard/recommendation]
-        │
-        ▼
-[Fetch today's readiness_score from biometric_daily]
-        │
-        ▼
-[Fetch current cycle_phase from cycle_phase_log]
-        │
-        ▼
-[recommendation.py: apply intensity tier logic]
-        │
-        ├── readiness_score → base intensity tier
-        ├── cycle_phase → modifier (see cycle-phase-logic.md)
-        └── combine → final recommendation
-        │
-        ▼
-[Return: { intensity_tier, description, suggested_volume_modifier, warnings[] }]
+[User starts workout from template or blank]
+  → POST /api/workouts — create WorkoutSession
+  → For each set: POST /api/workouts/[id]/sets — create WorkoutSet
+  → On completion: PATCH /api/workouts/[id] — set completedAt, sessionRPE, volume
+  → Trends: GET /api/workouts/trends — volume load over time per exercise
 ```
 
 ---
 
-## API Design
+## External Integrations
 
-RESTful JSON API. All endpoints prefixed with `/api/v1/`.
-
-### Key Endpoints (Phase 1)
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/auth/oura/login` | Redirect to Oura OAuth2 |
-| GET | `/auth/oura/callback` | Handle OAuth2 callback |
-| GET | `/dashboard` | Today's aggregated view |
-| GET | `/dashboard/recommendation` | Training recommendation |
-| GET | `/biometrics?start=&end=` | Biometric data range query |
-| GET | `/biometrics/trends?metric=&days=` | Trend data for charts |
-| POST | `/workouts/sessions` | Start a workout session |
-| PATCH | `/workouts/sessions/{id}` | Update / finish session |
-| POST | `/workouts/sessions/{id}/sets` | Log a set |
-| GET | `/workouts/history?limit=&offset=` | Past sessions |
-| GET | `/exercises` | Exercise library |
-| POST | `/exercises` | Add custom exercise |
-| POST | `/cycle/log` | Log cycle phase |
-| GET | `/cycle/current` | Current phase + history |
-
----
-
-## Deployment (Phase 1 — Local)
-
-```yaml
-# docker-compose.yml (simplified)
-services:
-  db:
-    image: timescale/timescaledb:latest-pg16
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: baseline
-      POSTGRES_USER: baseline
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "5432:5432"
-
-  api:
-    build: ./backend
-    depends_on:
-      - db
-    environment:
-      DATABASE_URL: postgresql+asyncpg://baseline:${DB_PASSWORD}@db:5432/baseline
-      OURA_CLIENT_ID: ${OURA_CLIENT_ID}
-      OURA_CLIENT_SECRET: ${OURA_CLIENT_SECRET}
-      SECRET_KEY: ${SECRET_KEY}
-    ports:
-      - "8000:8000"
-
-  frontend:
-    build: ./frontend
-    depends_on:
-      - api
-    ports:
-      - "3000:3000"
-
-volumes:
-  pgdata:
-```
+| Service | Protocol | Purpose | Status |
+|---|---|---|---|
+| Oura API V2 | OAuth2 + REST | Biometric data sync | Active |
+| Anthropic Claude | API key + REST | Nutrition parsing + coach chat | Active |
+| ESP32 Environment Sensor | WiFi HTTP POST | Room conditions (PM2.5, temp, humidity, noise, light) | Endpoint ready, hardware pending |
+| Arduino IMU (ESP32 + MPU6050) | BLE GATT | Bar velocity tracking | Not started |
+| Apple HealthKit | Native bridge | HR zones, workouts, menstrual data | Planned (Phase 3) |
 
 ---
 
 ## Security Considerations
 
-- Oura tokens encrypted at rest (Fernet symmetric encryption via `cryptography` library)
-- All API calls over HTTPS
-- Environment variables for secrets (never committed)
-- Single-user Phase 1 simplifies auth — session cookie is sufficient
-- CORS restricted to frontend origin
-- Rate limiting on API endpoints (even locally, good hygiene)
+- Oura tokens stored in database (SQLite file) — not encrypted at rest
+- API keys in environment variables, never committed (.env in .gitignore)
+- SYNC_API_KEY protects the sync endpoint from unauthorized triggers
+- SENSOR_API_KEY (when enabled) protects environment sensor POST endpoint
+- ANTHROPIC_API_KEY — no rate limiting on coach endpoint (BUG-004 — critical)
+- Single-user, localhost-only in Phase 1 — no user auth needed
+- CORS not explicitly configured (Next.js same-origin by default)
 
 ---
 
-## Future Architecture Changes (V2+)
+## Key Design Decisions
 
-- **HealthKit adapter:** Native Swift/Kotlin bridge or use a HealthKit-to-API proxy
-- **Arduino data ingestion:** BLE → phone app → API websocket, or BLE → ESP32 → WiFi → API
-- **Correlation engine:** Pandas/NumPy statistical processing, potentially as a separate background worker
-- **Multi-user:** Migrate from session auth to JWT, add role-based access for coach view
-- **Mobile:** React Native sharing API layer, or native Swift app for HealthKit integration
+**Why Next.js over separate frontend + backend:** Baseline started as a planned Python/FastAPI + React/Vite stack but was implemented as a Next.js monolith. The App Router provides API routes alongside React pages, eliminating the need for a separate backend service. This simplifies deployment, reduces boilerplate, and enables server components for data-heavy pages.
+
+**Why SQLite over PostgreSQL:** Single user, single device. SQLite is zero-config, embedded in the application process, and has no external dependencies. Prisma abstracts the database layer, so migrating to PostgreSQL later requires only changing the datasource provider and connection string.
+
+**Why Prisma over raw SQL:** Type-safe queries that match the TypeScript frontend. Schema-driven migrations. Excellent autocomplete in the IDE. The main tradeoff is less control over complex queries, but Baseline's queries are straightforward CRUD + aggregation.
+
+**Why Claude for nutrition parsing:** USDA API requires exact food name matching. Claude can interpret natural language ("3 eggs and a piece of toast with butter") and return structured macro estimates. The tradeoff is API cost and latency, but it dramatically reduces input friction.
+
+**Why monolith:** Single developer, single user, Phase 1. Clean module boundaries within the monolith (lib/ for business logic, api/ for routes, components/ for UI) provide enough separation. Extract services if/when needed for multi-user scale.
+
+---
+
+## Future Architecture Changes
+
+- **PostgreSQL + TimescaleDB:** Required for multi-user and time-series query optimization
+- **Redis:** Cache coach context (currently 14 queries per message), rate limiting
+- **Background jobs:** Replace manual sync with scheduled cron (Vercel Cron or node-cron)
+- **WebSocket:** Real-time velocity display from Arduino IMU during workouts
+- **Mobile:** React Native sharing the API layer, or native Swift for HealthKit integration
+- **Auth:** Add NextAuth.js for multi-user with Google/email login

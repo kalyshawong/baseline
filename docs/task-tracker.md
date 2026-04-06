@@ -1,23 +1,22 @@
 # Baseline — Task Tracker
 
-**Last Updated:** 2026-04-03 (reviewed — no code changes since Phase 1 commit; 6 bugs still open)
+**Last Updated:** 2026-04-06
+**Stack:** Next.js 15, React 19, Prisma (SQLite), Tailwind CSS 4, Recharts, jstat, @anthropic-ai/sdk
 
 ---
 
-## Phase 1 — MVP
+## Phase 1 — MVP (Complete)
 
-*Stack: Next.js 15, React, Prisma (SQLite), Tailwind CSS, Recharts*
-
-### Project Setup
+### Project Setup — Done
 
 - [x] Initialize Git repo and project structure
 - [x] Set up Next.js project with TypeScript + Tailwind
 - [x] Configure Prisma ORM with SQLite
 - [x] Define database schema: OuraToken, DailyReadiness, DailySleep, DailyStress, HeartRateSample, CyclePhaseLog, SyncLog
 - [x] Set up environment variable management (.env, .env.example)
-- [x] Configure .gitignore (node_modules, .env, prisma/dev.db)
+- [x] Configure .gitignore
 
-### Oura Integration
+### Oura Integration — Done (with open bugs)
 
 - [x] Register app on Oura developer portal
 - [x] Implement OAuth2 authorization flow (redirect → callback → token exchange)
@@ -26,180 +25,122 @@
 - [x] Build Oura API client module (`src/lib/oura.ts`)
 - [x] Create sync endpoint: pull readiness, sleep, stress, heart rate
 - [x] Implement sync logging (SyncLog model)
-- [ ] **BUG:** Fix token refresh on 401 — currently re-calls `getValidToken()` which may return same expired token. Need forced refresh path.
-- [ ] Add retry logic with exponential backoff for rate limits (429)
-- [ ] Add fetch timeout (30s) to prevent hanging syncs
-- [ ] Add pagination handling for `next_token` in API responses (needed for 90-day backfill)
-- [ ] Implement 90-day backfill command on first run
-- [ ] Add resilience and VO2 max endpoint sync
-- [ ] Test: verify synced data matches Oura app for a given date range
 
-### Data Models & Storage
-
-- [x] Prisma schema with models for biometrics, tokens, cycle phases, sync logs
-- [x] Upsert pattern for deduplication across all endpoints
-- [ ] Add `updatedAt`, `source`, `syncedAt` fields to biometric models
-- [ ] Add `userId` field to all models (prep for future multi-user)
-- [ ] Migrate from SQLite to PostgreSQL (before deploying or scaling)
-- [ ] Create exercise library table (movement pattern + muscle group tags)
-- [ ] Create workout session and sets tables
-- [ ] Seed initial exercise library (compound + accessory movements)
-- [ ] Write CRUD API endpoints for exercises, workouts, sets
-
-### Baseline Score
+### Baseline Score — Done (bugs 4 & 5 fixed)
 
 - [x] Implement composite score calculation (readiness 40%, HRV 25%, sleep 20%, temp 15%)
 - [x] Color-coded feedback (green/yellow/red thresholds)
 - [x] HRV trend scoring (3-day vs 14-day rolling average)
-- [ ] **BUG:** Null components treated as 0 instead of excluded — needs weight redistribution when data is missing
-- [ ] **BUG:** Temperature deviation scoring penalizes luteal phase unfairly — needs cycle-phase-aware adjustment
-- [ ] Soften HRV trend formula (current 200x multiplier causes 40-point swings from noise)
-- [ ] Add confidence indicator (low/medium/high based on data point count)
+- [x] **BUG 4 FIXED:** Null components now excluded with weight redistribution
+- [x] **BUG 5 FIXED:** Temp deviation now cycle-phase-aware (luteal −0.4°C, ovulation −0.15°C offset)
 
-### Body Mode — Workout Logger
+### Dashboard — Done
 
-- [ ] Build workout session creation flow (select exercises → log sets)
-- [ ] Implement progressive overload tracking (volume calc, estimated 1RM)
-- [ ] Build set logging UI: quick-entry for reps × weight
-- [ ] Display previous session's numbers per exercise (target to beat)
-- [ ] Calculate and display session volume
-- [ ] Build exercise search/filter (by muscle group, movement pattern)
-- [ ] Add workout templates (save and reuse groupings)
-- [ ] Build workout history view
-
-### Readiness-Based Training Recommendations
-
-- [x] Build readiness score display on daily dashboard
-- [x] Display training recommendation based on readiness tier
-- [x] Cross-reference readiness with current cycle phase
-- [ ] Implement full intensity tier logic (85+ / 70–84 / 55–69 / <55) with distinct UI states
-- [ ] Add manual override option (user can train harder/lighter)
-- [ ] Show readiness trend (last 7 days) on dashboard
-
-### Cycle Phase Tracking (Manual V1)
-
-- [x] Build cycle phase selector UI (4 phases with color coding)
-- [x] Store daily phase log with date + phase (upsert by day)
-- [x] Display current phase on dashboard with training context notes
-- [ ] **BUG:** No error handling on save — optimistic update doesn't revert on failure
-- [ ] Add loading indicator during save
-- [ ] Build phase history timeline view
-- [ ] Pre-populate phase durations from typical ranges, allow user customization
-
-### Dashboard
-
-- [x] Build daily dashboard: readiness score, sleep, stress, cycle phase
+- [x] Daily dashboard: readiness score, sleep, stress, cycle phase
 - [x] Baseline Score card with component breakdown
 - [x] Sync button with status display
 - [x] Recharts trend visualization
 - [x] Responsive grid layout
 - [x] Conditional rendering: "Connect Oura" CTA vs data view
-- [ ] **BUG:** Timezone/date handling inconsistent — can show wrong day's data depending on user timezone. Standardize on UTC ISO strings.
-- [ ] Fix sync button to use SWR/revalidation instead of hard page reload
-- [ ] Show date (not just time) on last sync display
-- [ ] Add skeleton loaders to prevent layout shift
-- [ ] Show "yesterday's performance vs readiness" context
-- [ ] Add quick-start workout button
+- [x] Date navigation (forward/back by day)
+- [x] Activity card (steps, calories, active time)
+- [x] Calorie balance card (intake vs burn)
 
-### Infrastructure & DevOps
+### Cycle Phase Tracking — Done
 
-- [x] Environment variable management
-- [x] .gitignore configured
-- [ ] Write Dockerfile and docker-compose.yml
-- [ ] Add structured logging (replace console.error)
-- [ ] Write health check endpoint
-- [ ] Create seed script for demo/test data
-- [ ] Set up error tracking (Sentry)
-- [ ] Write integration tests for OAuth flow
-- [ ] Set up CI pipeline (GitHub Actions: lint, test, build)
-
-### Critical Bugs — Fix Before Next Phase
-
-| # | Severity | File | Issue |
-|---|----------|------|-------|
-| 1 | CRITICAL | `src/lib/oura.ts` | 401 retry re-calls `getValidToken()` which may return same expired token |
-| 2 | HIGH | `src/lib/sync.ts` | All endpoint sync errors swallowed silently; SyncLog always says "success" |
-| 3 | HIGH | `src/app/page.tsx` | UTC date construction can fetch wrong day's data in non-UTC timezones |
-| 4 | MEDIUM | `src/lib/baseline-score.ts` | Null components scored as 0 instead of excluded from weighted average |
-| 5 | MEDIUM | `src/lib/baseline-score.ts` | Temp deviation scoring penalizes normal luteal phase elevation |
-| 6 | MEDIUM | `src/components/dashboard/cycle-phase-selector.tsx` | Optimistic update doesn't revert on API failure |
+- [x] Cycle phase selector UI (4 phases with color coding)
+- [x] Store daily phase log with date + phase (upsert by day)
+- [x] Display current phase on dashboard with training context notes
 
 ---
 
-## Phase 2a — Mind Mode (Differentiator)
+## Phase 2a — Mind Mode (Complete)
 
-*Ships before Body Mode — see `build-sequence-rationale.md` and `phase-2-spec.md`*
+*See `phase-2-spec.md` for full specification*
 
-### Prerequisites — Phase 1 Bug Fixes
+### Data Models — Done
 
-- [ ] Fix forced token refresh on 401 (`src/lib/oura.ts`)
-- [ ] Fix sync error tracking — partial/failed status in SyncLog (`src/lib/sync.ts`)
-- [ ] Fix timezone/date handling — standardize on UTC ISO strings across codebase
-- [ ] Fix null component scoring in Baseline Score (`src/lib/baseline-score.ts`)
-- [ ] Fix temp deviation to be cycle-phase-aware (`src/lib/baseline-score.ts`)
-- [ ] Fix cycle selector optimistic update revert on failure
+- [x] `Experiment` model (cuid, title, hypothesis, IV, DV, metric, source, lagDays, minDays, status)
+- [x] `ExperimentLog` model (experimentId FK, day, independentValue boolean, intensity float, notes)
+- [x] `ActivityTag` model (tag, category, timestamp, metadata JSON, optional experimentId)
+- [x] `NutritionLog` model (day, calories, protein, carbs, fat) — bonus feature
+- [x] `NutritionEntry` model (food parsing, meal type, eatenAt timestamp)
+- [x] `EnvReading` model (deviceId, pm25, temperature, humidity, pressure, noiseDb, lux)
+- [x] Prisma migration applied
 
-### Data Models (Prisma)
+### Experiment Framework — Done
 
-- [ ] Add `Experiment` model (id, title, hypothesis, independentVariable, dependentVariable, dependentMetric, startDate, endDate, minDays, status, createdAt)
-- [ ] Add `ExperimentLog` model (id, experimentId, date, independentValue, notes, createdAt) with FK to Experiment
-- [ ] Add `ActivityTag` model (id, tag, category, timestamp, metadata JSON, experimentId nullable)
-- [ ] Add `EnvReading` model (id, timestamp, pm25, temperature, humidity, noiseDb, lux, deviceId)
-- [ ] Run Prisma migration
-- [ ] Add API routes: CRUD for experiments, logs, tags
+- [x] Experiment creation UI (from templates or custom)
+- [x] 5 pre-seeded templates (lo-fi/sleep, breathing/HR, sunlight/HRV, caffeine/sleep, meditation/readiness)
+- [x] Experiment list/dashboard view (active, completed, draft)
+- [x] Daily logging UI (treatment/control toggle + notes)
+- [x] Experiment lifecycle (draft → active → completed → analyzed)
+- [x] Experiment detail view with logs + analysis
+- [x] API routes: CRUD experiments, logs, analyze
 
-### Experiment Framework
+### Tagging System — Done
 
-- [ ] Build experiment creation UI (hypothesis, IV, DV, metric selection, duration)
-- [ ] Build experiment list/dashboard view (active, completed, draft)
-- [ ] Build daily logging UI for active experiments (value input + notes)
-- [ ] Implement experiment lifecycle (draft → active → completed → analyzed)
-- [ ] Seed 5 starter experiment templates (lo-fi/sleep, breathing/RHR, sunlight/HRV, pre-workout/RPE, caffeine/sleep)
-- [ ] Build individual experiment detail view with log history
+- [x] Quick-tag UI with 8 preset categories + color coding
+- [x] Custom tag creation
+- [x] Timestamps captured automatically
+- [x] Optional experiment linking
+- [x] Tag history/timeline view
+- [x] API: create, list (date range + category filter), delete
 
-### Tagging System
+### Correlation Engine — Done
 
-- [ ] Build quick-tag UI with preset buttons (music, breathing, caffeine, alcohol, meditation, exercise, social, study)
-- [ ] Implement custom tag creation
-- [ ] Timestamp all tags with ISO datetime
-- [ ] Link tags to active experiments (optional association)
-- [ ] Build tag history/timeline view
-- [ ] API endpoints: create tag, list tags by date range, delete tag
+- [x] Welch's t-test implementation (`src/lib/correlation.ts`)
+- [x] Cohen's d effect size + significance labels
+- [x] 95% confidence intervals
+- [x] Lag days support (next-day experiments)
+- [x] Minimum data threshold (3+ per condition)
+- [x] Natural language insight generation
+- [x] `/api/experiments/[id]/analyze` endpoint
 
-### Correlation Engine
+### Insights System — Done
 
-- [ ] Build biometric data retrieval for experiment date ranges (pull from DailyReadiness, DailySleep, DailyStress, HeartRateSample)
-- [ ] Implement Pearson correlation between IV values and DV biometric
-- [ ] Implement A/B group comparison (tagged days vs control days) with Welch's t-test
-- [ ] Calculate p-value and effect size (Cohen's d)
-- [ ] Set minimum data threshold (14 days per condition) before showing results
-- [ ] Build insight surfacing: natural language summary of findings
-- [ ] Build experiment results visualization (A vs B bar chart, trend overlay, confidence intervals)
+- [x] Passive tag-to-biometric correlation (`src/lib/insights.ts`)
+- [x] 90-day rolling analysis
+- [x] Auto-filters to tags with 5+ instances
+- [x] Welch p-value filtering (p < 0.15)
+- [x] Recommendation generation
+- [x] InsightsFeed component
 
-### Environment Sensor Integration
+### Nutrition Logger — Done (bonus)
 
-- [ ] Build HTTP POST endpoint for sensor data ingestion (`/api/env-readings`)
-- [ ] Validate and store EnvReading records
-- [ ] Build env data dashboard (current room conditions, 24h trends)
-- [ ] Correlate env readings with next-night sleep quality
-- [ ] Surface env insights ("PM2.5 above 25 μg/m³ correlates with 15% lower deep sleep")
+- [x] Claude API macro estimation from natural language (`src/lib/usda.ts`)
+- [x] NutritionEntry records with per-food breakdown
+- [x] Meal type tagging (breakfast/lunch/dinner/snack)
+- [x] Time-of-day precision (eatenAt timestamp)
+- [x] Daily NutritionLog aggregation
+- [x] MacroSummary display component
+- [x] Delete entries with auto-decremented totals
 
-### Mind Mode Dashboard
+### Environment Sensor Integration — Done
 
-- [ ] Active experiments summary card
-- [ ] Recent tags timeline
-- [ ] Top insights from completed experiments
-- [ ] "Start new experiment" CTA with templates
-- [ ] Environment conditions card (when sensor connected)
+- [x] HTTP POST endpoint with Bearer auth (`/api/env-readings`)
+- [x] GET endpoint for recent readings
+- [x] EnvCard component (latest conditions)
+
+### Mind Mode Dashboard — Done
+
+- [x] `/mind` page with full integration
+- [x] TodayContext card (readiness, sleep, HRV, cycle, stress)
+- [x] QuickTag interface
+- [x] NutritionInput + MacroSummary
+- [x] Active experiments with progress bars
+- [x] InsightsFeed
+- [x] EnvCard
+- [x] TagTimeline
 
 ---
 
-## Phase 2b — Body Mode (Workout Logger)
+## Phase 2b — Body Mode (In Progress)
 
-*Built on Mind Mode's tagging and correlation infrastructure*
+*See `phase-3-spec.md` for full specification*
 *Scientific foundation: `body-mode-research.md` (27 peer-reviewed citations)*
 
-### Research (Complete)
+### Research — Complete
 
 - [x] HRV and readiness science (Plews, Flatt, Kiviniemi)
 - [x] Recovery time per muscle group and training frequency (Schoenfeld)
@@ -212,36 +153,100 @@
 - [x] Caloric intake and recovery metrics (Loucks, Altini)
 - [x] Cycle-phase effects on strength, fatigue, injury (McNulty, Wikström-Frisén, Sung, Hewett, Wojtys)
 
-### Workout Logger
+### Data Models — Done
 
-- [ ] Create exercise library table (name, muscle group, movement pattern, equipment)
-- [ ] Create workout session and sets tables
-- [ ] Seed initial exercise library (compound + accessory movements)
-- [ ] Build workout session creation flow (select exercises → log sets)
-- [ ] Build set logging UI: quick-entry for reps × weight
-- [ ] Implement progressive overload tracking (volume calc, estimated 1RM)
-- [ ] Display previous session's numbers per exercise (target to beat)
-- [ ] Build workout history view
-- [ ] Add workout templates (save and reuse groupings)
+- [x] `Exercise` model (name, muscleGroup, movementPattern, equipment, isCompound, defaults)
+- [x] `WorkoutSession` model (date, duration, readinessScore, cyclePhase, sessionRPE, templateName)
+- [x] `WorkoutSet` model (exerciseId, sessionId, setNumber, reps, weight, rpe, restSeconds, isWarmup, isPR)
+- [x] `WorkoutTemplate` model (name, split, exercises JSON)
+- [x] `UserProfile` model (bodyWeight, bodyFat, height, age, sex, experienceLevel, goals, units)
+- [x] `Goal` model (title, type, target, deadline, status)
+- [x] `ChatSession` + `ChatMessage` models (coach conversation history)
+- [x] `WeightLog` model (day, weightKg, bodyFatPct, muscleMassKg)
+- [x] `DailyActivity` model (steps, calories, active time, sedentary time)
+- [x] Prisma migration applied
+- [x] Seed exercise library (`prisma/seed-exercises.ts`)
 
-### Training Intelligence
+### Workout Logger — Done
 
-- [ ] Implement full intensity tier logic (85+ / 70–84 / 55–69 / <55) with distinct UI states
-- [ ] Add manual override (train harder/lighter than recommended)
-- [ ] Show readiness trend (last 7 days) on dashboard
-- [ ] Correlate workout volume/intensity with next-day readiness (via correlation engine)
+- [x] Session creation flow (select exercises → log sets)
+- [x] Set logging UI: reps × weight × RPE quick-entry
+- [x] Previous session comparison per exercise
+- [x] Session volume calculation + display
+- [x] Exercise search/filter
+- [x] Workout templates (save/reuse)
+- [x] Workout history view
+- [x] Individual workout detail view (`/body/workout/[id]`)
 
-### Integrations
+### Progressive Overload Tracking — Done
 
-- [ ] Apple HealthKit integration (HR zones, workouts, menstrual data)
-- [ ] Auto cycle phase detection (Oura temp proxy — algorithm in `cycle-phase-logic.md`)
+- [x] Volume load trends (sets × reps × weight over time)
+- [x] Estimated 1RM calculation (Epley formula)
+- [x] Workout trends API endpoint
+- [x] Trends charts component
+
+### Training Intelligence — Partial
+
+- [x] Readiness tier card with training recommendations
+- [x] Cycle phase guidance card with phase-specific advice
+- [x] RPE suggestions API endpoint
+- [x] Training utility functions (`src/lib/training.ts`): RPE creep detection, HRV CV, fatigue score
+- [ ] HRV CV as overreaching signal (UI not connected)
+- [ ] Deload recommendation engine (logic exists, no UI trigger)
+- [ ] ACL injury risk flag during ovulation (not implemented)
+- [ ] Volume zone alerts (below MEV, approaching MRV)
+- [ ] Weekly sets per muscle group tracking (UI)
+- [ ] MEV/MAV/MRV volume zone display
+
+### Coach — Done (new feature, unplanned)
+
+- [x] Claude-powered coaching chat (`/coach` page)
+- [x] Rich context builder (`src/lib/coach-context.ts`) — aggregates all biometric, training, nutrition, and experiment data
+- [x] Chat session persistence (ChatSession + ChatMessage models)
+- [x] Session management (create new, resume existing)
+- [x] Chat interface component
+
+### Goals — Done (new feature, unplanned)
+
+- [x] Goal CRUD API (`/api/goals`)
+- [x] Goals manager component
+- [x] Goal types: weight, race, exam, performance, habit, custom
+- [x] Goal status tracking: active, completed, abandoned
+- [x] Goals page (`/goals`)
+
+### Weight Tracking — Done (new feature, unplanned)
+
+- [x] Weight log CRUD API (`/api/weight`)
+- [x] Weight input component
+- [x] Weight trend chart (Recharts)
+- [x] TDEE estimation (`src/lib/tdee.ts`)
+- [x] TDEE card component
+- [x] Weight goal settings
+
+### Navigation — Done
+
+- [x] Global navigation component
+- [x] Date navigation component (shared across pages)
+
+### Nutrition Integration — Partial
+
+- [x] Show protein intake (from existing NutritionLog)
+- [x] Nutrition check component on body page
+- [ ] Daily protein vs 1.6 g/kg target comparison
+- [ ] Per-meal protein flag (>30g threshold)
+- [ ] Energy availability warning (<30 kcal/kg FFM)
 
 ---
 
-## Phase 2c — Hardware Integrations
+## Phase 2c — Arduino IMU (Not Started)
 
-- [ ] Arduino IMU: bar velocity tracking + VBT auto-regulation
-- [ ] Hyrox race-prep module (intervals, sled, wall balls)
+*See `arduino-build-guide.md` for hardware details*
+
+- [ ] BLE data ingestion endpoint
+- [ ] Velocity-load profile builder per exercise
+- [ ] Real-time velocity display during sets
+- [ ] Velocity loss threshold alerts (Banyard: 10–30% by phase)
+- [ ] 1RM estimation from velocity (González-Badillo: r = −0.97)
 
 ---
 
@@ -249,16 +254,61 @@
 
 ### Environment Sensor Hardware
 
-- [x] Order parts: ESP32 Dev Board, BME280, PMS5003, MAX4466 (Amazon, ~$65 total)
+- [x] Order core parts: ESP32, BME280, PMS5003, MAX4466 (~$47)
 - [ ] Order breadboard, jumper wires, resistor kit (~$18)
-- [ ] Build sensor firmware (Arduino C++ or MicroPython)
-- [ ] Wire voltage divider for PMS5003 (5V→3.3V on ESP32 RX)
+- [ ] Build sensor firmware (Arduino C++)
+- [ ] Wire voltage divider for PMS5003 (10kΩ + 20kΩ)
 - [ ] WiFi data push to Baseline HTTP endpoint
 - [ ] Build enclosure (3D printed or project box)
+
+### Integrations
+
+- [ ] Apple HealthKit (HR zones, workouts, menstrual data)
+- [ ] Auto cycle phase detection (Oura temp proxy)
+- [ ] Hyrox race-prep module
 
 ### Scale
 
 - [ ] Multi-user support (add userId FK across all models)
+- [ ] Migrate SQLite → PostgreSQL + TimescaleDB
 - [ ] Mobile app (React Native or Swift)
 - [ ] Data export / portability
 - [ ] Public API for third-party integrations
+
+---
+
+## Bug Fixes — Priority Queue
+
+*Full details in `docs/bugs.md` (30 bugs cataloged)*
+
+### Critical (7) — Must fix before next feature build
+
+- [ ] BUG-001: Oura 401 retry returns same expired token (`src/lib/oura.ts`)
+- [ ] BUG-002: Sync errors swallowed silently (`src/lib/sync.ts`)
+- [ ] BUG-003: 25/27 API routes missing try-catch error handling
+- [ ] BUG-004: Coach endpoint has no rate limiting on Claude API
+- [ ] BUG-005: JSON.parse without try-catch in multiple locations
+- [ ] BUG-006: coach-context.ts buildCoachContext() has no error boundary
+- [ ] BUG-007: N+1 query in workout trends
+
+### High (6) — Fix before shipping to others
+
+- [ ] BUG-008: UTC date shows wrong day in non-UTC timezones
+- [ ] BUG-009: No error feedback in 8+ client components
+- [ ] BUG-010: Cycle phase optimistic update doesn't revert on failure
+- [ ] BUG-011: Missing input validation on workout set data
+- [ ] BUG-012: Missing input validation on weight logging
+- [ ] BUG-013: Training utility functions have no input validation
+
+### Medium (10) + Low (7) — See bugs.md
+
+---
+
+## Open Issues (non-blocking)
+
+- [ ] Claude API model hardcoded — should be env variable
+- [ ] No pagination in insights/tags — may be slow at scale
+- [ ] Experiment minimum threshold (3 days) not shown in UI
+- [ ] No experiment state validation in API (can skip states)
+- [ ] No dark mode / theme support
+- [ ] Workout template exercises stored as JSON string (should be relational)

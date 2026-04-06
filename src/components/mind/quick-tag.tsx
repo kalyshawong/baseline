@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 const presets = [
   { category: "music", tags: ["lo-fi", "classical", "ambient", "binaural"] },
@@ -24,12 +25,33 @@ const categoryColors: Record<string, string> = {
   study: "bg-blue-500/20 text-blue-400 border-blue-500/30",
 };
 
-export function QuickTag() {
+function currentTimeString(): string {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
+export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
+  const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [flash, setFlash] = useState<string | null>(null);
   const [customTag, setCustomTag] = useState("");
   const [tagNotes, setTagNotes] = useState("");
+  const [tagTime, setTagTime] = useState(currentTimeString);
+
+  function resetForm() {
+    setTagNotes("");
+    setCustomTag("");
+    setTagTime(currentTimeString());
+  }
+
+  function buildTimestamp(): string {
+    // Base date = viewed date (if any) or today local
+    const base = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+    const [h, m] = tagTime.split(":").map(Number);
+    const ts = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m);
+    return ts.toISOString();
+  }
 
   function handleTag(category: string, tag: string) {
     startTransition(async () => {
@@ -40,13 +62,17 @@ export function QuickTag() {
           tag,
           category,
           metadata: tagNotes ? { notes: tagNotes } : undefined,
+          timestamp: buildTimestamp(),
         }),
       });
       if (res.ok) {
         setFlash(tag);
-        setTagNotes("");
-        setCustomTag("");
-        setTimeout(() => { setFlash(null); setActiveCategory(null); }, 1500);
+        resetForm();
+        setTimeout(() => {
+          setFlash(null);
+          setActiveCategory(null);
+        }, 1500);
+        router.refresh();
       }
     });
   }
@@ -71,7 +97,11 @@ export function QuickTag() {
         {presets.map((p) => (
           <button
             key={p.category}
-            onClick={() => setActiveCategory(activeCategory === p.category ? null : p.category)}
+            onClick={() => {
+              const next = activeCategory === p.category ? null : p.category;
+              setActiveCategory(next);
+              if (next) setTagTime(currentTimeString()); // reset time to now on open
+            }}
             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
               activeCategory === p.category
                 ? categoryColors[p.category]
@@ -82,32 +112,57 @@ export function QuickTag() {
           </button>
         ))}
       </div>
-      {activeCategory && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {presets
-            .find((p) => p.category === activeCategory)
-            ?.tags.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => handleTag(activeCategory, tag)}
-                disabled={isPending}
-                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-1.5 text-xs transition-colors hover:bg-white/10 disabled:opacity-50"
-              >
-                {tag}
-              </button>
-            ))}
-        </div>
-      )}
 
-      {/* Notes field for any tag */}
       {activeCategory && (
-        <input
-          type="text"
-          value={tagNotes}
-          onChange={(e) => setTagNotes(e.target.value)}
-          placeholder="Optional notes (duration, amount, etc.)"
-          className="mt-3 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
-        />
+        <div className="mt-4 space-y-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
+          {/* Specific tags for the selected category */}
+          <div>
+            <p className="mb-2 text-xs font-medium text-[var(--color-text-muted)]">
+              Select specific tag
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {presets
+                .find((p) => p.category === activeCategory)
+                ?.tags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => handleTag(activeCategory, tag)}
+                    disabled={isPending}
+                    className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs transition-colors hover:bg-white/10 disabled:opacity-50"
+                  >
+                    {tag}
+                  </button>
+                ))}
+            </div>
+          </div>
+
+          {/* Time picker */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-[var(--color-text-muted)]">Time:</label>
+            <input
+              type="time"
+              value={tagTime}
+              onChange={(e) => setTagTime(e.target.value)}
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-xs [color-scheme:dark]"
+            />
+            <button
+              type="button"
+              onClick={() => setTagTime(currentTimeString())}
+              className="text-xs text-[var(--color-text-muted)] underline hover:text-white"
+            >
+              Now
+            </button>
+          </div>
+
+          {/* Notes */}
+          <input
+            type="text"
+            value={tagNotes}
+            onChange={(e) => setTagNotes(e.target.value)}
+            placeholder="Notes (duration, amount, context...)"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+          />
+        </div>
       )}
 
       {/* Custom tag input */}

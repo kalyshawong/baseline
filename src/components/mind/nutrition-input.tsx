@@ -24,7 +24,7 @@ function currentTimeString(): string {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-export function NutritionInput() {
+export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [mealType, setMealType] = useState<string>("snack");
@@ -39,10 +39,10 @@ export function NutritionInput() {
     setError(null);
     setResults(null);
 
-    // Build full ISO timestamp from today's date + chosen time
-    const now = new Date();
+    // Build timestamp from the viewed date + chosen time
+    const baseDate = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
     const [h, m] = time.split(":").map(Number);
-    const eatenAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+    const eatenAt = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), h, m);
 
     startTransition(async () => {
       try {
@@ -53,6 +53,7 @@ export function NutritionInput() {
             text: text.trim(),
             mealType,
             eatenAt: eatenAt.toISOString(),
+            date: dateStr,
           }),
         });
         if (!res.ok) {

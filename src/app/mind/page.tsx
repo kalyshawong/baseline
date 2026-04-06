@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { generateInsights } from "@/lib/insights";
@@ -9,6 +10,8 @@ import { EnvCard } from "@/components/mind/env-card";
 import { NutritionInput } from "@/components/mind/nutrition-input";
 import { MacroSummary } from "@/components/dashboard/macro-summary";
 import { NutritionLog } from "@/components/mind/nutrition-log";
+import { DateNav } from "@/components/date-nav";
+import { getDateFromParams } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -19,16 +22,25 @@ const statusColors: Record<string, string> = {
   analyzed: "bg-purple-500/20 text-purple-400",
 };
 
-export default async function MindPage() {
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+export default async function MindPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const viewDate = getDateFromParams(params);
+  const viewDateStr = viewDate.toISOString().split("T")[0];
+
+  // Date range for tags: start/end of the viewed day
+  const dayStart = viewDate;
+  const dayEnd = new Date(viewDate.getTime() + 24 * 60 * 60 * 1000);
 
   const [
     experiments,
-    recentTags,
-    todayReadiness,
-    todaySleep,
-    todayStress,
+    dayTags,
+    dayReadiness,
+    daySleep,
+    dayStress,
     cyclePhase,
     latestEnv,
     insights,
@@ -39,21 +51,24 @@ export default async function MindPage() {
       orderBy: { updatedAt: "desc" },
     }),
     prisma.activityTag.findMany({
+      where: { timestamp: { gte: dayStart, lt: dayEnd } },
       orderBy: { timestamp: "desc" },
-      take: 20,
       include: { experiment: { select: { id: true, title: true } } },
     }),
-    prisma.dailyReadiness.findUnique({ where: { day: today } }),
+    prisma.dailyReadiness.findFirst({
+      where: { day: { lte: viewDate } },
+      orderBy: { day: "desc" },
+    }),
     prisma.dailySleep.findFirst({
-      where: { day: { lte: today }, totalSleepDuration: { not: null } },
+      where: { day: { lte: viewDate }, totalSleepDuration: { not: null } },
       orderBy: { day: "desc" },
     }),
     prisma.dailyStress.findFirst({
-      where: { day: { lte: today }, daySummary: { not: null } },
+      where: { day: { lte: viewDate }, daySummary: { not: null } },
       orderBy: { day: "desc" },
     }),
     prisma.cyclePhaseLog.findFirst({
-      where: { day: { lte: today } },
+      where: { day: { lte: viewDate } },
       orderBy: { day: "desc" },
     }),
     prisma.envReading.findFirst({
@@ -61,8 +76,8 @@ export default async function MindPage() {
     }),
     generateInsights(),
     prisma.nutritionLog.findUnique({
-      where: { day: today },
-      include: { entries: true },
+      where: { day: viewDate },
+      include: { entries: { orderBy: { eatenAt: "asc" } } },
     }),
   ]);
 
@@ -71,23 +86,28 @@ export default async function MindPage() {
 
   return (
     <div className="space-y-6">
-      {/* Today's Oura + Cycle Context */}
+      {/* Date Navigation */}
+      <Suspense>
+        <DateNav basePath="/mind" />
+      </Suspense>
+
+      {/* Oura + Cycle Context */}
       <TodayContext
         data={{
-          readinessScore: todayReadiness?.score ?? null,
-          sleepScore: todaySleep?.score ?? null,
-          totalSleep: todaySleep?.totalSleepDuration ?? null,
-          averageHrv: todaySleep?.averageHrv ?? null,
-          stressSummary: todayStress?.daySummary ?? null,
+          readinessScore: dayReadiness?.score ?? null,
+          sleepScore: daySleep?.score ?? null,
+          totalSleep: daySleep?.totalSleepDuration ?? null,
+          averageHrv: daySleep?.averageHrv ?? null,
+          stressSummary: dayStress?.daySummary ?? null,
           cyclePhase: cyclePhase?.phase ?? null,
         }}
       />
 
-      {/* Quick Tag */}
-      <QuickTag />
+      {/* Quick Tag — pass the viewed date */}
+      <QuickTag dateStr={viewDateStr} />
 
-      {/* Nutrition */}
-      <NutritionInput />
+      {/* Nutrition — pass the viewed date */}
+      <NutritionInput dateStr={viewDateStr} />
       <MacroSummary
         data={
           nutritionLog
@@ -215,9 +235,9 @@ export default async function MindPage() {
         }
       />
 
-      {/* Recent Tags */}
+      {/* Day's Tags */}
       <TagTimeline
-        tags={recentTags.map((t) => ({
+        tags={dayTags.map((t) => ({
           id: t.id,
           tag: t.tag,
           category: t.category,

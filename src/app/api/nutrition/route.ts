@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { estimateMacros } from "@/lib/usda";
 
 export async function POST(request: NextRequest) {
-  const { text, mealType, eatenAt } = await request.json();
+  const { text, mealType, eatenAt, date } = await request.json();
 
   if (!text || typeof text !== "string") {
     return NextResponse.json({ error: "text is required" }, { status: 400 });
@@ -16,15 +16,21 @@ export async function POST(request: NextRequest) {
   // Estimate macros from plain text via Claude
   const estimates = await estimateMacros(text);
 
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  // Use provided date or derive from eatenAt time
+  let logDay: Date;
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    logDay = new Date(date + "T00:00:00.000Z");
+  } else {
+    const now = new Date();
+    logDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  }
 
-  // Upsert today's NutritionLog
-  let log = await prisma.nutritionLog.findUnique({ where: { day: today } });
+  // Upsert day's NutritionLog
+  let log = await prisma.nutritionLog.findUnique({ where: { day: logDay } });
 
   if (!log) {
     log = await prisma.nutritionLog.create({
-      data: { day: today, calories: 0, protein: 0, carbs: 0, fat: 0 },
+      data: { day: logDay, calories: 0, protein: 0, carbs: 0, fat: 0 },
     });
   }
 
