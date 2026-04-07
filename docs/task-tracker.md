@@ -310,14 +310,14 @@
 - [x] BUG-006: Coach context — `Promise.allSettled`, `?.` on nested access, fallback context
 - [x] BUG-007: Workout trends — confirmed single query with `include`, added 13-week cap
 
-### High (6) — Fix before shipping to others
+### High (6) — All FIXED
 
-- [ ] BUG-008: UTC date shows wrong day in non-UTC timezones
-- [ ] BUG-009: No error feedback in 8+ client components
-- [ ] BUG-010: Cycle phase optimistic update doesn't revert on failure
-- [ ] BUG-011: Missing input validation on workout set data
-- [ ] BUG-012: Missing input validation on weight logging
-- [ ] BUG-013: Training utility functions have no input validation
+- [x] BUG-008: UTC date shows wrong day in non-UTC timezones
+- [x] BUG-009: No error feedback in 8+ client components
+- [x] BUG-010: Cycle phase optimistic update doesn't revert on failure
+- [x] BUG-011: Missing input validation on workout set data
+- [x] BUG-012: Missing input validation on weight logging
+- [x] BUG-013: Training utility functions have no input validation
 
 ### Medium (10) + Low (7) — See bugs.md
 
