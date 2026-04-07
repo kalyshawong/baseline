@@ -237,6 +237,26 @@
 
 ---
 
+## HealthKit / Apple Watch Integration — Done
+
+*Via Health Auto Export iOS app ($4.99)*
+
+- [x] Prisma models: HealthKitSync, HealthKitWorkout, HeartRateZoneSummary
+- [x] POST /api/healthkit-sync — webhook endpoint for Health Auto Export
+  - Bearer auth via HEALTHKIT_SYNC_KEY
+  - Processes metrics (heart rate, resting HR, steps, active energy, weight, body fat)
+  - Processes workouts (name, duration, calories, distance, HR zones)
+  - Processes cycle tracking (menstrual flow → CyclePhaseLog with source="healthkit")
+  - Per-section error tracking, partial/failed status logging
+  - Manual entries take priority over HealthKit for cycle phase
+- [x] GET /api/healthkit-sync — sync history
+- [x] GET /api/workouts/apple-watch — list Apple Watch workouts
+- [x] HealthKit status card on dashboard (last sync, today's workout summary)
+- [x] Coach context enriched with Apple Watch workout data + cycle source
+- [x] HEALTHKIT_SYNC_KEY added to .env.example
+
+---
+
 ## Phase 2c — Arduino IMU (Not Started)
 
 *See `arduino-build-guide.md` for hardware details*

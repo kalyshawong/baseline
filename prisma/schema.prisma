@@ -300,6 +300,47 @@ model WeightLog {
   updatedAt    DateTime @updatedAt
 }
 
+// --- HealthKit / Apple Watch ---
+
+model HealthKitSync {
+  id       String   @id @default(cuid())
+  syncedAt DateTime @default(now())
+  source   String   @default("health-auto-export")
+  status   String   // success | partial | failed
+  details  String?
+  metrics  Int      @default(0)
+  workouts Int      @default(0)
+}
+
+model HealthKitWorkout {
+  id              String   @id @default(cuid())
+  externalId      String   @unique
+  name            String
+  startedAt       DateTime
+  endedAt         DateTime
+  durationSeconds Int
+  activeCalories  Float?
+  distance        Float?
+  distanceUnit    String?
+  avgHeartRate    Int?
+  maxHeartRate    Int?
+  minHeartRate    Int?
+  source          String   @default("apple-watch")
+  createdAt       DateTime @default(now())
+}
+
+model HeartRateZoneSummary {
+  id           String   @id @default(cuid())
+  workoutId    String?
+  date         DateTime
+  zone1Minutes Float    @default(0) // <60% max HR (recovery)
+  zone2Minutes Float    @default(0) // 60-70% (fat burn)
+  zone3Minutes Float    @default(0) // 70-80% (cardio)
+  zone4Minutes Float    @default(0) // 80-90% (threshold)
+  zone5Minutes Float    @default(0) // 90%+ (peak)
+  createdAt    DateTime @default(now())
+}
+
 model EnvReading {
   id          String   @id @default(cuid())
   deviceId    String   @default("env-sensor-bedroom")

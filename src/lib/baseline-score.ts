@@ -165,10 +165,8 @@ function utcDaysAgo(from: Date, n: number): Date {
 export async function getScoreForDate(forDate?: Date): Promise<BaselineScore | null> {
   const today = forDate ?? utcToday();
 
-  // Use most recent readiness (handles timezone edge cases and missing today's sync)
-  const readiness = await prisma.dailyReadiness.findFirst({
-    where: { day: { lte: today } },
-    orderBy: { day: "desc" },
+  const readiness = await prisma.dailyReadiness.findUnique({
+    where: { day: today },
   });
 
   if (!readiness) return null;

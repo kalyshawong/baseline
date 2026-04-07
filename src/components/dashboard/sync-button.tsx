@@ -15,9 +15,14 @@ export function SyncButton() {
         const res = await fetch("/api/sync", { method: "POST" });
         const data = await res.json();
         if (data.success) {
-          setResult(
-            `Synced: ${data.synced.readiness}r ${data.synced.sleep}s ${data.synced.stress}st ${data.synced.heartrate}hr ${data.synced.activity ?? 0}a`
-          );
+          const s = data.synced;
+          const parts = [];
+          if (s.readiness) parts.push(`${s.readiness} readiness`);
+          if (s.sleep) parts.push(`${s.sleep} sleep`);
+          if (s.stress) parts.push(`${s.stress} stress`);
+          if (s.activity) parts.push(`${s.activity} activity`);
+          if (s.heartrate) parts.push(`${s.heartrate} HR samples`);
+          setResult(parts.length > 0 ? `Synced: ${parts.join(", ")}` : "Synced (no new data)");
           router.refresh();
         } else {
           setResult(`Error: ${data.error}`);

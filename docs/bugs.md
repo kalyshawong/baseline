@@ -220,10 +220,10 @@
 | Low | 7 | All open — nice to fix |
 | **Total** | **30** | |
 
-**Next priority fixes (criticals complete):**
-1. BUG-008 (timezone standardization) — affects data accuracy for all daily views
-2. BUG-009 (error feedback in client components) — users can't tell when saves fail
-3. BUG-011 (workout set validation) — garbage data corrupts progressive overload tracking
-4. BUG-013 (training utility input guards) — runtime crashes from null/undefined inputs
-5. BUG-012 (weight log validation) — negative/extreme values break TDEE calculation
-6. BUG-010 (cycle phase optimistic revert) — UI/DB state desync
+**Next priority fixes (critical + high all complete):**
+1. BUG-014 (pagination) — tags/insights/experiments will slow down at scale
+2. BUG-019 (experiment state machine) — can skip from draft to analyzed
+3. BUG-022 (duplicate exercise names) — unique constraint crash not handled
+4. BUG-023 (nutrition fallback) — Claude API failure breaks nutrition logging entirely
+5. BUG-015 (timer cleanup) — memory leak if navigating away mid-workout
+6. BUG-018 (model string env var) — hardcoded Claude model makes upgrades painful

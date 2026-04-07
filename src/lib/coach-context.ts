@@ -97,6 +97,11 @@ export async function buildCoachContext(): Promise<string> {
       where: { status: "active" },
       orderBy: { deadline: "asc" },
     }),
+    // HealthKit / Apple Watch
+    prisma.healthKitWorkout.findMany({
+      where: { startedAt: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) } },
+      orderBy: { startedAt: "desc" },
+    }),
   ]);
 
   const score = val(results[0], null);
@@ -121,6 +126,8 @@ export async function buildCoachContext(): Promise<string> {
   const activeExperiments = val(results[12], []) as any[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const goals = val(results[13], []) as any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const appleWatchWorkouts = val(results[14], []) as any[];
 
   // ---- Build context sections ----
   const lines: string[] = [];
@@ -346,6 +353,27 @@ export async function buildCoachContext(): Promise<string> {
       lines.push(`- [${g.type}] ${g.title}${g.target ? ` → ${g.target}` : ""}${deadline}${daysUntil}`);
       if (g.notes) lines.push(`  notes: ${g.notes}`);
     }
+    lines.push("");
+  }
+
+  // Apple Watch workouts (last 7 days)
+  if (appleWatchWorkouts.length > 0) {
+    lines.push("## Apple Watch Workouts (7 days)");
+    for (const w of appleWatchWorkouts.slice(0, 7)) {
+      const dur = Math.round((w.durationSeconds ?? 0) / 60);
+      const hr = w.avgHeartRate ? ` avg ${w.avgHeartRate} bpm` : "";
+      const cal = w.activeCalories ? ` ${Math.round(w.activeCalories)} cal` : "";
+      const dist = w.distance ? ` ${w.distance.toFixed(1)} ${w.distanceUnit ?? "km"}` : "";
+      lines.push(`- ${w.name}: ${dur}min${cal}${hr}${dist}`);
+    }
+    lines.push(`- Total: ${appleWatchWorkouts.length} workouts this week`);
+    lines.push("");
+  }
+
+  // Cycle phase source
+  if (phaseLog) {
+    const src = phaseLog.source === "healthkit" ? "auto-synced from Apple Health" : "manually logged";
+    lines.push(`Cycle phase source: ${src}`);
     lines.push("");
   }
 

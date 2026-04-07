@@ -16,6 +16,7 @@ import { WeightGoalSettings } from "@/components/weight/weight-goal-settings";
 import { TdeeCard } from "@/components/weight/tdee-card";
 import { ActivityCard } from "@/components/dashboard/activity-card";
 import { CalorieBalanceCard } from "@/components/dashboard/calorie-balance-card";
+import { HealthKitStatus } from "@/components/dashboard/healthkit-status";
 import {
   totalDailyEnergyExpenditure,
   goalCalories,
@@ -57,7 +58,9 @@ export default async function Dashboard({
   let nutritionLog: { calories: number; protein: number; carbs: number; fat: number; entries: unknown[] } | null = null;
   let weightLogs: Array<{ day: Date; weightKg: number; bodyFatPct: number | null }> = [];
   let profile: Awaited<ReturnType<typeof prisma.userProfile.findUnique>> = null;
-  let dayActivity: Awaited<ReturnType<typeof prisma.dailyActivity.findFirst>> = null;
+  let dayActivity: Awaited<ReturnType<typeof prisma.dailyActivity.findUnique>> = null;
+  let lastHkSync: Awaited<ReturnType<typeof prisma.healthKitSync.findFirst>> = null;
+  let todayHkWorkout: Awaited<ReturnType<typeof prisma.healthKitWorkout.findFirst>> = null;
 
   try {
     const token = await prisma.ouraToken.findFirst();
@@ -67,27 +70,15 @@ export default async function Dashboard({
       await Promise.all([
         getScoreForDate(viewDate),
         getWeekSnapshots(viewDate),
-        prisma.dailyReadiness.findFirst({
-          where: { day: { lte: viewDate } },
-          orderBy: { day: "desc" },
-        }),
+        prisma.dailyReadiness.findUnique({ where: { day: viewDate } }),
         prisma.syncLog.findFirst({ orderBy: { syncDate: "desc" } }),
-        prisma.dailySleep.findFirst({
-          where: { day: { lte: viewDate }, totalSleepDuration: { not: null } },
-          orderBy: { day: "desc" },
-        }),
-        prisma.dailyStress.findFirst({
-          where: { day: { lte: viewDate }, daySummary: { not: null } },
-          orderBy: { day: "desc" },
-        }),
+        prisma.dailySleep.findUnique({ where: { day: viewDate } }),
+        prisma.dailyStress.findUnique({ where: { day: viewDate } }),
         prisma.nutritionLog.findUnique({
           where: { day: viewDate },
           include: { entries: true },
         }),
-        prisma.dailyActivity.findFirst({
-          where: { day: { lte: viewDate } },
-          orderBy: { day: "desc" },
-        }),
+        prisma.dailyActivity.findUnique({ where: { day: viewDate } }),
       ]);
 
     const phaseLog = await prisma.cyclePhaseLog.findFirst({
@@ -105,6 +96,17 @@ export default async function Dashboard({
         orderBy: { day: "asc" },
       }),
       prisma.userProfile.findUnique({ where: { id: 1 } }),
+    ]);
+
+    // HealthKit data
+    const viewDayStart = viewDate;
+    const viewDayEnd = new Date(viewDate.getTime() + 24 * 60 * 60 * 1000);
+    [lastHkSync, todayHkWorkout] = await Promise.all([
+      prisma.healthKitSync.findFirst({ orderBy: { syncedAt: "desc" } }),
+      prisma.healthKitWorkout.findFirst({
+        where: { startedAt: { gte: viewDayStart, lt: viewDayEnd } },
+        orderBy: { startedAt: "desc" },
+      }),
     ]);
   } catch {
     // DB not connected yet — show empty state
@@ -202,18 +204,26 @@ export default async function Dashboard({
         />
         <MetricCard
           label="Sleep"
-          value={daySleep ? formatDuration(daySleep.totalSleepDuration) : null}
+          value={
+            daySleep
+              ? daySleep.totalSleepDuration
+                ? formatDuration(daySleep.totalSleepDuration)
+                : `Score: ${daySleep.score}`
+              : null
+          }
           detail={
             daySleep?.sleepEfficiency
               ? `${daySleep.sleepEfficiency}% efficiency`
-              : undefined
+              : daySleep && !daySleep.totalSleepDuration
+                ? "Details pending"
+                : undefined
           }
         />
         <MetricCard
           label="HRV"
           value={daySleep?.averageHrv ?? null}
           unit="ms"
-          detail="Avg overnight"
+          detail={daySleep && !daySleep.averageHrv ? "Details pending" : "Avg overnight"}
         />
         <MetricCard
           label="Stress"
@@ -221,12 +231,16 @@ export default async function Dashboard({
             dayStress?.daySummary
               ? dayStress.daySummary.charAt(0).toUpperCase() +
                 dayStress.daySummary.slice(1)
-              : null
+              : dayStress?.stressHigh != null
+                ? `${Math.round(dayStress.stressHigh / 60)}m high`
+                : null
           }
           detail={
-            dayStress?.recoveryHigh
+            dayStress?.recoveryHigh != null
               ? `${Math.round(dayStress.recoveryHigh / 60)}m recovery`
-              : undefined
+              : dayStress && !dayStress.daySummary
+                ? "Summary pending"
+                : undefined
           }
         />
       </div>
@@ -251,6 +265,26 @@ export default async function Dashboard({
           caloriesOut={dayActivity?.totalCalories ?? null}
           goal={profile?.goal ?? null}
           goalCals={goalCals}
+        />
+        <HealthKitStatus
+          data={{
+            lastSync: lastHkSync
+              ? {
+                  syncedAt: lastHkSync.syncedAt.toISOString(),
+                  status: lastHkSync.status,
+                  details: lastHkSync.details,
+                }
+              : null,
+            todayWorkout: todayHkWorkout
+              ? {
+                  name: todayHkWorkout.name,
+                  durationSeconds: todayHkWorkout.durationSeconds,
+                  activeCalories: todayHkWorkout.activeCalories,
+                  avgHeartRate: todayHkWorkout.avgHeartRate,
+                  maxHeartRate: todayHkWorkout.maxHeartRate,
+                }
+              : null,
+          }}
         />
       </div>
 

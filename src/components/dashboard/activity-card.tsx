@@ -18,7 +18,7 @@ export function ActivityCard({ data }: { data: ActivityData | null }) {
     return (
       <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 text-center text-sm text-[var(--color-text-muted)]">
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider">Activity</h2>
-        <p>No activity data for this day. Sync Oura to see totals.</p>
+        <p>Activity data not available yet — Oura publishes daily totals at end of day.</p>
       </div>
     );
   }
