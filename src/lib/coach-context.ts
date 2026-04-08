@@ -102,6 +102,27 @@ export async function buildCoachContext(): Promise<string> {
       where: { startedAt: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) } },
       orderBy: { startedAt: "desc" },
     }),
+    // Oura Expansion
+    prisma.dailySpO2.findMany({
+      where: { day: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) } },
+      orderBy: { day: "desc" },
+    }),
+    prisma.dailyResilience.findMany({
+      where: { day: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) } },
+      orderBy: { day: "desc" },
+    }),
+    prisma.dailyVO2Max.findMany({
+      where: { day: { gte: new Date(Date.now() - 30 * 24 * 3600 * 1000) } },
+      orderBy: { day: "desc" },
+      take: 10,
+    }),
+    prisma.ouraSession.findMany({
+      where: { day: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) } },
+      orderBy: { startedAt: "desc" },
+    }),
+    prisma.sleepTimeRecommendation.findFirst({
+      orderBy: { day: "desc" },
+    }),
   ]);
 
   const score = val(results[0], null);
@@ -128,6 +149,14 @@ export async function buildCoachContext(): Promise<string> {
   const goals = val(results[13], []) as any[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const appleWatchWorkouts = val(results[14], []) as any[];
+  // Oura Expansion
+  const spo2Data = val(results[15], []) as Array<{ day: Date; avgSpO2: number | null }>;
+  const resilienceData = val(results[16], []) as Array<{ day: Date; level: string; sleepRecovery: number | null; daytimeRecovery: number | null; stress: number | null }>;
+  const vo2MaxData = val(results[17], []) as Array<{ day: Date; vo2Max: number | null }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sessionsData = val(results[18], []) as any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bedtimeRec = val(results[19], null) as any;
 
   // ---- Build context sections ----
   const lines: string[] = [];
@@ -367,6 +396,69 @@ export async function buildCoachContext(): Promise<string> {
       lines.push(`- ${w.name}: ${dur}min${cal}${hr}${dist}`);
     }
     lines.push(`- Total: ${appleWatchWorkouts.length} workouts this week`);
+    lines.push("");
+  }
+
+  // SpO2 (last 7 days)
+  if (spo2Data.length > 0) {
+    lines.push("## SpO2 (Last 7 Days)");
+    for (const s of spo2Data) {
+      const flag = s.avgSpO2 != null && s.avgSpO2 < 95 ? " ⚠ LOW" : "";
+      lines.push(`- ${s.day.toLocaleDateString("en-US", { month: "short", day: "numeric" })}: ${s.avgSpO2 ?? "—"}%${flag}`);
+    }
+    lines.push("");
+  }
+
+  // Resilience (last 7 days)
+  if (resilienceData.length > 0) {
+    lines.push("## Resilience (Last 7 Days)");
+    for (const r of resilienceData) {
+      lines.push(`- ${r.day.toLocaleDateString("en-US", { month: "short", day: "numeric" })}: ${r.level} (sleep_recovery: ${r.sleepRecovery ?? "—"}, daytime_recovery: ${r.daytimeRecovery ?? "—"}, stress: ${r.stress ?? "—"})`);
+    }
+    lines.push("");
+  }
+
+  // VO2 Max trend (last 30 days)
+  if (vo2MaxData.length > 0) {
+    const latest = vo2MaxData[0];
+    const oldest = vo2MaxData[vo2MaxData.length - 1];
+    const delta = latest.vo2Max != null && oldest.vo2Max != null
+      ? (latest.vo2Max - oldest.vo2Max).toFixed(1)
+      : null;
+    lines.push("## VO2 Max Trend (Last 30 Days)");
+    lines.push(`- Latest: ${latest.vo2Max ?? "—"} mL/kg/min${delta ? ` | 30-day change: ${Number(delta) >= 0 ? "+" : ""}${delta}` : ""}`);
+    lines.push("");
+  }
+
+  // Recent sessions (meditation, breathing, naps)
+  if (sessionsData.length > 0) {
+    lines.push("## Recent Sessions");
+    for (const s of sessionsData.slice(0, 5)) {
+      const dur = Math.round((s.durationSeconds ?? 0) / 60);
+      const hr = s.avgHeartRate ? ` avg HR ${Math.round(s.avgHeartRate)}` : "";
+      const hrv = s.avgHrv ? ` avg HRV ${Math.round(s.avgHrv)}ms` : "";
+      lines.push(`- ${s.day.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${s.type}: ${dur}min${hr}${hrv}`);
+    }
+    lines.push("");
+  }
+
+  // Bedtime recommendation
+  if (bedtimeRec) {
+    const formatOffset = (offset: number) => {
+      const totalMin = Math.round(offset / 60);
+      const absMins = Math.abs(totalMin);
+      const h = Math.floor(absMins / 60);
+      const m = absMins % 60;
+      if (totalMin < 0) {
+        return `${12 - h - (m > 0 ? 1 : 0)}:${m > 0 ? (60 - m).toString().padStart(2, "0") : "00"} PM`;
+      }
+      return `${12 + h}:${m.toString().padStart(2, "0")} AM`;
+    };
+    lines.push("## Bedtime Recommendation");
+    if (bedtimeRec.optimalBedtimeStart != null && bedtimeRec.optimalBedtimeEnd != null) {
+      lines.push(`- Oura recommends: ${formatOffset(bedtimeRec.optimalBedtimeStart)}–${formatOffset(bedtimeRec.optimalBedtimeEnd)}`);
+    }
+    if (bedtimeRec.recommendation) lines.push(`- Status: ${bedtimeRec.recommendation}`);
     lines.push("");
   }
 

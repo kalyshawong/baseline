@@ -142,6 +142,8 @@ model ActivityTag {
   metadata     String?     // JSON string for flexible extra data
   experimentId String?
   experiment   Experiment? @relation(fields: [experimentId], references: [id])
+  ouraTagId    String?     @unique // Oura enhanced_tag ID for dedup
+  source       String      @default("manual") // manual | oura | healthkit
   createdAt    DateTime    @default(now())
 }
 
@@ -339,6 +341,74 @@ model HeartRateZoneSummary {
   zone4Minutes Float    @default(0) // 80-90% (threshold)
   zone5Minutes Float    @default(0) // 90%+ (peak)
   createdAt    DateTime @default(now())
+}
+
+// --- Oura Expansion ---
+
+model DailySpO2 {
+  id        String   @id
+  day       DateTime @unique
+  avgSpO2   Float?
+  createdAt DateTime @default(now())
+}
+
+model OuraWorkout {
+  id              String   @id
+  day             DateTime
+  activity        String   // cycling, running, strength_training, etc.
+  calories        Float?
+  distance        Float?   // meters
+  intensity       String?  // easy | moderate | hard
+  label           String?
+  source          String?  // manual | autodetected | apple_health
+  startedAt       DateTime
+  endedAt         DateTime
+  durationSeconds Int
+  createdAt       DateTime @default(now())
+
+  @@index([day])
+}
+
+model OuraSession {
+  id              String   @id
+  day             DateTime
+  type            String   // breathing | meditation | nap | relaxation | rest | body_status
+  startedAt       DateTime
+  endedAt         DateTime
+  durationSeconds Int
+  avgHeartRate    Float?
+  avgHrv          Float?
+  mood            String?
+  createdAt       DateTime @default(now())
+
+  @@index([day])
+}
+
+model SleepTimeRecommendation {
+  id                  String   @id
+  day                 DateTime @unique
+  optimalBedtimeStart Int?     // seconds from midnight (negative = before midnight)
+  optimalBedtimeEnd   Int?
+  recommendation      String?  // improve_efficiency | earlier_bedtime | later_bedtime | follow_optimal_bedtime
+  status              String?  // not_enough_nights | optimal_found | etc.
+  createdAt           DateTime @default(now())
+}
+
+model DailyResilience {
+  id              String   @id
+  day             DateTime @unique
+  level           String   // limited | adequate | solid | strong | exceptional
+  sleepRecovery   Int?     // 0-100
+  daytimeRecovery Int?     // 0-100
+  stress          Int?     // 0-100
+  createdAt       DateTime @default(now())
+}
+
+model DailyVO2Max {
+  id        String   @id
+  day       DateTime @unique
+  vo2Max    Float?   // mL/kg/min
+  createdAt DateTime @default(now())
 }
 
 model EnvReading {

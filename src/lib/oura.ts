@@ -3,6 +3,13 @@ import { prisma } from "./db";
 const OURA_API_BASE = "https://api.ouraring.com/v2/usercollection";
 const OURA_TOKEN_URL = "https://api.ouraring.com/oauth/token";
 
+export class OuraScopeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OuraScopeError";
+  }
+}
+
 interface TokenResponse {
   access_token: string;
   refresh_token: string;
@@ -95,6 +102,10 @@ export async function ouraFetch<T>(
       });
       if (!retry.ok) throw new Error(`Oura API error: ${retry.status}`);
       return retry.json();
+    }
+
+    if (res.status === 403) {
+      throw new OuraScopeError(`Oura ${endpoint}: 403 — scope not granted. User needs to re-authenticate.`);
     }
 
     if (res.status === 429) {

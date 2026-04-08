@@ -257,6 +257,38 @@
 
 ---
 
+## Oura Sync Expansion — Data Ingestion Done
+
+*See `oura-sync-expansion-spec.md` for full specification*
+
+### New Endpoints — Done
+
+- [x] Prisma models: DailySpO2, OuraWorkout, OuraSession, SleepTimeRecommendation, DailyResilience, DailyVO2Max
+- [x] ActivityTag model: add `ouraTagId` and `source` fields
+- [x] Prisma migration (db push)
+- [x] syncSpO2() — blood oxygen during sleep
+- [x] syncEnhancedTags() — Oura user tags → ActivityTag (correlation engine)
+- [x] syncOuraWorkouts() — Oura-native workouts (skip Apple Health source)
+- [x] syncSessions() — meditation, breathing, naps with HR/HRV
+- [x] syncSleepTime() — bedtime recommendations
+- [x] syncResilience() — longitudinal recovery capacity
+- [x] syncVO2Max() — aerobic capacity trend
+- [x] syncPersonalInfo() — auto-populate UserProfile on first connect
+- [x] Handle 403 scope errors with reauth flag (OuraScopeError class)
+- [x] Update OAuth scope string (add spo2, workout, session, personal)
+- [x] Update coach-context.ts with new data sections (SpO2, resilience, VO2 max, sessions, bedtime rec)
+- [x] Update SyncLog to include new endpoint counts
+
+### Dashboard Components — Not Started
+
+- [ ] SpO2 trend card
+- [ ] Resilience card
+- [ ] VO2 Max trend card
+- [ ] Bedtime recommendation card
+- [ ] Sessions summary (meditation/breathing)
+
+---
+
 ## Phase 2c — Arduino IMU (Not Started)
 
 *See `arduino-build-guide.md` for hardware details*
