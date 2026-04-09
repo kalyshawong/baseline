@@ -275,17 +275,32 @@
 - [x] syncVO2Max() — aerobic capacity trend
 - [x] syncPersonalInfo() — auto-populate UserProfile on first connect
 - [x] Handle 403 scope errors with reauth flag (OuraScopeError class)
-- [x] Update OAuth scope string (add spo2, workout, session, personal)
+- [x] Update OAuth scope string (add spo2, workout, session, personal, tag, stress)
 - [x] Update coach-context.ts with new data sections (SpO2, resilience, VO2 max, sessions, bedtime rec)
 - [x] Update SyncLog to include new endpoint counts
+- [x] Update sync-button.tsx to show all 12 endpoint counts
+
+### Known Scope Issues
+
+- Enhanced Tags: requires `tag` scope — added to OAuth, needs re-auth
+- Resilience: requires `stress` scope — added to OAuth, needs re-auth
+- VO2 Max: 404 — may not be available for ring model/subscription
 
 ### Dashboard Components — Not Started
 
-- [ ] SpO2 trend card
-- [ ] Resilience card
-- [ ] VO2 Max trend card
-- [ ] Bedtime recommendation card
-- [ ] Sessions summary (meditation/breathing)
+*See `oura-dashboard-spec.md` for full frontend specification*
+
+- [ ] SpO2 MetricCard in top grid
+- [ ] Resilience MetricCard in top grid
+- [ ] VO2 Max card (Biometrics section)
+- [ ] Bedtime recommendation card (Biometrics section)
+- [ ] Sessions section (meditation/breathing/naps)
+
+### Health Auto Export Fixes — Done
+
+- [x] Fixed weight conversion (lbs → kg)
+- [x] Fixed 401 auth on Health Metrics automation (Bearer prefix)
+- [x] Confirmed metric names: weight_body_mass, body_fat_percentage, body_mass_index
 
 ---
 

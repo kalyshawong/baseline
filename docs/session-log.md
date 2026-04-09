@@ -2,6 +2,79 @@
 
 ---
 
+## Session: 2026-04-09 — Oura Sync Expansion + Health Auto Export Debugging
+
+### What was done
+
+**Oura Sync Expansion Spec:**
+- Wrote `docs/oura-sync-expansion-spec.md` (~700 lines) covering 8 new Oura API V2 endpoints: SpO2, Enhanced Tags, Workouts, Sessions, Sleep Time, Resilience, VO2 Max, Personal Info
+- Includes Prisma models, TAG_MAP for Enhanced Tags → ActivityTag mapping, Coach context enrichment, implementation prompt
+- Updated `docs/task-tracker.md` with Oura Sync Expansion section
+
+**Implementation (done in Claude Code session):**
+- All 7 new sync functions added to `src/lib/sync.ts`
+- 6 new Prisma models created and migrated
+- OAuth scopes updated to include `tag` and `stress`
+- Sync button updated to show all 12 endpoint counts
+
+**Health Auto Export Debugging:**
+- Fixed 401 errors: user had auth header set to "baseline" instead of "Bearer baseline" on some automations
+- Discovered metric names via console.log debugging: `weight_body_mass`, `body_fat_percentage`, `body_mass_index`
+- Fixed weight conversion bug: Health Auto Export sends weight in lbs, code was storing as kg (275.1 lb displayed instead of 124.8 lb)
+- Confirmed BMI is silently dropped (not needed — Baseline calculates from weight/height)
+
+**Oura Scope Issues Diagnosed:**
+- Enhanced Tags returning 401: token missing `tag` scope
+- Resilience returning 401: token missing `stress` scope
+- VO2 Max returning 404: endpoint may not exist for user's ring model/subscription
+- Fixed by adding `tag` and `stress` to OAuth scope string in both auth routes
+- User needs to re-authenticate at `/api/auth/oura` to get new scopes
+
+**Dashboard Spec:**
+- Wrote `docs/oura-dashboard-spec.md` — frontend spec for displaying new Oura data
+- Covers: SpO2 + Resilience MetricCards, VO2 Max card, Bedtime Recommendation card, Sessions section, Sync Button update
+- Includes ASCII layout diagram, implementation prompt, testing checklist
+
+### Issues found
+- Git lock file (`.git/index.lock`) still can't be removed from sandbox — user must run git commands locally
+- VO2 Max endpoint may not be available for all Oura ring models/subscriptions
+
+### Files created/modified
+- `docs/oura-sync-expansion-spec.md` (created)
+- `docs/oura-dashboard-spec.md` (created)
+- `docs/task-tracker.md` (updated — added Oura Sync Expansion section)
+- `docs/session-log.md` (updated — this entry)
+- `src/app/api/auth/oura/route.ts` (modified — added tag, stress scopes)
+- `src/app/api/auth/oura/callback/route.ts` (modified — added tag, stress scopes)
+- `src/app/api/healthkit-sync/route.ts` (modified — weight conversion fix, debug logging)
+- `src/lib/sync.ts` (modified — scope error handling improvements)
+- `src/components/dashboard/sync-button.tsx` (modified — shows all 12 sync counts)
+
+### Next priorities
+1. Re-authenticate Oura at `/api/auth/oura` to grant tag + stress scopes
+2. Implement dashboard cards from `docs/oura-dashboard-spec.md`
+3. 17 medium/low bugs still open in `docs/bugs.md`
+4. Auto cycle phase detection
+5. Arduino environment sensor build
+
+---
+
+## Session: 2026-04-08 — HealthKit Integration + Apple Watch Setup
+
+### What was done
+- Wrote `docs/healthkit-sync-spec.md` (~600 lines) for Health Auto Export integration
+- User purchased Health Auto Export annual plan ($6.99/year)
+- Walked user through app setup: automations, URL, auth headers, data types
+- Fixed `.env` typo: `HEALTHKIT_SYNC_K EY` → `HEALTHKIT_SYNC_KEY`
+- HealthKit sync endpoint built and working (60K+ metrics syncing)
+- 3 workouts synced successfully from Apple Watch
+- Diagnosed data source overlap: Oura → Apple Health → Health Auto Export creates double counting risk
+- Advised: only pull unique Apple Watch data (workout HR, weight from scale)
+- Final setup: Health Metrics automation (weight only) + Workouts automation
+- Researched all 15 Oura API V2 endpoints, identified 10 not being synced
+
+---
+
 ## Session: 2026-04-06 — Comprehensive Code Audit & Documentation Update
 
 ### What was reviewed

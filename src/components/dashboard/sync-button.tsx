@@ -22,6 +22,13 @@ export function SyncButton() {
           if (s.stress) parts.push(`${s.stress} stress`);
           if (s.activity) parts.push(`${s.activity} activity`);
           if (s.heartrate) parts.push(`${s.heartrate} HR samples`);
+          if (s.spo2) parts.push(`${s.spo2} SpO2`);
+          if (s.tags) parts.push(`${s.tags} tags`);
+          if (s.sessions) parts.push(`${s.sessions} sessions`);
+          if (s.resilience) parts.push(`${s.resilience} resilience`);
+          if (s.vo2max) parts.push(`${s.vo2max} VO2`);
+          if (s.workouts) parts.push(`${s.workouts} workouts`);
+          if (s.sleepTime) parts.push(`${s.sleepTime} sleep time`);
           setResult(parts.length > 0 ? `Synced: ${parts.join(", ")}` : "Synced (no new data)");
           router.refresh();
         } else {

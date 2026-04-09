@@ -37,6 +37,15 @@ function formatDuration(seconds: number | null): string {
   return `${h}h ${m}m`;
 }
 
+function formatSecondsFromMidnight(seconds: number): string {
+  const totalSeconds = seconds < 0 ? 86400 + seconds : seconds;
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard({
@@ -61,12 +70,17 @@ export default async function Dashboard({
   let dayActivity: Awaited<ReturnType<typeof prisma.dailyActivity.findUnique>> = null;
   let lastHkSync: Awaited<ReturnType<typeof prisma.healthKitSync.findFirst>> = null;
   let todayHkWorkout: Awaited<ReturnType<typeof prisma.healthKitWorkout.findFirst>> = null;
+  let daySpO2: Awaited<ReturnType<typeof prisma.dailySpO2.findUnique>> = null;
+  let dayResilience: Awaited<ReturnType<typeof prisma.dailyResilience.findUnique>> = null;
+  let latestVO2Max: Awaited<ReturnType<typeof prisma.dailyVO2Max.findFirst>> = null;
+  let sleepTimeRec: Awaited<ReturnType<typeof prisma.sleepTimeRecommendation.findFirst>> = null;
+  let todaySessions: Awaited<ReturnType<typeof prisma.ouraSession.findMany>> = [];
 
   try {
     const token = await prisma.ouraToken.findFirst();
     isConnected = !!token;
 
-    [score, weekData, dayReadiness, lastSync, daySleep, dayStress, nutritionLog, dayActivity] =
+    [score, weekData, dayReadiness, lastSync, daySleep, dayStress, nutritionLog, dayActivity, daySpO2, dayResilience, latestVO2Max, sleepTimeRec, todaySessions] =
       await Promise.all([
         getScoreForDate(viewDate),
         getWeekSnapshots(viewDate),
@@ -79,6 +93,14 @@ export default async function Dashboard({
           include: { entries: true },
         }),
         prisma.dailyActivity.findUnique({ where: { day: viewDate } }),
+        prisma.dailySpO2.findUnique({ where: { day: viewDate } }),
+        prisma.dailyResilience.findUnique({ where: { day: viewDate } }),
+        prisma.dailyVO2Max.findFirst({ orderBy: { day: "desc" } }),
+        prisma.sleepTimeRecommendation.findFirst({ orderBy: { day: "desc" } }),
+        prisma.ouraSession.findMany({
+          where: { day: viewDate },
+          orderBy: { startedAt: "desc" },
+        }),
       ]);
 
     const phaseLog = await prisma.cyclePhaseLog.findFirst({
@@ -196,7 +218,7 @@ export default async function Dashboard({
       </div>
 
       {/* Metric Cards */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <MetricCard
           label="Readiness"
           value={dayReadiness?.score ?? null}
@@ -243,6 +265,29 @@ export default async function Dashboard({
                 : undefined
           }
         />
+        <MetricCard
+          label="SpO2"
+          value={daySpO2?.avgSpO2 ?? null}
+          unit="%"
+          detail={
+            daySpO2?.avgSpO2 != null && daySpO2.avgSpO2 < 95
+              ? "⚠ Below normal"
+              : "Blood oxygen"
+          }
+        />
+        <MetricCard
+          label="Resilience"
+          value={
+            dayResilience?.level
+              ? dayResilience.level.charAt(0).toUpperCase() + dayResilience.level.slice(1)
+              : null
+          }
+          detail={
+            dayResilience?.sleepRecovery != null
+              ? `Sleep: ${dayResilience.sleepRecovery}, Recovery: ${dayResilience.daytimeRecovery}, Stress: ${dayResilience.stress}`
+              : undefined
+          }
+        />
       </div>
 
       {/* Activity + Calorie Balance */}
@@ -287,6 +332,56 @@ export default async function Dashboard({
           }}
         />
       </div>
+
+      {/* Biometrics */}
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">VO2 Max</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums">
+            {latestVO2Max?.vo2Max ? `${latestVO2Max.vo2Max.toFixed(1)}` : "—"}
+            <span className="ml-1 text-sm font-normal text-[var(--color-text-muted)]">mL/kg/min</span>
+          </p>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">Aerobic capacity</p>
+        </div>
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Bedtime</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums">
+            {sleepTimeRec?.optimalBedtimeStart != null
+              ? formatSecondsFromMidnight(sleepTimeRec.optimalBedtimeStart)
+              : "—"}
+            {sleepTimeRec?.optimalBedtimeEnd != null
+              ? ` – ${formatSecondsFromMidnight(sleepTimeRec.optimalBedtimeEnd)}`
+              : ""}
+          </p>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+            {sleepTimeRec?.recommendation?.replace(/_/g, " ") ?? "Oura recommendation"}
+          </p>
+        </div>
+      </div>
+
+      {/* Sessions */}
+      {todaySessions.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+          <h2 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+            Sessions
+          </h2>
+          <div className="space-y-3">
+            {todaySessions.map((s) => (
+              <div key={s.id} className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium capitalize">{s.type.replace(/_/g, " ")}</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    {Math.round(s.durationSeconds / 60)} min
+                    {s.avgHeartRate ? ` · ${Math.round(s.avgHeartRate)} bpm` : ""}
+                    {s.avgHrv ? ` · HRV ${Math.round(s.avgHrv)}` : ""}
+                  </p>
+                </div>
+                {s.mood && <span className="text-xs text-[var(--color-text-muted)]">{s.mood}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Trend Chart */}
       <div className="mb-6">

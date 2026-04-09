@@ -712,8 +712,13 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       needsReauth = true;
     } else {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error("VO2 Max sync failed:", msg);
-      errors.push(`vo2max: ${msg}`);
+      // 404 means endpoint not available for this ring/plan — skip silently
+      if (msg.includes("404")) {
+        // VO2 Max not supported
+      } else {
+        console.error("VO2 Max sync failed:", msg);
+        errors.push(`vo2max: ${msg}`);
+      }
     }
   }
 

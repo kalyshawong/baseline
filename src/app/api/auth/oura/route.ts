@@ -10,7 +10,7 @@ export async function GET() {
       client_id: process.env.OURA_CLIENT_ID!,
       redirect_uri: process.env.OURA_REDIRECT_URI!,
       response_type: "code",
-      scope: "daily heartrate spo2 workout session personal",
+      scope: "daily heartrate spo2 workout session personal tag stress",
       state,
     });
 

@@ -134,10 +134,11 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
         for (const d of metric.data) {
           if (!d.qty || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
+          const weightKg = d.qty * 0.453592;
           await prisma.weightLog.upsert({
             where: { day },
-            update: { weightKg: d.qty },
-            create: { day, weightKg: d.qty },
+            update: { weightKg },
+            create: { day, weightKg },
           });
           count++;
         }

@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token,
           expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-          scope: "daily heartrate spo2 workout session personal",
+          scope: "daily heartrate spo2 workout session personal tag stress",
         },
       });
     } else {
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token,
           expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-          scope: "daily heartrate spo2 workout session personal",
+          scope: "daily heartrate spo2 workout session personal tag stress",
         },
       });
     }
