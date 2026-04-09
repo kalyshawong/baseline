@@ -286,21 +286,56 @@
 - Resilience: requires `stress` scope — added to OAuth, needs re-auth
 - VO2 Max: 404 — may not be available for ring model/subscription
 
-### Dashboard Components — Not Started
+### Dashboard Components — Done
 
 *See `oura-dashboard-spec.md` for full frontend specification*
 
-- [ ] SpO2 MetricCard in top grid
-- [ ] Resilience MetricCard in top grid
-- [ ] VO2 Max card (Biometrics section)
-- [ ] Bedtime recommendation card (Biometrics section)
-- [ ] Sessions section (meditation/breathing/naps)
+- [x] SpO2 MetricCard in top grid
+- [x] Resilience MetricCard in top grid
+- [x] Bedtime recommendation card
+- [x] Sessions section (meditation/breathing/naps)
+- [x] VO2 Max card moved to Body mode (training metric, not daily vital)
 
 ### Health Auto Export Fixes — Done
 
 - [x] Fixed weight conversion (lbs → kg)
 - [x] Fixed 401 auth on Health Metrics automation (Bearer prefix)
 - [x] Confirmed metric names: weight_body_mass, body_fat_percentage, body_mass_index
+
+---
+
+## Apple Watch Training Metrics — Done
+
+*See `apple-watch-training-spec.md` for full specification*
+
+### Backend — Done
+
+- [x] DailyRunningMetrics Prisma model (10 fields: running speed, power, GCT, vertical oscillation, stride length, cardio recovery, walking+running distance, respiratory rate, physical effort)
+- [x] 10 new HealthKit sync cases in `src/app/api/healthkit-sync/route.ts` (3 confirmed names + 7 placeholders)
+- [x] VO2 Max rerouted from Apple Watch instead of Oura (Oura 404)
+- [x] syncVO2Max() commented out in `src/lib/sync.ts`
+- [x] `npx prisma db push` applied
+
+### Dashboard Reorganization — Done
+
+- [x] Removed VO2 Max card from dashboard (moved to Body mode)
+- [x] Removed WeightTrendChart from dashboard (moved to Body mode)
+- [x] Removed WeightGoalSettings from dashboard (moved to Body mode)
+- [x] Dashboard retains: 6 MetricCards, Bedtime, Sessions, compact weight + TDEE, Sleep Breakdown
+
+### Body Mode Expansion — Done
+
+- [x] New RunningMetricsCard component (`src/components/body/running-metrics-card.tsx`)
+- [x] 5-section Body mode layout: Composition & Energy, Training Readiness, Running & Cardio, Strength Training, Recovery
+- [x] Full weight section moved to Body (WeightCard + WeightInput + WeightTrendChart + WeightGoalSettings + TDEE)
+- [x] Sleep Breakdown added to Body Recovery section
+- [x] Bedtime Recommendation added to Body Recovery section
+- [x] Coach context updated with Running & Cardio section
+
+### Pending — Discovery
+
+- [ ] Discover remaining Apple Watch metric names (running speed, power, GCT, vertical oscillation, stride length, VO2 Max, cardio recovery) — requires tracked outdoor run
+- [ ] Update placeholder case names in healthkit-sync once discovered
 
 ---
 

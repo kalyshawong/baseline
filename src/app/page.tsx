@@ -11,8 +11,6 @@ import { DateNav } from "@/components/date-nav";
 import { getDateFromParams } from "@/lib/date-utils";
 import { WeightCard } from "@/components/weight/weight-card";
 import { WeightInput } from "@/components/weight/weight-input";
-import { WeightTrendChart } from "@/components/weight/weight-trend-chart";
-import { WeightGoalSettings } from "@/components/weight/weight-goal-settings";
 import { TdeeCard } from "@/components/weight/tdee-card";
 import { ActivityCard } from "@/components/dashboard/activity-card";
 import { CalorieBalanceCard } from "@/components/dashboard/calorie-balance-card";
@@ -21,7 +19,6 @@ import {
   totalDailyEnergyExpenditure,
   goalCalories,
   calorieFlag,
-  movingAverage,
   weightTrendDirection,
 } from "@/lib/tdee";
 import {
@@ -72,7 +69,6 @@ export default async function Dashboard({
   let todayHkWorkout: Awaited<ReturnType<typeof prisma.healthKitWorkout.findFirst>> = null;
   let daySpO2: Awaited<ReturnType<typeof prisma.dailySpO2.findUnique>> = null;
   let dayResilience: Awaited<ReturnType<typeof prisma.dailyResilience.findUnique>> = null;
-  let latestVO2Max: Awaited<ReturnType<typeof prisma.dailyVO2Max.findFirst>> = null;
   let sleepTimeRec: Awaited<ReturnType<typeof prisma.sleepTimeRecommendation.findFirst>> = null;
   let todaySessions: Awaited<ReturnType<typeof prisma.ouraSession.findMany>> = [];
 
@@ -80,7 +76,7 @@ export default async function Dashboard({
     const token = await prisma.ouraToken.findFirst();
     isConnected = !!token;
 
-    [score, weekData, dayReadiness, lastSync, daySleep, dayStress, nutritionLog, dayActivity, daySpO2, dayResilience, latestVO2Max, sleepTimeRec, todaySessions] =
+    [score, weekData, dayReadiness, lastSync, daySleep, dayStress, nutritionLog, dayActivity, daySpO2, dayResilience, sleepTimeRec, todaySessions] =
       await Promise.all([
         getScoreForDate(viewDate),
         getWeekSnapshots(viewDate),
@@ -95,7 +91,6 @@ export default async function Dashboard({
         prisma.dailyActivity.findUnique({ where: { day: viewDate } }),
         prisma.dailySpO2.findUnique({ where: { day: viewDate } }),
         prisma.dailyResilience.findUnique({ where: { day: viewDate } }),
-        prisma.dailyVO2Max.findFirst({ orderBy: { day: "desc" } }),
         prisma.sleepTimeRecommendation.findFirst({ orderBy: { day: "desc" } }),
         prisma.ouraSession.findMany({
           where: { day: viewDate },
@@ -169,18 +164,6 @@ export default async function Dashboard({
     : profile?.activityLevel === "moderate" ? 300
     : profile?.activityLevel === "light" ? 200 : 100;
   const ea = ffm && nutritionLog ? computeEA(nutritionLog.calories, exerciseCals, ffm) : null;
-
-  // Weight trend chart data with 7-day moving avg
-  const weightChartData = movingAverage(
-    weightLogs.map((l) => ({
-      date: l.day.toISOString().split("T")[0],
-      weight: l.weightKg,
-    }))
-  ).map((p) => ({
-    date: p.date,
-    weightKg: p.weight,
-    avg: p.avg,
-  }));
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -333,16 +316,8 @@ export default async function Dashboard({
         />
       </div>
 
-      {/* Biometrics */}
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">VO2 Max</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums">
-            {latestVO2Max?.vo2Max ? `${latestVO2Max.vo2Max.toFixed(1)}` : "—"}
-            <span className="ml-1 text-sm font-normal text-[var(--color-text-muted)]">mL/kg/min</span>
-          </p>
-          <p className="mt-1 text-xs text-[var(--color-text-muted)]">Aerobic capacity</p>
-        </div>
+      {/* Bedtime Recommendation */}
+      <div className="mb-6">
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Bedtime</p>
           <p className="mt-1 text-2xl font-bold tabular-nums">
@@ -420,27 +395,6 @@ export default async function Dashboard({
           />
           <WeightInput currentUnit={unit} latestWeightKg={weightKg} />
         </div>
-        <WeightTrendChart
-          logs={weightChartData}
-          unit={unit}
-          targetWeightKg={profile?.targetWeightKg ?? null}
-        />
-        <WeightGoalSettings
-          profile={
-            profile
-              ? {
-                  bodyWeightKg: profile.bodyWeightKg,
-                  heightCm: profile.heightCm,
-                  age: profile.age,
-                  sex: profile.sex,
-                  activityLevel: profile.activityLevel,
-                  goal: profile.goal,
-                  targetWeightKg: profile.targetWeightKg,
-                  unit: profile.unit,
-                }
-              : null
-          }
-        />
         <TdeeCard
           tdee={tdee}
           goalCals={goalCals}

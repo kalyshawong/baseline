@@ -2,6 +2,55 @@
 
 ---
 
+## Session: 2026-04-09 (continued) — Dashboard Reorganization + Body Mode Expansion
+
+### What was done
+
+**Dashboard Cleanup:**
+- Removed VO2 Max card from dashboard (training metric → Body mode only)
+- Removed WeightTrendChart from dashboard (full trend → Body mode only)
+- Removed WeightGoalSettings from dashboard (profile settings → Body mode only)
+- Dashboard retains: 6 MetricCards (Readiness, Sleep, HRV, Stress, SpO2, Resilience), Bedtime recommendation, Sessions, compact weight (WeightCard + WeightInput), TDEE Card, Sleep Breakdown
+
+**New Component:**
+- Created `src/components/body/running-metrics-card.tsx` — 9-metric grid using MetricCard for all Apple Watch running data + VO2 Max, with empty state when no data
+
+**Body Mode Expansion (5 sections):**
+1. Composition & Energy: WeightCard + WeightInput + WeightTrendChart + WeightGoalSettings + TdeeCard
+2. Training Readiness: ReadinessTierCard + CyclePhaseGuidance + Fatigue Signal (existing)
+3. Running & Cardio (NEW): RunningMetricsCard with all 10 Apple Watch metrics + VO2 Max
+4. Strength Training: VolumeZones + Recent PRs + Recent Workouts (existing)
+5. Recovery (NEW): Sleep Breakdown + Bedtime Recommendation + NutritionCheck + TrendsCharts
+
+**Coach Context Update:**
+- Added `dailyRunningMetrics` query to `Promise.allSettled` in `coach-context.ts`
+- Added "Running & Cardio (Apple Watch)" section to context string with all 9 running fields
+
+**Documentation:**
+- Updated `docs/task-tracker.md` with Apple Watch Training Metrics section
+- Updated `docs/session-log.md` with this entry
+
+### Files created
+- `src/components/body/running-metrics-card.tsx`
+
+### Files modified
+- `src/app/page.tsx` — removed VO2 Max card, WeightTrendChart, WeightGoalSettings
+- `src/app/body/page.tsx` — full rewrite with 5 sections, added running/sleep/bedtime queries
+- `src/lib/coach-context.ts` — added running metrics query + context section
+- `docs/task-tracker.md`
+- `docs/session-log.md`
+
+### Verification
+- `npx tsc --noEmit` passes clean with 0 errors
+
+### Next priorities
+1. Re-authenticate Oura at `/api/auth/oura` for tag + stress scopes
+2. Do a tracked outdoor run with Apple Watch to discover remaining metric names
+3. Update placeholder metric names in healthkit-sync once discovered
+4. Commit and push all changes to GitHub
+
+---
+
 ## Session: 2026-04-09 — Oura Sync Expansion + Health Auto Export Debugging
 
 ### What was done

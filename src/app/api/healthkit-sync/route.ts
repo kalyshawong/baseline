@@ -43,6 +43,8 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
   for (const metric of metrics) {
     if (!Array.isArray(metric.data)) continue;
 
+    console.log("[HealthKit] metric name received:", metric.name);
+
     switch (metric.name) {
       case "heart_rate":
         for (const d of metric.data) {
@@ -161,6 +163,150 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
               data: { day, weightKg: 0, bodyFatPct: d.qty },
             });
           }
+          count++;
+        }
+        break;
+
+      // --- Apple Watch running & fitness metrics (via Health Auto Export) ---
+
+      case "walking_running_distance":
+        for (const d of metric.data) {
+          const val = d.Avg ?? d.qty;
+          if (!val || !d.date) continue;
+          const day = dateStrToUTC(d.date.substring(0, 10));
+          await prisma.dailyRunningMetrics.upsert({
+            where: { day },
+            update: { walkingRunningDistance: val },
+            create: { day, walkingRunningDistance: val },
+          });
+          count++;
+        }
+        break;
+
+      case "physical_effort":
+        for (const d of metric.data) {
+          const val = d.Avg ?? d.qty;
+          if (!val || !d.date) continue;
+          const day = dateStrToUTC(d.date.substring(0, 10));
+          await prisma.dailyRunningMetrics.upsert({
+            where: { day },
+            update: { physicalEffort: val },
+            create: { day, physicalEffort: val },
+          });
+          count++;
+        }
+        break;
+
+      case "respiratory_rate":
+        for (const d of metric.data) {
+          const val = d.Avg ?? d.qty;
+          if (!val || !d.date) continue;
+          const day = dateStrToUTC(d.date.substring(0, 10));
+          await prisma.dailyRunningMetrics.upsert({
+            where: { day },
+            update: { respiratoryRate: val },
+            create: { day, respiratoryRate: val },
+          });
+          count++;
+        }
+        break;
+
+      case "vo2_max":
+        for (const d of metric.data) {
+          const val = d.Avg ?? d.qty;
+          if (!val || !d.date) continue;
+          const day = dateStrToUTC(d.date.substring(0, 10));
+          await prisma.dailyVO2Max.upsert({
+            where: { day },
+            update: { vo2Max: val },
+            create: { id: `hae-vo2-${d.date.substring(0, 10)}`, day, vo2Max: val },
+          });
+          count++;
+        }
+        break;
+
+      // --- Placeholder cases: names are best guesses, update after a real run ---
+
+      case "running_speed":
+        for (const d of metric.data) {
+          const val = d.Avg ?? d.qty;
+          if (!val || !d.date) continue;
+          const day = dateStrToUTC(d.date.substring(0, 10));
+          await prisma.dailyRunningMetrics.upsert({
+            where: { day },
+            update: { runningSpeed: val },
+            create: { day, runningSpeed: val },
+          });
+          count++;
+        }
+        break;
+
+      case "running_power":
+        for (const d of metric.data) {
+          const val = d.Avg ?? d.qty;
+          if (!val || !d.date) continue;
+          const day = dateStrToUTC(d.date.substring(0, 10));
+          await prisma.dailyRunningMetrics.upsert({
+            where: { day },
+            update: { runningPower: val },
+            create: { day, runningPower: val },
+          });
+          count++;
+        }
+        break;
+
+      case "ground_contact_time":
+        for (const d of metric.data) {
+          const val = d.Avg ?? d.qty;
+          if (!val || !d.date) continue;
+          const day = dateStrToUTC(d.date.substring(0, 10));
+          await prisma.dailyRunningMetrics.upsert({
+            where: { day },
+            update: { groundContactTime: val },
+            create: { day, groundContactTime: val },
+          });
+          count++;
+        }
+        break;
+
+      case "vertical_oscillation":
+        for (const d of metric.data) {
+          const val = d.Avg ?? d.qty;
+          if (!val || !d.date) continue;
+          const day = dateStrToUTC(d.date.substring(0, 10));
+          await prisma.dailyRunningMetrics.upsert({
+            where: { day },
+            update: { verticalOscillation: val },
+            create: { day, verticalOscillation: val },
+          });
+          count++;
+        }
+        break;
+
+      case "running_stride_length":
+        for (const d of metric.data) {
+          const val = d.Avg ?? d.qty;
+          if (!val || !d.date) continue;
+          const day = dateStrToUTC(d.date.substring(0, 10));
+          await prisma.dailyRunningMetrics.upsert({
+            where: { day },
+            update: { strideLength: val },
+            create: { day, strideLength: val },
+          });
+          count++;
+        }
+        break;
+
+      case "cardio_recovery":
+        for (const d of metric.data) {
+          const val = d.Avg ?? d.qty;
+          if (!val || !d.date) continue;
+          const day = dateStrToUTC(d.date.substring(0, 10));
+          await prisma.dailyRunningMetrics.upsert({
+            where: { day },
+            update: { cardioRecovery: val },
+            create: { day, cardioRecovery: val },
+          });
           count++;
         }
         break;

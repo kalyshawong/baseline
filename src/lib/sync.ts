@@ -691,36 +691,35 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     }
   }
 
-  // Sync VO2 Max
-  try {
-    const vo2 = await ouraFetch<OuraListResponse<OuraVO2Max>>("vo2_max", params);
-    for (const v of vo2.data) {
-      await prisma.dailyVO2Max.upsert({
-        where: { id: v.id },
-        update: { vo2Max: v.vo2_max },
-        create: {
-          id: v.id,
-          day: new Date(v.day),
-          vo2Max: v.vo2_max,
-        },
-      });
-      vo2maxCount++;
-    }
-  } catch (e) {
-    if (e instanceof OuraScopeError) {
-      console.warn(e.message);
-      needsReauth = true;
-    } else {
-      const msg = e instanceof Error ? e.message : String(e);
-      // 404 means endpoint not available for this ring/plan — skip silently
-      if (msg.includes("404")) {
-        // VO2 Max not supported
-      } else {
-        console.error("VO2 Max sync failed:", msg);
-        errors.push(`vo2max: ${msg}`);
-      }
-    }
-  }
+  // VO2 Max sourced from Apple Watch via Health Auto Export, not Oura (returns 404)
+  // try {
+  //   const vo2 = await ouraFetch<OuraListResponse<OuraVO2Max>>("vo2_max", params);
+  //   for (const v of vo2.data) {
+  //     await prisma.dailyVO2Max.upsert({
+  //       where: { id: v.id },
+  //       update: { vo2Max: v.vo2_max },
+  //       create: {
+  //         id: v.id,
+  //         day: new Date(v.day),
+  //         vo2Max: v.vo2_max,
+  //       },
+  //     });
+  //     vo2maxCount++;
+  //   }
+  // } catch (e) {
+  //   if (e instanceof OuraScopeError) {
+  //     console.warn(e.message);
+  //     needsReauth = true;
+  //   } else {
+  //     const msg = e instanceof Error ? e.message : String(e);
+  //     if (msg.includes("404")) {
+  //       // VO2 Max not supported
+  //     } else {
+  //       console.error("VO2 Max sync failed:", msg);
+  //       errors.push(`vo2max: ${msg}`);
+  //     }
+  //   }
+  // }
 
   // Log sync result with accurate status
   const totalEndpoints = 12;

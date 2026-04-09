@@ -123,6 +123,11 @@ export async function buildCoachContext(): Promise<string> {
     prisma.sleepTimeRecommendation.findFirst({
       orderBy: { day: "desc" },
     }),
+    // Apple Watch running metrics
+    prisma.dailyRunningMetrics.findFirst({
+      where: { day: { lte: localToday } },
+      orderBy: { day: "desc" },
+    }),
   ]);
 
   const score = val(results[0], null);
@@ -157,6 +162,8 @@ export async function buildCoachContext(): Promise<string> {
   const sessionsData = val(results[18], []) as any[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bedtimeRec = val(results[19], null) as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const latestRunning = val(results[20], null) as any;
 
   // ---- Build context sections ----
   const lines: string[] = [];
@@ -459,6 +466,30 @@ export async function buildCoachContext(): Promise<string> {
       lines.push(`- Oura recommends: ${formatOffset(bedtimeRec.optimalBedtimeStart)}–${formatOffset(bedtimeRec.optimalBedtimeEnd)}`);
     }
     if (bedtimeRec.recommendation) lines.push(`- Status: ${bedtimeRec.recommendation}`);
+    lines.push("");
+  }
+
+  // Running & Cardio (Apple Watch)
+  if (latestRunning) {
+    lines.push("## Running & Cardio (Apple Watch)");
+    if (latestRunning.runningSpeed)
+      lines.push(`- Speed: ${latestRunning.runningSpeed.toFixed(1)} km/h`);
+    if (latestRunning.runningPower)
+      lines.push(`- Power: ${Math.round(latestRunning.runningPower)} W`);
+    if (latestRunning.groundContactTime)
+      lines.push(`- Ground contact: ${Math.round(latestRunning.groundContactTime)} ms`);
+    if (latestRunning.verticalOscillation)
+      lines.push(`- Vertical oscillation: ${latestRunning.verticalOscillation.toFixed(1)} cm`);
+    if (latestRunning.strideLength)
+      lines.push(`- Stride: ${latestRunning.strideLength.toFixed(2)} m`);
+    if (latestRunning.cardioRecovery)
+      lines.push(`- Cardio recovery: ${Math.round(latestRunning.cardioRecovery)} BPM drop`);
+    if (latestRunning.physicalEffort)
+      lines.push(`- Physical effort: ${latestRunning.physicalEffort.toFixed(1)}/10`);
+    if (latestRunning.walkingRunningDistance)
+      lines.push(`- Walk+run distance: ${(latestRunning.walkingRunningDistance / 1000).toFixed(1)} km`);
+    if (latestRunning.respiratoryRate)
+      lines.push(`- Respiratory rate: ${latestRunning.respiratoryRate.toFixed(1)} breaths/min`);
     lines.push("");
   }
 

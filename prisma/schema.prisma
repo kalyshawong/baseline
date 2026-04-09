@@ -404,6 +404,23 @@ model DailyResilience {
   createdAt       DateTime @default(now())
 }
 
+model DailyRunningMetrics {
+  id                     String   @id @default(cuid())
+  day                    DateTime @unique
+  runningSpeed           Float?   // avg km/h
+  runningPower           Float?   // avg watts
+  groundContactTime      Float?   // avg milliseconds
+  verticalOscillation    Float?   // avg cm
+  strideLength           Float?   // avg meters
+  cardioRecovery         Float?   // HR recovery metric (BPM drop post-workout)
+  walkingRunningDistance  Float?   // total meters
+  respiratoryRate        Float?   // breaths per minute
+  physicalEffort         Float?   // Apple effort score
+  createdAt              DateTime @default(now())
+
+  @@index([day])
+}
+
 model DailyVO2Max {
   id        String   @id
   day       DateTime @unique
