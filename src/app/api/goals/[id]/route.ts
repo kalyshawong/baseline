@@ -15,10 +15,6 @@ export async function PATCH(
       if (body[field] !== undefined) data[field] = body[field];
     }
     if (body.isPrimary === true) {
-      await prisma.goal.updateMany({
-        where: { isPrimary: true, id: { not: id } },
-        data: { isPrimary: false },
-      });
       data.isPrimary = true;
     } else if (body.isPrimary === false) {
       data.isPrimary = false;
@@ -30,7 +26,17 @@ export async function PATCH(
       data.status = "archived";
     }
 
-    const goal = await prisma.goal.update({ where: { id }, data });
+    // BUG-C3 fix: wrap the isPrimary cascade + update in a single transaction
+    // so concurrent PATCHes can't leave the DB with multiple primaries or zero.
+    const goal = await prisma.$transaction(async (tx) => {
+      if (body.isPrimary === true) {
+        await tx.goal.updateMany({
+          where: { isPrimary: true, id: { not: id } },
+          data: { isPrimary: false },
+        });
+      }
+      return tx.goal.update({ where: { id }, data });
+    });
     return NextResponse.json(goal);
   } catch (error) {
     const { status, body } = apiError(error);

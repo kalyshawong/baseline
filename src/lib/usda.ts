@@ -49,8 +49,11 @@ Use standard USDA nutritional values. Be accurate with portion sizes — "1 cup 
     { label: "estimateMacros" }
   );
 
-  const text =
-    message.content[0].type === "text" ? message.content[0].text : "";
+  // BUG-C2 fix: aggregate all text blocks rather than assuming index 0 exists
+  // and is text. Avoids crashing on empty content arrays or tool_use blocks.
+  const text = message.content
+    .flatMap((block) => (block.type === "text" ? [block.text] : []))
+    .join("");
 
   // Extract JSON array from response (handle potential markdown fencing)
   const jsonMatch = text.match(/\[[\s\S]*\]/);

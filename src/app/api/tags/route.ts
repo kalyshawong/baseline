@@ -8,7 +8,12 @@ export async function GET(request: NextRequest) {
     const category = url.searchParams.get("category");
     const startDate = url.searchParams.get("start_date");
     const endDate = url.searchParams.get("end_date");
-    const limit = parseInt(url.searchParams.get("limit") ?? "50");
+    // BUG-C1 fix: clamp limit to [1, 1000] and reject NaN (which Prisma silently
+    // treats as "no limit", leaking the full table).
+    const rawLimit = parseInt(url.searchParams.get("limit") ?? "50", 10);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.min(Math.max(rawLimit, 1), 1000)
+      : 50;
 
     const where: Record<string, unknown> = {};
     if (category) where.category = category;

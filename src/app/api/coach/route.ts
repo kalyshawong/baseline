@@ -120,8 +120,20 @@ Keep it under 250 words. Be direct and specific with numbers.`
       { label: "coach" }
     );
 
-    const assistantText =
-      response.content[0].type === "text" ? response.content[0].text : "";
+    // BUG-C2 fix: never persist a blank assistant message. If Anthropic returns
+    // no text content (empty array, tool_use only, or safety-filtered), surface
+    // an explicit error instead of silently saving "".
+    const assistantText = response.content
+      .flatMap((block) => (block.type === "text" ? [block.text] : []))
+      .join("")
+      .trim();
+
+    if (!assistantText) {
+      return NextResponse.json(
+        { error: "Coach returned an empty response. Try rephrasing your question." },
+        { status: 502 }
+      );
+    }
 
     const assistantMsg = await prisma.chatMessage.create({
       data: { sessionId: session.id, role: "assistant", content: assistantText },

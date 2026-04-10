@@ -33,23 +33,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (isPrimary) {
-      await prisma.goal.updateMany({
-        where: { isPrimary: true },
-        data: { isPrimary: false },
+    // BUG-C3 fix: wrap the isPrimary cascade + create in a single transaction
+    // so two concurrent "set primary" requests can't interleave and leave the
+    // DB with 0 or 2 primary goals.
+    const goal = await prisma.$transaction(async (tx) => {
+      if (isPrimary) {
+        await tx.goal.updateMany({
+          where: { isPrimary: true },
+          data: { isPrimary: false },
+        });
+      }
+      return tx.goal.create({
+        data: {
+          title,
+          type,
+          subtype: subtype ?? null,
+          target: target ?? null,
+          deadline: deadline ? new Date(deadline) : null,
+          notes: notes ?? null,
+          isPrimary: isPrimary ?? false,
+        },
       });
-    }
-
-    const goal = await prisma.goal.create({
-      data: {
-        title,
-        type,
-        subtype: subtype ?? null,
-        target: target ?? null,
-        deadline: deadline ? new Date(deadline) : null,
-        notes: notes ?? null,
-        isPrimary: isPrimary ?? false,
-      },
     });
     return NextResponse.json(goal, { status: 201 });
   } catch (error) {
