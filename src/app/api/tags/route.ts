@@ -66,3 +66,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(body, { status });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
+    }
+
+    await prisma.activityTag.delete({ where: { id } });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const { status, body } = apiError(error);
+    return NextResponse.json(body, { status });
+  }
+}

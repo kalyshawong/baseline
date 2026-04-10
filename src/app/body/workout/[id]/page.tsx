@@ -93,6 +93,13 @@ export default async function WorkoutPage({
     }
   }
 
+  // Fetch active goals for post-workout tagging
+  const activeGoals = await prisma.goal.findMany({
+    where: { status: "active" },
+    select: { id: true, title: true, type: true, subtype: true },
+    orderBy: { deadline: "asc" },
+  });
+
   const initialSets = session.sets.map((s) => ({
     id: s.id,
     exerciseId: s.exerciseId,
@@ -126,6 +133,7 @@ export default async function WorkoutPage({
         initialSets={initialSets}
         previousByExercise={previousByExercise}
         templateExercises={templateExercises}
+        activeGoals={activeGoals}
       />
     </div>
   );

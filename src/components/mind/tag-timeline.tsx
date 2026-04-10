@@ -1,3 +1,8 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+
 interface TagItem {
   id: string;
   tag: string;
@@ -30,18 +35,39 @@ function formatTime(iso: string): string {
 }
 
 export function TagTimeline({ tags }: { tags: TagItem[] }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
   if (tags.length === 0) return null;
+
+  function handleDelete(id: string) {
+    setError(null);
+    startTransition(async () => {
+      const res = await fetch("/api/tags", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        router.refresh();
+      } else {
+        setError("Failed to delete tag");
+      }
+    });
+  }
 
   return (
     <div>
       <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Recent Tags
       </h2>
+      {error && <p className="mb-2 text-xs text-red-400">{error}</p>}
       <div className="space-y-2">
         {tags.map((t) => (
           <div
             key={t.id}
-            className="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5"
+            className="group flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5"
           >
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColors[t.category] ?? categoryColors.custom}`}
@@ -57,6 +83,14 @@ export function TagTimeline({ tags }: { tags: TagItem[] }) {
             <span className="ml-auto text-xs text-[var(--color-text-muted)]">
               {formatTime(t.timestamp)}
             </span>
+            <button
+              onClick={() => handleDelete(t.id)}
+              disabled={isPending}
+              className="shrink-0 rounded px-1.5 py-0.5 text-[var(--color-text-muted)] opacity-0 transition-opacity hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100 disabled:opacity-50"
+              title="Delete tag"
+            >
+              &times;
+            </button>
           </div>
         ))}
       </div>

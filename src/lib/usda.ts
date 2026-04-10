@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { withAnthropicRetry } from "./anthropic-retry";
 
 const client = new Anthropic();
 
@@ -17,13 +18,15 @@ export async function estimateMacros(rawInput: string): Promise<MacroEstimate[]>
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY not set — add it to .env");
   }
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    messages: [
-      {
-        role: "user",
-        content: `Parse this food description and estimate the macronutrient breakdown for each item. Return ONLY a JSON array, no other text.
+  const message = await withAnthropicRetry(
+    () =>
+      client.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1024,
+        messages: [
+          {
+            role: "user",
+            content: `Parse this food description and estimate the macronutrient breakdown for each item. Return ONLY a JSON array, no other text.
 
 Food: ${rawInput}
 
@@ -40,9 +43,11 @@ For each item return:
 }
 
 Use standard USDA nutritional values. Be accurate with portion sizes — "1 cup rice" means ~200g cooked white rice, "3 eggs" means 3 large eggs (~150g total, ~50g each). Round to 1 decimal place for macros, whole numbers for calories.`,
-      },
-    ],
-  });
+          },
+        ],
+      }),
+    { label: "estimateMacros" }
+  );
 
   const text =
     message.content[0].type === "text" ? message.content[0].text : "";

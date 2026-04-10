@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { estimate1RM } from "@/lib/training";
+import { GoalTagger } from "./goal-tagger";
 
 interface Exercise {
   id: string;
@@ -32,18 +33,27 @@ interface PreviousSessionSet {
   rpe: number | null;
 }
 
+interface ActiveGoal {
+  id: string;
+  title: string;
+  type: string;
+  subtype: string | null;
+}
+
 export function WorkoutLogger({
   sessionId,
   exercises,
   initialSets,
   previousByExercise,
   templateExercises,
+  activeGoals,
 }: {
   sessionId: string;
   exercises: Exercise[];
   initialSets: LoggedSet[];
   previousByExercise: Record<string, PreviousSessionSet[]>;
   templateExercises?: { name: string; targetSets: number; targetReps: number }[];
+  activeGoals?: ActiveGoal[];
 }) {
   const router = useRouter();
   const [sets, setSets] = useState<LoggedSet[]>(initialSets);
@@ -58,6 +68,7 @@ export function WorkoutLogger({
   const [rpe, setRpe] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [workoutFinished, setWorkoutFinished] = useState(false);
 
   // Rest timer
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
@@ -215,7 +226,11 @@ export function WorkoutLogger({
         }),
       });
       if (res.ok) {
-        router.push("/body");
+        if (activeGoals && activeGoals.length > 0) {
+          setWorkoutFinished(true);
+        } else {
+          router.push("/body");
+        }
       } else {
         setError("Failed to finish workout");
       }
@@ -504,14 +519,34 @@ export function WorkoutLogger({
         </div>
       )}
 
-      {/* Finish button */}
-      <button
-        onClick={finishWorkout}
-        disabled={isPending || sets.length === 0}
-        className="w-full rounded-xl bg-emerald-500/20 py-3 text-sm font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/30 disabled:opacity-30"
-      >
-        Finish Workout
-      </button>
+      {/* Finish / Goal Tagging */}
+      {workoutFinished && activeGoals && activeGoals.length > 0 ? (
+        <div className="space-y-3">
+          <div className="rounded-xl bg-emerald-500/10 py-3 text-center text-sm font-semibold text-emerald-400">
+            Workout complete
+          </div>
+          <GoalTagger
+            sessionId={sessionId}
+            goals={activeGoals}
+            workoutName={templateExercises?.map((t) => t.name).join(" ") ?? ""}
+            onDone={() => router.push("/body")}
+          />
+          <button
+            onClick={() => router.push("/body")}
+            className="w-full py-2 text-xs text-[var(--color-text-muted)] hover:text-white"
+          >
+            Skip
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={finishWorkout}
+          disabled={isPending || sets.length === 0}
+          className="w-full rounded-xl bg-emerald-500/20 py-3 text-sm font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/30 disabled:opacity-30"
+        >
+          Finish Workout
+        </button>
+      )}
     </div>
   );
 }

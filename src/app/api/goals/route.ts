@@ -19,13 +19,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, type, target, deadline, notes } = body;
+    const { title, type, subtype, target, deadline, notes, isPrimary } = body;
 
     if (!title || !type) {
       return NextResponse.json({ error: "title and type are required" }, { status: 400 });
     }
 
-    const validTypes = ["weight", "race", "exam", "performance", "habit", "custom"];
+    const validTypes = ["race", "strength", "physique", "cognitive", "weight", "health", "custom"];
     if (!validTypes.includes(type)) {
       return NextResponse.json(
         { error: `Invalid type. Must be one of: ${validTypes.join(", ")}` },
@@ -33,13 +33,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (isPrimary) {
+      await prisma.goal.updateMany({
+        where: { isPrimary: true },
+        data: { isPrimary: false },
+      });
+    }
+
     const goal = await prisma.goal.create({
       data: {
         title,
         type,
+        subtype: subtype ?? null,
         target: target ?? null,
         deadline: deadline ? new Date(deadline) : null,
         notes: notes ?? null,
+        isPrimary: isPrimary ?? false,
       },
     });
     return NextResponse.json(goal, { status: 201 });

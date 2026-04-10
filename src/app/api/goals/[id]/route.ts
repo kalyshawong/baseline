@@ -11,11 +11,23 @@ export async function PATCH(
     const body = await request.json();
 
     const data: Record<string, unknown> = {};
-    for (const field of ["title", "type", "target", "notes", "status"] as const) {
+    for (const field of ["title", "type", "subtype", "target", "notes", "status", "priority"] as const) {
       if (body[field] !== undefined) data[field] = body[field];
+    }
+    if (body.isPrimary === true) {
+      await prisma.goal.updateMany({
+        where: { isPrimary: true, id: { not: id } },
+        data: { isPrimary: false },
+      });
+      data.isPrimary = true;
+    } else if (body.isPrimary === false) {
+      data.isPrimary = false;
     }
     if (body.deadline !== undefined) {
       data.deadline = body.deadline ? new Date(body.deadline) : null;
+    }
+    if (data.status === "completed") {
+      data.status = "archived";
     }
 
     const goal = await prisma.goal.update({ where: { id }, data });

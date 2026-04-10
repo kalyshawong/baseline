@@ -13,6 +13,27 @@ interface Message {
 interface Session {
   id: string;
   title: string | null;
+  updatedAt?: string;
+}
+
+interface GoalOption {
+  id: string;
+  title: string;
+  type: string;
+  subtype: string | null;
+  isPrimary: boolean;
+  deadline: string | null;
+}
+
+function relativeDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return d.toLocaleDateString("en-US", { weekday: "short" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function formatMarkdown(text: string): React.ReactNode {
@@ -69,10 +90,12 @@ export function ChatInterface({
   initialSession,
   initialMessages,
   sessions,
+  goals,
 }: {
   initialSession: Session | null;
   initialMessages: Message[];
   sessions: Session[];
+  goals: GoalOption[];
 }) {
   const router = useRouter();
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(
@@ -84,9 +107,75 @@ export function ChatInterface({
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const primaryGoal = goals.find((g) => g.isPrimary);
+  const [focusGoalId, setFocusGoalId] = useState<string | null>(
+    primaryGoal?.id ?? null
+  );
+  const [coachMode, setCoachMode] = useState<"goal" | "today">("goal");
+
+  const [tradeoffs, setTradeoffs] = useState<
+    Array<{ severity: "info" | "warning" | "critical"; message: string }>
+  >([]);
+
+  useEffect(() => {
+    fetch("/api/coach/tradeoffs")
+      .then((r) => r.json())
+      .then((data) => setTradeoffs(data.tradeoffs ?? []))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  function getSuggestedPrompts(): Array<{ label: string; prompt: string }> {
+    const focusGoal = goals.find((g) => g.id === focusGoalId);
+
+    if (coachMode === "today") {
+      return [
+        { label: "What's my training tier today?", prompt: "What's my training tier today based on my readiness and recovery data?" },
+        { label: "Any recovery flags?", prompt: "Are there any recovery flags I should know about before training today?" },
+        { label: "Walk me through my numbers", prompt: "Walk me through today's readiness, sleep, and HRV numbers." },
+      ];
+    }
+
+    if (focusGoal?.type === "race") {
+      if (focusGoal.subtype === "hyrox") {
+        return [
+          { label: "How should I train tomorrow?", prompt: "Based on my data, how should I structure tomorrow's Hyrox training?" },
+          { label: "Am I building enough base?", prompt: `Am I building enough aerobic base for my ${focusGoal.title} goal? What does my VO2max and running volume trend look like?` },
+          { label: "Station practice plan", prompt: "Give me a Hyrox station practice session that fits my current recovery state." },
+        ];
+      }
+      return [
+        { label: "Am I on pace?", prompt: `Am I on pace for ${focusGoal.title}? What does my training volume and VO2max trend say?` },
+        { label: "Long run guidance", prompt: "What should my long run look like this week given my current recovery?" },
+        { label: "Race week plan", prompt: `Help me plan the final week before ${focusGoal.title}.` },
+      ];
+    }
+
+    if (focusGoal?.type === "strength") {
+      return [
+        { label: "Should I deload?", prompt: "Based on my RPE trends and HRV, should I deload this week?" },
+        { label: "Am I recovering enough?", prompt: "Am I recovering enough between sessions? What does my readiness and sleep data say?" },
+        { label: "Protein check", prompt: "How's my protein intake relative to my training volume this week?" },
+      ];
+    }
+
+    if (focusGoal?.type === "weight") {
+      return [
+        { label: "Am I on track?", prompt: "Am I on track with my weight goal? Show me the trend and weekly rate of change." },
+        { label: "Energy availability check", prompt: "What's my current energy availability? Am I in a safe range?" },
+        { label: "Nutrition vs training", prompt: "How should I adjust my nutrition for today's planned training?" },
+      ];
+    }
+
+    return [
+      { label: "Today's brief", prompt: "Give me today's brief — what should I focus on?" },
+      { label: "Goal progress check", prompt: "Am I on track for my primary goal? What needs to change?" },
+      { label: "Competing priorities", prompt: "I have competing priorities this week. Help me prioritize." },
+    ];
+  }
 
   function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -111,6 +200,8 @@ export function ChatInterface({
           body: JSON.stringify({
             sessionId: currentSessionId,
             message: messageText,
+            focusGoalId: coachMode === "goal" ? focusGoalId : null,
+            mode: coachMode === "today" ? "today" : undefined,
           }),
         });
         if (!res.ok) {
@@ -172,7 +263,12 @@ export function ChatInterface({
                 }}
                 className="block w-full truncate text-left"
               >
-                {s.title ?? "Untitled"}
+                <span className="block truncate">{s.title ?? "Untitled"}</span>
+                {s.updatedAt && (
+                  <span className="block text-[10px] text-[var(--color-text-muted)] opacity-60">
+                    {relativeDate(s.updatedAt)}
+                  </span>
+                )}
               </button>
               <button
                 onClick={() => deleteSession(s.id)}
@@ -187,37 +283,101 @@ export function ChatInterface({
 
       {/* Chat area */}
       <div className="flex min-h-[70vh] flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+        {/* Coaching focus pills */}
+        {goals.length > 0 && (
+          <div className="border-b border-[var(--color-border)] px-5 py-3">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              <span className="shrink-0 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+                Lens
+              </span>
+              {goals.map((g) => {
+                const isActive = coachMode === "goal" && focusGoalId === g.id;
+                const daysLeft = g.deadline
+                  ? Math.ceil((new Date(g.deadline).getTime() - Date.now()) / 86400000)
+                  : null;
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => { setCoachMode("goal"); setFocusGoalId(g.id); }}
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                      isActive
+                        ? "border-white/40 bg-white/15 text-white shadow-sm"
+                        : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-white/20 hover:text-white"
+                    }`}
+                  >
+                    {g.isPrimary && <span className="mr-1 text-amber-400">★</span>}
+                    {g.title.length > 20 ? g.title.slice(0, 20) + "…" : g.title}
+                    {daysLeft !== null && daysLeft > 0 && (
+                      <span className="ml-1.5 opacity-60">{daysLeft}d</span>
+                    )}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => { setCoachMode("goal"); setFocusGoalId(null); }}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                  coachMode === "goal" && !focusGoalId
+                    ? "border-white/40 bg-white/15 text-white"
+                    : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-white/20 hover:text-white"
+                }`}
+              >
+                Holistic
+              </button>
+              <button
+                onClick={() => setCoachMode("today")}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                  coachMode === "today"
+                    ? "border-blue-400/40 bg-blue-500/15 text-blue-300"
+                    : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-white/20 hover:text-white"
+                }`}
+              >
+                Daily Brief
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Tradeoff alerts */}
+        {tradeoffs.length > 0 && (
+          <div className="border-b border-[var(--color-border)] px-5 py-2 space-y-1">
+            {tradeoffs.map((t, i) => (
+              <div
+                key={i}
+                className={`rounded-lg px-3 py-2 text-xs ${
+                  t.severity === "critical"
+                    ? "bg-red-500/10 text-red-400"
+                    : t.severity === "warning"
+                    ? "bg-amber-500/10 text-amber-400"
+                    : "bg-blue-500/10 text-blue-300"
+                }`}
+              >
+                <span className="font-semibold uppercase mr-1.5">
+                  {t.severity === "critical" ? "\u26A0" : t.severity === "warning" ? "\u25B3" : "\u2139"}
+                </span>
+                {t.message}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-5">
           {messages.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center">
               <h3 className="mb-2 text-lg font-semibold">Baseline Coach</h3>
               <p className="max-w-md text-sm text-[var(--color-text-muted)]">
                 Science-backed coaching with full access to your biometric, training,
-                nutrition, cycle, and goal data. Ask about training decisions,
-                recovery, nutrition trade-offs, or competing priorities.
+                nutrition, cycle, and goal data.
               </p>
               <div className="mt-6 space-y-2 text-left">
-                <p className="text-xs font-medium text-[var(--color-text-muted)]">
-                  Try asking:
-                </p>
-                <button
-                  onClick={() => setInput("Based on today's readiness and my cycle phase, should I train heavy or take it easy?")}
-                  className="block rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs hover:bg-white/5"
-                >
-                  &ldquo;Based on today&apos;s readiness and my cycle phase, should I train heavy or take it easy?&rdquo;
-                </button>
-                <button
-                  onClick={() => setInput("Am I on track for my protein target? What should I eat next?")}
-                  className="block rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs hover:bg-white/5"
-                >
-                  &ldquo;Am I on track for my protein target? What should I eat next?&rdquo;
-                </button>
-                <button
-                  onClick={() => setInput("I have competing priorities this week. Help me prioritize.")}
-                  className="block rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs hover:bg-white/5"
-                >
-                  &ldquo;I have competing priorities this week. Help me prioritize.&rdquo;
-                </button>
+                {getSuggestedPrompts().map((sp, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setInput(sp.prompt)}
+                    className="block w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-left text-xs hover:bg-white/5"
+                  >
+                    &ldquo;{sp.label}&rdquo;
+                  </button>
+                ))}
               </div>
             </div>
           ) : (
@@ -227,18 +387,28 @@ export function ChatInterface({
                   key={m.id}
                   className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
-                      m.role === "user"
-                        ? "bg-white/10 text-white"
-                        : "bg-[var(--color-surface-2)] text-white"
-                    }`}
-                  >
-                    {m.role === "assistant" ? (
-                      <div className="prose-sm">{formatMarkdown(m.content)}</div>
-                    ) : (
-                      <p className="whitespace-pre-wrap">{m.content}</p>
-                    )}
+                  <div className="max-w-[85%]">
+                    {m.role === "assistant" && focusGoalId && (() => {
+                      const g = goals.find((gl) => gl.id === focusGoalId);
+                      return g ? (
+                        <div className="mb-1 text-[10px] text-[var(--color-text-muted)]">
+                          Responding through {g.type} lens — {g.title}
+                        </div>
+                      ) : null;
+                    })()}
+                    <div
+                      className={`rounded-2xl px-4 py-3 text-sm ${
+                        m.role === "user"
+                          ? "bg-white/10 text-white"
+                          : "bg-[var(--color-surface-2)] text-white"
+                      }`}
+                    >
+                      {m.role === "assistant" ? (
+                        <div className="prose-sm">{formatMarkdown(m.content)}</div>
+                      ) : (
+                        <p className="whitespace-pre-wrap">{m.content}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

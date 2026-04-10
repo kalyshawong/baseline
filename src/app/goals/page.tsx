@@ -22,9 +22,12 @@ export default async function GoalsPage() {
           id: g.id,
           title: g.title,
           type: g.type,
+          subtype: g.subtype,
           target: g.target,
           deadline: g.deadline?.toISOString() ?? null,
           status: g.status,
+          isPrimary: g.isPrimary,
+          priority: g.priority,
           notes: g.notes,
         }))}
       />

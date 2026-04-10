@@ -11,7 +11,7 @@ export default async function CoachPage({
   const params = await searchParams;
   const sessionId = typeof params.session === "string" ? params.session : null;
 
-  const [sessions, currentSession] = await Promise.all([
+  const [sessions, currentSession, activeGoals] = await Promise.all([
     prisma.chatSession.findMany({
       orderBy: { updatedAt: "desc" },
       take: 30,
@@ -22,6 +22,10 @@ export default async function CoachPage({
           include: { messages: { orderBy: { createdAt: "asc" } } },
         })
       : Promise.resolve(null),
+    prisma.goal.findMany({
+      where: { status: "active" },
+      orderBy: [{ isPrimary: "desc" }, { deadline: "asc" }],
+    }),
   ]);
 
   return (
@@ -41,7 +45,15 @@ export default async function CoachPage({
           content: m.content,
           createdAt: m.createdAt.toISOString(),
         }))}
-        sessions={sessions.map((s) => ({ id: s.id, title: s.title }))}
+        sessions={sessions.map((s) => ({ id: s.id, title: s.title, updatedAt: s.updatedAt.toISOString() }))}
+        goals={activeGoals.map((g) => ({
+          id: g.id,
+          title: g.title,
+          type: g.type,
+          subtype: g.subtype,
+          isPrimary: g.isPrimary,
+          deadline: g.deadline?.toISOString() ?? null,
+        }))}
       />
     </div>
   );

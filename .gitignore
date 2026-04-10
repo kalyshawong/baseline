@@ -32,6 +32,10 @@ next-env.d.ts
 prisma/migrations/
 prisma/dev.db
 prisma/dev.db-journal
+/dev.db
+
+# claude agent settings (local)
+.claude/
 
 # python (legacy from initial setup)
 .venv/

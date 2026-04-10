@@ -211,6 +211,7 @@ model WorkoutSession {
   updatedAt      DateTime     @updatedAt
 
   sets           WorkoutSet[]
+  goalTags       GoalWorkoutTag[]
 }
 
 model WorkoutSet {
@@ -260,15 +261,31 @@ model UserProfile {
 }
 
 model Goal {
-  id        String    @id @default(cuid())
-  title     String
-  type      String    // weight | race | exam | performance | habit | custom
-  target    String?   // free-form target description
-  deadline  DateTime?
-  status    String    @default("active") // active | completed | abandoned
-  notes     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  title       String
+  type        String    // race | strength | physique | cognitive | weight | health | custom
+  subtype     String?   // hyrox | marathon | half_marathon | 5k | 10k | triathlon | powerlifting_meet | bodybuilding | cfa | finals | certification | cut | bulk | recomp | maintain | sleep_optimization | hrv_baseline | stress_management | custom
+  target      String?
+  deadline    DateTime?
+  status      String    @default("active")    // active | completed | abandoned | archived
+  isPrimary   Boolean   @default(false)
+  priority    Int       @default(0)
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workoutTags GoalWorkoutTag[]
+}
+
+model GoalWorkoutTag {
+  id        String         @id @default(cuid())
+  goalId    String
+  goal      Goal           @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  sessionId String
+  session   WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([goalId, sessionId])
 }
 
 model ChatSession {

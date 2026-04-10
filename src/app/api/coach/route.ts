@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/db";
-import { buildCoachContext, COACH_SYSTEM_PROMPT } from "@/lib/coach-context";
+import { buildCoachContext, COACH_SYSTEM_PROMPT, goalSystemPromptSection } from "@/lib/coach-context";
 import { apiError } from "@/lib/utils";
+import { withAnthropicRetry } from "@/lib/anthropic-retry";
 
 const client = new Anthropic();
 
@@ -24,21 +25,22 @@ function checkRateLimit(key: string): boolean {
   return true;
 }
 
-// Context cache: reuse for 5 minutes
-let cachedContext: { text: string; expiry: number } | null = null;
+// Context cache: reuse for 5 minutes (keyed by focusGoalId)
+let cachedContext: { key: string; text: string; expiry: number } | null = null;
 
-async function getCachedContext(): Promise<string> {
-  if (cachedContext && Date.now() < cachedContext.expiry) {
+async function getCachedContext(focusGoalId?: string | null): Promise<string> {
+  const cacheKey = focusGoalId ?? "all";
+  if (cachedContext && cachedContext.key === cacheKey && Date.now() < cachedContext.expiry) {
     return cachedContext.text;
   }
-  const text = await buildCoachContext();
-  cachedContext = { text, expiry: Date.now() + 5 * 60 * 1000 };
+  const text = await buildCoachContext(focusGoalId);
+  cachedContext = { key: cacheKey, text, expiry: Date.now() + 5 * 60 * 1000 };
   return text;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { sessionId, message } = await request.json();
+    const { sessionId, message, focusGoalId, mode } = await request.json();
 
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "message is required" }, { status: 400 });
@@ -80,7 +82,14 @@ export async function POST(request: NextRequest) {
     });
 
     // Build context (cached for 5 min to avoid 14+ queries every message)
-    const contextBlock = await getCachedContext();
+    const contextBlock = await getCachedContext(focusGoalId);
+
+    // Get the focus goal for the dynamic system prompt section
+    const focusGoal = focusGoalId
+      ? await prisma.goal.findUnique({ where: { id: focusGoalId } })
+      : await prisma.goal.findFirst({ where: { isPrimary: true, status: "active" } });
+
+    const goalPromptSection = goalSystemPromptSection(focusGoal);
 
     // Prior conversation history
     const history = session.messages.map((m) => ({
@@ -89,14 +98,27 @@ export async function POST(request: NextRequest) {
     }));
     history.push({ role: "user", content: message });
 
-    const systemPrompt = `${COACH_SYSTEM_PROMPT}\n\n---\n\n${contextBlock}`;
+    const dailyBriefSection = mode === "today"
+      ? `\n\nToday's coaching mode: DAILY BRIEF. The user wants a concise check-in. Structure your response as:
+1. Body budget (readiness, sleep, physical capacity)
+2. Mind budget (stress recovery, cognitive capacity)
+3. Active goals check-in (one line per goal: on track / needs attention / conflict)
+4. Today's recommendation (what to prioritize, what to eat, when to sleep)
+Keep it under 250 words. Be direct and specific with numbers.`
+      : "";
 
-    const response = await client.messages.create({
-      model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514",
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages: history,
-    });
+    const systemPrompt = `${COACH_SYSTEM_PROMPT}${goalPromptSection}${dailyBriefSection}\n\n---\n\n${contextBlock}`;
+
+    const response = await withAnthropicRetry(
+      () =>
+        client.messages.create({
+          model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514",
+          max_tokens: 2048,
+          system: systemPrompt,
+          messages: history,
+        }),
+      { label: "coach" }
+    );
 
     const assistantText =
       response.content[0].type === "text" ? response.content[0].text : "";
