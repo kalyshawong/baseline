@@ -1,6 +1,6 @@
 # Baseline — Task Tracker
 
-**Last Updated:** 2026-04-06
+**Last Updated:** 2026-04-10
 **Stack:** Next.js 15, React 19, Prisma (SQLite), Tailwind CSS 4, Recharts, jstat, @anthropic-ai/sdk
 
 ---
@@ -339,6 +339,100 @@
 
 ---
 
+## Goal-Coach Redesign — Done
+
+*See `goal-coach-redesign-spec.md` and `goal-coach-implementation-instructions.md`*
+
+### Phase 1: Schema + Goal Lens System — Done
+
+- [x] Add `subtype`, `isPrimary`, `priority` fields to Goal model
+- [x] `GoalLens` type system: 6 goal types (race, strength, physique, cognitive, weight, health) with sectionOrder + coachingFrame
+- [x] Schema migration via `prisma db push`
+
+### Phase 2: Section-Based Context Builder — Done
+
+- [x] Rewrite `buildCoachContext()` to assemble `Map<string, string[]>` of named sections
+- [x] Reorder sections dynamically based on active goal's sectionOrder
+- [x] 14+ named sections: score, readiness, sleep, nutrition, weight_trend, running_cardio, vo2max, apple_watch_workouts, strength_sets, experiments, goals, etc.
+
+### Phase 3: Dynamic System Prompt Injection — Done
+
+- [x] `goalSystemPromptSection(goal)` returns goal-type-specific directives
+- [x] Wired into `/api/coach/route.ts` POST handler
+
+### Phase 4: Tradeoff Detection Engine — Done
+
+- [x] `detectTradeoffs()` function with 5 rules:
+  - [x] Deficit + race goal (energy availability < race demands)
+  - [x] Exam + low readiness (cognitive goal conflict)
+  - [x] Concurrent interference (strength + endurance overlap)
+  - [x] HRV CV overreaching (Flatt & Esco 2016 threshold)
+  - [x] Luteal + race (ACL/performance risk window)
+- [x] `/api/coach/tradeoffs` GET endpoint
+- [x] Tradeoffs surfaced in coach context block
+
+### Phase 5: Workout → Goal Tagging — Done
+
+- [x] `GoalWorkoutTag` join model (goalId, sessionId, unique pair)
+- [x] `goal-tagger.tsx` component with regex-based goal suggestion (running/strength keywords)
+- [x] `/api/workouts/[id]/goals` endpoint
+- [x] Wired into workout logger
+- [x] `scripts/verify-phase5.ts` verification script
+
+---
+
+## Goals & Coach UI Redesign — Done
+
+*See `goals-coach-ui-implementation.md` and `ui-redesign-prompts.md`*
+
+### Phase 1: Bug Fixes — Done
+
+- [x] Fix WEIGHT badge on Hyrox goal (type/subtype display)
+- [x] Distinguish Done vs Archive actions (separate status transitions)
+- [x] Fix `suggestGoals` to consider workout context (name regex matching)
+
+### Phase 2: Inline Editing — Done
+
+- [x] `editingId` + `editFields` state in goals-manager
+- [x] Inline edit form with title, type pill selector, subtype pill selector, target, deadline, notes, Save/Cancel
+- [x] Per-type hex colors for visual pills
+
+### Phase 3: Countdown Rings — Done
+
+- [x] `countdown-ring.tsx` SVG component
+- [x] Calculates % time elapsed between createdAt and deadline
+- [x] Shows days remaining as center text
+- [x] Integrated into goal cards
+
+### Phase 4: Visual Focus Pills + Dynamic Prompts — Done
+
+- [x] Replace `<select>` lens dropdown with horizontal pill buttons in chat-interface
+- [x] `getSuggestedPrompts()` returns goal-type-specific starter prompts
+- [x] Lens indicator line above each assistant message ("Responding through {type} lens — {title}")
+
+### Phase 5: Tradeoff Alert Banner — Done
+
+- [x] Fetch `/api/coach/tradeoffs` on focus change
+- [x] Amber alert banner with tradeoff text + research citation
+- [x] Renders between focus pills and chat area
+
+### Phase 6: Session Timestamps — Done
+
+- [x] Relative date timestamps on session sidebar (Today / Mon / Apr 5 / etc.)
+- [x] Session list re-orders on updatedAt
+
+---
+
+## Resilience Improvements — Done
+
+- [x] `src/lib/anthropic-retry.ts` helper: `withAnthropicRetry()` with exponential backoff (1s→2s→4s→8s + jitter)
+- [x] Retryable error detection (529, 429, 500, 502, 503 + overloaded_error, api_error, rate_limit_error, service_unavailable)
+- [x] Wired into `/api/coach/route.ts` coach message call
+- [x] Wired into `src/lib/usda.ts` `estimateMacros()` for meal parsing
+- [x] 4 attempts max, non-retryable errors re-thrown immediately
+
+---
+
 ## Phase 2c — Arduino IMU (Not Started)
 
 *See `arduino-build-guide.md` for hardware details*
@@ -407,9 +501,18 @@
 
 ## Open Issues (non-blocking)
 
-- [ ] Claude API model hardcoded — should be env variable
+- [ ] Claude API model hardcoded in `src/lib/usda.ts` — should be env variable (coach route already uses env)
 - [ ] No pagination in insights/tags — may be slow at scale
 - [ ] Experiment minimum threshold (3 days) not shown in UI
 - [ ] No experiment state validation in API (can skip states)
 - [ ] No dark mode / theme support
 - [ ] Workout template exercises stored as JSON string (should be relational)
+- [ ] VO2 Max + advanced running metrics not populated in DB — needs HAE app config change (enable metrics + tracked outdoor run) then update placeholder case names in `healthkit-sync/route.ts`
+- [ ] Coach context cache is process-global (not per-user) — fine for single-user dev, would break on multi-user
+
+---
+
+## Next Up
+
+- **Hyrox race-prep module** — see `hyrox-module-spec.md` (to be written). Highest priority given active goal 54 days out (race date: 2026-06-03).
+- **Apple Watch metric discovery** — unblock VO2/running metrics for the coach by enabling in HAE + updating placeholder case names after next outdoor run.
