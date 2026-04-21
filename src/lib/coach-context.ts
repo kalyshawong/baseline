@@ -19,6 +19,9 @@ import {
   kgToLb,
 } from "./tdee";
 import { generateInsights } from "./insights";
+import { currentBlock } from "./hyrox-blocks";
+import { computePaceBudget, formatKmPace, formatClockTime, paceDelta } from "./hyrox-pace";
+import { maybeArchivePlan } from "./hyrox-archive";
 
 // ---- 2A: Goal Lens Types ----
 
@@ -33,6 +36,15 @@ interface GoalLens {
   sectionOrder: string[];
   coachingFrame: string;
 }
+
+// Priority table for all goal types (docs/goal-coach-redesign-spec.md §4.2):
+// race/hyrox:  hyrox_plan → hyrox_pace_gap → readiness → recent_workouts → weekly_volume → cycle → nutrition
+// race/other:  vo2max → running_metrics → zones → body_comp → sleep → nutrition → strength
+// strength:    volume_e1rm → sleep_deep → protein → rpe_trends → body_comp → running
+// cognitive:   sleep_deep_rem → stress_recovery → hrv → training_load → nutrition
+// weight:      nutrition → body_comp → energy_availability → sleep → training_load
+// health:      sleep → hrv → stress → nutrition → activity
+// custom:      readiness → sleep → nutrition → training_load → body_comp
 
 const goalLenses: Record<string, GoalLens> = {
   race: {
@@ -58,6 +70,31 @@ const goalLenses: Record<string, GoalLens> = {
       "bedtime",
     ],
     coachingFrame: "Optimize for race performance. Running volume, aerobic fitness, and fueling strategy are the priority. Consider strength only as it supports race readiness.",
+  },
+  race_hyrox: {
+    type: "race",
+    sectionOrder: [
+      "primary_focus",
+      "hyrox_plan",
+      "hyrox_pace_gap",
+      "readiness",
+      "training",
+      "apple_watch_workouts",
+      "cycle_phase",
+      "nutrition",
+      "sleep",
+      "oura_metrics",
+      "weight_trend",
+      "running_cardio",
+      "vo2max",
+      "resilience",
+      "spo2",
+      "experiments",
+      "goals",
+      "sessions",
+      "bedtime",
+    ],
+    coachingFrame: "Optimize for Hyrox race performance. Running is ~60% of race time (Brandt 2025); station efficiency and transitions determine finish position. Use the Hyrox plan block, pace budget, and recent session data for specific guidance.",
   },
   strength: {
     type: "strength",
@@ -279,7 +316,7 @@ Target: ${goal.target ?? "finish strong"}. Deadline: ${deadlineStr}.
 Prioritize: aerobic fitness progression (VO2max trend, running volume), running economy (GCT, vertical oscillation), race-specific preparation, fueling strategy (carbs 6-10 g/kg on hard days), taper timing.
 Always consider: recovery status, injury risk, sleep quality, cycle phase effects on endurance and thermoregulation.
 When other goals conflict with race prep, frame the tradeoff explicitly and recommend what protects race performance.
-${goal.subtype === "hyrox" ? "\nHyrox-specific: Running = ~60% of race time (Brandt 2025). Functional strength for stations (sled push/pull, wall balls, lunges) is secondary but determines finish position. Monitor concurrent training interference (Hickson 1980). Cardio recovery between stations is a key differentiator." : ""}`,
+${goal.subtype === "hyrox" ? "\nHyrox-specific: Running = ~60% of race time (Brandt 2025). Functional strength for stations (sled push/pull, wall balls, lunges) is secondary but determines finish position. Monitor concurrent training interference (Hickson 1980). Cardio recovery between stations is a key differentiator.\nYou have access to the full Hyrox plan including current block, pace budget, and recent session types. When asked about race readiness, quote numbers from '## Hyrox Race Plan' and '## Hyrox Pace Gap' directly rather than hedging." : ""}`,
 
     strength: `\n# Active Coaching Focus: Strength Training
 You are coaching the user through a strength training block.
@@ -323,6 +360,137 @@ Frame all training and nutrition advice through the lens of whether it supports 
   };
 
   return lensMap[goal.type] ?? "";
+}
+
+// ---- Hyrox Section Builders ----
+
+function buildHyroxPlanSection(
+  plan: {
+    raceDate: Date;
+    targetTime: number;
+    startDate: Date;
+    accumulationDays: number;
+    transmutationDays: number;
+    realizationDays: number;
+    taperDays: number;
+    weeklyRunHours: number;
+    weeklyStrengthHours: number;
+    weeklyCompromisedHours: number;
+  },
+  today: Date,
+  phaseLog: { day: Date; phase: string } | null,
+  cycleStartDay: Date | null,
+): string[] {
+  const lines: string[] = [];
+  lines.push("## Hyrox Race Plan");
+
+  const blk = currentBlock(plan, today);
+
+  lines.push(`- Race date: ${plan.raceDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`);
+  lines.push(`- Days to race: ${blk.daysToRace}`);
+  lines.push(`- Target time: ${formatClockTime(plan.targetTime)}`);
+  lines.push(`- Current block: ${blk.block} (week ${blk.weekInBlock})`);
+  lines.push(`- Block multipliers: volume ${blk.volumeMultiplier}×, intensity ${blk.intensityMultiplier}×`);
+  lines.push(`- Weekly hours: run ${plan.weeklyRunHours}h, strength ${plan.weeklyStrengthHours}h, compromised ${plan.weeklyCompromisedHours}h`);
+
+  // Cycle phase — only if a log exists within 35 days
+  if (phaseLog) {
+    const phaseAgeDays = Math.round(
+      (today.getTime() - new Date(phaseLog.day).getTime()) / 86400000,
+    );
+    if (phaseAgeDays <= 35) {
+      let cycleDayStr = "";
+      if (cycleStartDay) {
+        const dayNum =
+          Math.round(
+            (today.getTime() - new Date(cycleStartDay).getTime()) / 86400000,
+          ) + 1;
+        cycleDayStr = ` (day ${dayNum})`;
+      }
+
+      const phase = phaseLog.phase;
+      let guidance = "";
+      if (phase === "luteal") {
+        guidance = " — RPE may read +1 higher than true effort";
+      } else if (phase === "follicular") {
+        guidance = " — peak performance window";
+      } else if (phase === "ovulation") {
+        guidance = " — high power but ACL caution (Hewett 2007)";
+      } else if (phase === "menstrual") {
+        guidance = " — listen to readiness";
+      }
+
+      lines.push(`- Cycle phase: ${phase}${cycleDayStr}${guidance}`);
+    }
+  }
+
+  return lines;
+}
+
+function buildHyroxPaceGapSection(
+  plan: { targetTime: number },
+  recentSessions: Array<{
+    day: Date;
+    intervalsJson: string | null;
+    sessionType: string;
+  }>,
+): string[] {
+  const lines: string[] = [];
+  const budget = computePaceBudget(plan.targetTime);
+
+  lines.push("## Hyrox Pace Gap");
+  lines.push(
+    `- Target km pace: ${formatKmPace(budget.kmPaceSeconds)}/km (${budget.kmPaceSeconds}s)`,
+  );
+  lines.push(
+    `- Run budget: ${formatClockTime(budget.runSeconds)} | Station budget: ${formatClockTime(budget.stationSeconds)} | Transitions: ${formatClockTime(budget.transitionSeconds)}`,
+  );
+
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 3600 * 1000);
+  const withIntervals = recentSessions.filter(
+    (s) => s.intervalsJson && new Date(s.day) >= fourteenDaysAgo,
+  );
+
+  if (withIntervals.length > 0) {
+    lines.push("- Recent interval sessions:");
+    for (const session of withIntervals) {
+      try {
+        const intervals = JSON.parse(session.intervalsJson!) as Array<{
+          runMeters?: number;
+          runSeconds?: number;
+        }>;
+        const runIntervals = intervals.filter(
+          (i) => i.runMeters && i.runSeconds && i.runMeters > 0,
+        );
+        if (runIntervals.length === 0) continue;
+
+        const totalMeters = runIntervals.reduce(
+          (s, i) => s + (i.runMeters ?? 0),
+          0,
+        );
+        const totalSeconds = runIntervals.reduce(
+          (s, i) => s + (i.runSeconds ?? 0),
+          0,
+        );
+        const avgKmPace =
+          totalMeters > 0 ? (totalSeconds / totalMeters) * 1000 : 0;
+
+        const delta = paceDelta(avgKmPace, budget.kmPaceSeconds);
+        const sign = delta.deltaSeconds >= 0 ? "+" : "";
+        const dateStr = new Date(session.day).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
+        lines.push(
+          `  - ${dateStr} (${session.sessionType}): avg ${formatKmPace(avgKmPace)}/km vs budget ${formatKmPace(budget.kmPaceSeconds)}/km (${sign}${delta.deltaSeconds}s, ${delta.onPace ? "on pace" : `${sign}${(delta.pctOff * 100).toFixed(0)}%`})`,
+        );
+      } catch {
+        // Skip malformed intervalsJson
+      }
+    }
+  }
+
+  return lines;
 }
 
 // ---- 2B: Refactored buildCoachContext ----
@@ -915,8 +1083,62 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
   }
   addSection("running_cardio", runningLines);
 
+  // ---- Hyrox plan integration ----
+  // Fetch the active hyrox plan (if any) and build sections
+  let hyroxPlan: Awaited<ReturnType<typeof prisma.hyroxPlan.findFirst>> | null = null;
+  try {
+    hyroxPlan = await prisma.hyroxPlan.findFirst({
+      where: {
+        goal: { isPrimary: true, subtype: "hyrox", status: "active" },
+      },
+      include: {
+        sessions: { take: 10, orderBy: { day: "desc" } },
+      },
+    });
+  } catch {
+    // Non-fatal — skip hyrox sections
+  }
+
+  if (hyroxPlan) {
+    hyroxPlan = await maybeArchivePlan(hyroxPlan);
+
+    if (hyroxPlan.status === "active") {
+      // Determine cycle start day (most recent menstrual log) for cycle-day calc
+      let cycleStartDay: Date | null = null;
+      try {
+        const menstrualLog = await prisma.cyclePhaseLog.findFirst({
+          where: { phase: "menstrual", day: { lte: localToday } },
+          orderBy: { day: "desc" },
+        });
+        if (menstrualLog) cycleStartDay = menstrualLog.day;
+      } catch {
+        // Non-fatal
+      }
+
+      const hyroxPlanLines = buildHyroxPlanSection(
+        hyroxPlan,
+        now,
+        phaseLog,
+        cycleStartDay,
+      );
+      addSection("hyrox_plan", hyroxPlanLines);
+
+      const hyroxPaceLines = buildHyroxPaceGapSection(
+        hyroxPlan,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (hyroxPlan as any).sessions ?? [],
+      );
+      addSection("hyrox_pace_gap", hyroxPaceLines);
+    }
+  }
+
   // ---- Build primary focus section ----
-  const lens = focusGoal ? goalLenses[focusGoal.type] : null;
+  const lensKey = focusGoal
+    ? (focusGoal.subtype && goalLenses[`${focusGoal.type}_${focusGoal.subtype}`]
+        ? `${focusGoal.type}_${focusGoal.subtype}`
+        : focusGoal.type)
+    : null;
+  const lens = lensKey ? goalLenses[lensKey] : null;
   const order = lens?.sectionOrder ?? defaultSectionOrder;
 
   if (focusGoal) {
