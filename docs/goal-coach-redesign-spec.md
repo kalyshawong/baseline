@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Author:** Kalysha
-**Date:** 2026-04-09
+**Date:** 2026-04-20 (updated with Perplexity review feedback)
 **Status:** Draft
 **Dependencies:** Goal model (schema.prisma), coach-context.ts, coach/route.ts
 
@@ -71,9 +71,9 @@ model GoalWorkoutTag {
 
 **Key changes from current model:**
 - `subtype` enables specific coaching behavior per race/exam/etc
-- `isPrimary` creates the focus hierarchy (DB constraint: max 1 primary)
+- `isPrimary` creates the focus hierarchy (max 1 primary). Enforced at the application layer: both POST and PATCH goal routes cascade `isPrimary = false` across all other goals before setting the new primary, wrapped in a `prisma.$transaction()`. SQLite does not support partial unique indexes, so a DB-level constraint is not used.
 - `GoalWorkoutTag` connects workouts to goals for filtered views
-- `archived` status preserves completed goal data for pattern analysis
+- `archived` status preserves completed goal data for pattern analysis. Note: when a goal is abandoned (status = `abandoned`), its workout tags and HyroxPlan/HyroxSession rows remain intact. Pattern recall (§7.2) should filter by `status IN ('archived', 'completed')` and exclude `abandoned` goals to avoid surfacing incomplete training blocks as reference patterns.
 
 ### 3.2 Goal Types and Their Coaching Lenses
 
@@ -185,6 +185,22 @@ export async function buildCoachContext(focusGoalId?: string): Promise<string> {
 
 The key insight: **context window position matters**. Claude attends more reliably to content near the beginning of the context. By putting the most goal-relevant data first, the coach naturally weights its advice correctly — no data is removed, but emphasis shifts through ordering.
 
+#### Section Order by Goal Type
+
+This table defines the exact `sectionOrder` array for each goal type. Sections not listed still appear — they're appended after the prioritized ones in their default order.
+
+| Goal Type | Section Order (highest priority → lowest) |
+|---|---|
+| **race/hyrox** | `hyrox_plan` → `hyrox_pace_gap` → `readiness` → `recent_workouts` → `weekly_volume` → `cycle` → `nutrition` |
+| **race/other** | `vo2max` → `running_metrics` → `zones` → `body_comp` → `sleep` → `nutrition` → `strength` |
+| **strength** | `volume_e1rm` → `sleep_deep` → `protein` → `rpe_trends` → `body_comp` → `running` |
+| **cognitive** | `sleep_deep_rem` → `stress_recovery` → `hrv` → `training_load` → `nutrition` |
+| **weight** | `nutrition` → `body_comp` → `energy_availability` → `sleep` → `training_load` |
+| **health** | `sleep` → `hrv` → `stress` → `nutrition` → `activity` |
+| **custom** | `readiness` → `sleep` → `nutrition` → `training_load` → `body_comp` |
+
+For `race/hyrox`, the `hyrox_plan` and `hyrox_pace_gap` sections are built by the Hyrox module (see `hyrox-module-spec.md`). They only appear when an active `HyroxPlan` exists for the goal.
+
 ### 4.3 System Prompt Changes
 
 The system prompt gains a dynamic section based on the active goal:
@@ -243,6 +259,8 @@ When the user selects "Just today," the coach produces a structured daily brief:
 **Body budget:** Readiness 78/100 (green). Your body can handle a hard session.
 Deep sleep was solid (1h 42m), HRV stable at 52ms. No red flags.
 
+**Cycle phase:** Follicular (day 8). Peak performance window — good day for intensity or PR attempts.
+
 **Mind budget:** Stress recovery at 68%. Moderate cognitive load available.
 Sleep latency was elevated (28 min) — may indicate ambient stress.
 
@@ -255,6 +273,12 @@ Sleep latency was elevated (28 min) — may indicate ambient stress.
 Eat 6+ g/kg carbs to fuel it. Protein target: 98g (you've logged 32g so far).
 Aim for bed by 10:30 PM (Oura optimal window).
 ```
+
+**Data freshness rules:**
+- "Last night's" sleep and readiness data (Oura) is always available by the time the user checks the brief
+- Same-day nutrition: show "no meals logged yet today" rather than omitting the line when no entries exist. Once entries appear, show running totals.
+- Cycle phase: use the latest `CyclePhaseLog` entry. If no entry within 35 days, omit the cycle line entirely rather than showing stale data.
+- The brief considers data through the current moment — it is not pre-generated. Each open of "Just today" runs a fresh `buildCoachContext()`.
 
 ---
 

@@ -1,6 +1,6 @@
 # Body Mode — Scientific Research Foundation
 
-**Last Updated:** 2026-04-03
+**Last Updated:** 2026-04-20
 **Purpose:** Peer-reviewed evidence base for Body Mode's training recommendations, recovery logic, nutrition tracking, and cycle-phase periodization. Every feature in Body Mode should trace back to a finding in this document.
 
 ---
@@ -55,7 +55,7 @@
 
 **Finding:** Recovery time requirements vary by muscle group size, training intensity, and eccentric loading. Large muscle groups (quads, back) need 48–72 hours; smaller groups (biceps, triceps) need 24–48 hours.
 
-**Citation:** Halperin, I., et al. (2024). "The Importance of Recovery in Resistance Training Microcycle Construction." *Sports Medicine – Open*, 10(1), 42.
+**Citation:** Sousa, A.C., & Zourdos, M.C. (2024). "The Importance of Recovery in Resistance Training Microcycle Construction." *Journal of Human Kinetics*, 92, 7–24.
 
 **Key takeaway:** Exercises emphasizing eccentric contractions, multi-joint movements, and lengthened-position loading require longer recovery. Training to muscular failure extends recovery by an additional 24–48 hours compared to stopping 2–3 reps short.
 
@@ -128,7 +128,7 @@ These ranges shift based on training experience: beginners have narrow MEV-MRV g
 
 ### 2.2 Velocity-Based Training (VBT)
 
-**Finding:** An extremely stable inverse relationship (r = −0.97) exists between barbell velocity and relative load (%1RM), making mean concentric velocity a reliable proxy for training intensity without needing true 1RM tests.
+**Finding:** An extremely stable inverse relationship (R² = 0.98) exists between barbell velocity and relative load (%1RM), making mean concentric velocity a reliable proxy for training intensity without needing true 1RM tests.
 
 **Citation:** González-Badillo, J.J., & Sánchez-Medina, L. (2010). "Movement velocity as a measure of loading intensity in resistance training." *International Journal of Sports Medicine*, 31(5), 347–352.
 
@@ -169,7 +169,7 @@ This means a coach (or app) can prescribe "hit 0.5–0.7 m/s on squat" instead o
 
 **Finding:** RPE-based autoregulation using the Repetitions in Reserve (RIR) scale is effective, accessible, and correlates strongly with bar velocity — but accuracy improves when sets are closer to failure.
 
-**Citation:** Zourdos, M.C., et al. (2016). "Novel Resistance Training–Specific Rating of Perceived Exertion Scale Measuring Repetitions in Reserve." *Journal of Strength and Conditioning Research*, 30(2), 267–275.
+**Citation:** Zourdos, M.C., et al. (2016). "Novel Resistance Training–Specific Rating of Perceived Exertion Scale Measuring Repetitions in Reserve." *Journal of Strength and Conditioning Research*, 30(1), 267–275.
 
 **Key takeaway:** RIR-based RPE (where RPE 8 = 2 reps in reserve, RPE 9 = 1 RIR, RPE 10 = failure) provides a practical autoregulation method requiring no equipment. Users underestimate RIR at lower intensities and become more accurate near failure. Training experience improves calibration.
 
@@ -206,7 +206,7 @@ This means a coach (or app) can prescribe "hit 0.5–0.7 m/s on squat" instead o
 
 **Citation:** Cadegiani, F.A., & Kater, C.E. (2019). "Novel insights of overtraining syndrome discovered from the EROS study." *BMJ Open Sport & Exercise Medicine*, 5(1), e000542.
 
-**Key takeaway:** A 56-study systematic review found no single reliable diagnostic biomarker for overtraining. The most sensitive early signals are: loss of motivation, irritability, worsening sleep quality, and persistent fatigue — all appearing before HRV or hormonal changes.
+**Key takeaway:** The EROS study — an original investigation comparing OTS-affected athletes, healthy athletes, and non-athletes across 67 hormonal and metabolic markers — found no single reliable diagnostic biomarker for overtraining. The most sensitive early signals are: loss of motivation, irritability, worsening sleep quality, and persistent fatigue — all appearing before HRV or hormonal changes.
 
 **Baseline implementation:** Add an optional daily wellness check (3 questions, <30 seconds): energy (1–10), motivation (1–10), any nagging pain (yes/no). Combine with HRV and sleep data into a composite fatigue score. When the composite crosses a threshold for 3+ consecutive days, recommend deload regardless of where the user is in their training cycle.
 
@@ -258,7 +258,7 @@ This means a coach (or app) can prescribe "hit 0.5–0.7 m/s on squat" instead o
 
 **Finding:** Protein supplementation during resistance training significantly increases muscle mass, with benefits plateauing at approximately 1.6 g/kg/day. The 95% confidence interval extends to 2.2 g/kg/day.
 
-**Citation:** Morton, R.W., et al. (2018). "A systematic review, meta-analysis and meta-regression of the effect of protein supplementation on resistance training-induced gains in muscle mass and strength in healthy adults." *British Journal of Sports Medicine*, 52(7), 494–505.
+**Citation:** Morton, R.W., et al. (2018). "A systematic review, meta-analysis and meta-regression of the effect of protein supplementation on resistance training-induced gains in muscle mass and strength in healthy adults." *British Journal of Sports Medicine*, 52(6), 376–384.
 
 **Key takeaway:** This is the definitive meta-analysis (49 RCTs, 1,863 participants). At 1.6 g/kg/day, you capture ~95% of the available hypertrophy benefit. Going to 2.2 g/kg adds marginal gains. Beyond 2.2 g/kg, there is no measurable additional benefit.
 
@@ -378,7 +378,7 @@ This table maps research findings to Body Mode features, ordered by implementati
 | **P2** | RPE/RIR autoregulation | Effective, accessible, no equipment needed | Zourdos (2016) |
 | **P2** | Energy availability calculation | EA < 30 impairs recovery, mimics overtraining | Loucks (2011) |
 | **P2** | Ovulation joint awareness prompt | 3–6× ACL risk increase | Hewett (2007), Wojtys (2002) |
-| **P3** | Velocity-based training (IMU) | Objective load autoregulation, r = −0.97 | González-Badillo (2010), Banyard (2019) |
+| **P3** | Velocity-based training (IMU) | Objective load autoregulation, R² = 0.98 | González-Badillo (2010), Banyard (2019) |
 | **P3** | Velocity loss thresholds | Phase-specific set termination | Banyard (2019) |
 | **P3** | Cycle-loaded periodization template | Follicular-focused volume may optimize gains | Wikström-Frisén (2017) |
 
@@ -393,7 +393,7 @@ This table maps research findings to Body Mode features, ordered by implementati
 5. Dattilo, M., et al. (2011). *Medical Hypotheses*, 77(2), 220–222.
 6. Flatt, A.A., & Esco, M.R. (2016). *JSCR*, 30(2), 378–385.
 7. González-Badillo, J.J., & Sánchez-Medina, L. (2010). *Int J Sports Med*, 31(5), 347–352.
-8. Halperin, I., et al. (2024). *Sports Medicine – Open*, 10(1), 42.
+8. Sousa, A.C., & Zourdos, M.C. (2024). *Journal of Human Kinetics*, 92, 7–24.
 9. Hewett, T.E., Zazulak, B.T., & Myer, G.D. (2007). *AJSM*, 35(4), 659–668.
 10. Israetel, M., Hoffmann, J., & Smith, C.W. (2021). *Scientific Principles of Hypertrophy Training*. RP.
 11. Kiviniemi, A.M., et al. (2007). *Eur J Appl Physiol*, 101(6), 743–751.
@@ -402,7 +402,7 @@ This table maps research findings to Body Mode features, ordered by implementati
 14. McNulty, K.L., et al. (2020). *Sports Medicine*, 50(10), 1813–1827.
 15. Moore, D.R., et al. (2009). *J Appl Physiol*, 107(4), 1359–1369.
 16. Moore, D.R., et al. (2015). *J Appl Physiol*, 118(5), 633–641.
-17. Morton, R.W., et al. (2018). *Br J Sports Med*, 52(7), 494–505.
+17. Morton, R.W., et al. (2018). *Br J Sports Med*, 52(6), 376–384.
 18. Plews, D.J., et al. (2013). *Sports Medicine*, 43(9), 773–781.
 19. Pritchard, H.J., et al. (2024). *Sports Medicine – Open*, 10, 43.
 20. Sassin, J.F., et al. (1969). *Science*, 165(3892), 513–515.
@@ -412,4 +412,4 @@ This table maps research findings to Body Mode features, ordered by implementati
 24. Sung, E., et al. (2014). *SpringerPlus*, 3, 668.
 25. Wikström-Frisén, L., et al. (2017). *J Sports Med Phys Fitness*, 57(1–2), 43–52.
 26. Wojtys, E.M., et al. (2002). *AJSM*, 30(2), 182–188.
-27. Zourdos, M.C., et al. (2016). *JSCR*, 30(2), 267–275.
+27. Zourdos, M.C., et al. (2016). *JSCR*, 30(1), 267–275.

@@ -1,6 +1,6 @@
 # Baseline Variables — Scientific Research & Performance Categorization
 
-**Last Updated:** 2026-04-09
+**Last Updated:** 2026-04-20
 **Purpose:** Comprehensive categorization of every Baseline variable by which performance domain it informs — strength training, Hyrox, and/or running — with peer-reviewed evidence for each variable's relevance. This document complements `body-mode-research.md` by expanding scope to all three performance domains and covering the full variable inventory.
 
 ---
@@ -107,7 +107,7 @@ Deviation of skin temperature from personal baseline.
 
 **Science:** Elevated body temperature during sleep is one of the earliest markers of illness onset — preceding symptom awareness by 1–3 days (Li et al., 2017). Training while fighting an infection prolongs illness and extends the recovery deficit. For female athletes specifically, the menstrual cycle causes predictable temperature shifts: +0.3–0.5°C during the luteal phase (Sung et al., 2014). Baseline's cycle-phase-aware temperature scoring correctly accounts for this, preventing false "illness" flags during the luteal phase.
 
-**Additional research:** Periell et al. (2021) found that overnight skin temperature deviation >0.5°C above baseline (outside of luteal phase) predicted illness onset with 79% sensitivity. Training through undetected illness is a leading cause of prolonged performance decrements.
+**Additional research:** A skin temperature deviation >0.5°C above baseline (outside of luteal phase) is used as a practical heuristic for flagging possible illness onset, supported by the general findings of Li et al. (2017) and Smarr et al. (2020) on wearable temperature monitoring. No single peer-reviewed study has established a precise sensitivity figure for this specific threshold — treat it as a practitioner-derived guideline rather than a validated diagnostic cutoff. Training through undetected illness is a leading cause of prolonged performance decrements.
 
 ### 2.3 hrvBalance
 **Domains:** 🏋️ STR | 🏃 RUN | 🔥 HYR
@@ -261,7 +261,7 @@ Heart rate recovery — BPM drop in the first minutes post-exercise.
 
 Breaths per minute during sleep or activity.
 
-**Science:** Overnight respiratory rate is an emerging marker for illness detection and recovery status. Natarajan et al. (2020) found that Oura Ring respiratory rate detected COVID-19 onset 1–2 days before symptom awareness with 82% sensitivity. Beyond illness, elevated respiratory rate during sleep (>18 breaths/min in a trained athlete) can indicate metabolic stress, thermal stress, or overtraining. During exercise, respiratory rate relative to intensity reflects ventilatory threshold status — crossing into rapid, shallow breathing indicates the transition from aerobic to anaerobic metabolism.
+**Science:** Overnight respiratory rate is an emerging marker for illness detection and recovery status. Natarajan et al. (2020) found that Fitbit wearable physiological signals (including respiratory rate) detected COVID-19 onset 1–2 days before symptom awareness. Separately, Smarr et al. (2020, *Scientific Reports*) demonstrated that Oura Ring skin temperature deviations detected COVID-19 with 76% sensitivity — though that study used temperature, not respiratory rate. Beyond illness, elevated respiratory rate during sleep (>18 breaths/min in a trained athlete) can indicate metabolic stress, thermal stress, or overtraining. During exercise, respiratory rate relative to intensity reflects ventilatory threshold status — crossing into rapid, shallow breathing indicates the transition from aerobic to anaerobic metabolism.
 
 ### 5.8 walkingRunningDistance
 **Domains:** 🏃 RUN | 🔥 HYR
@@ -481,7 +481,7 @@ Current menstrual cycle phase.
 
 Particulate matter ≤2.5μm (bedroom air quality).
 
-**Science:** PM2.5 exposure during sleep impairs respiratory function and reduces sleep quality. Chaudhuri et al. (2022) found that indoor air quality significantly affects HRV during sleep — high PM2.5 suppresses parasympathetic activity, reducing recovery independent of training load. For runners, chronic PM2.5 exposure reduces lung function and impairs oxygen delivery. Outdoor training in high-pollution conditions (PM2.5 > 35 μg/m³) produces more harm than benefit for endurance performance.
+**Science:** PM2.5 exposure during sleep impairs respiratory function and reduces sleep quality. Chaudhuri et al. (2022) [citation details unverified — specific paper not confirmed in databases] reported that indoor air quality significantly affects HRV during sleep — high PM2.5 suppresses parasympathetic activity, reducing recovery independent of training load. For runners, chronic PM2.5 exposure reduces lung function and impairs oxygen delivery. Outdoor training in high-pollution conditions (PM2.5 > 35 μg/m³) produces more harm than benefit for endurance performance.
 
 ### 12.2 temperature & humidity
 **Domains:** 🏋️ STR | 🏃 RUN | 🔥 HYR (sleep quality)
@@ -548,7 +548,7 @@ Structured recovery sessions tracked by Oura.
 
 Oura's recommended sleep window.
 
-**Science:** Consistent sleep timing (same bedtime ±30 minutes) is as important as sleep duration for circadian health. Phillipis et al. (2017) found that irregular sleep timing predicted worse academic performance, mood, and health markers even when total sleep duration was adequate. For athletes, circadian misalignment (varying bedtime by >2 hours) suppresses growth hormone pulses and impairs glycogen replenishment.
+**Science:** Consistent sleep timing (same bedtime ±30 minutes) is as important as sleep duration for circadian health. Phillips et al. (2017) found that irregular sleep timing predicted worse academic performance, mood, and health markers even when total sleep duration was adequate. For athletes, circadian misalignment (varying bedtime by >2 hours) suppresses growth hormone pulses and impairs glycogen replenishment.
 
 ---
 
@@ -636,10 +636,10 @@ Based on this analysis, several derived metrics would add significant value to B
 ### Strength & Hypertrophy
 - González-Badillo, J.J., & Sánchez-Medina, L. (2010). *Int J Sports Med*, 31(5), 347–352.
 - Israetel, M., Hoffmann, J., & Smith, C.W. (2021). *Scientific Principles of Hypertrophy Training*. RP.
-- Morton, R.W., et al. (2018). *Br J Sports Med*, 52(7), 494–505.
+- Morton, R.W., et al. (2018). *Br J Sports Med*, 52(6), 376–384.
 - Schoenfeld, B.J., et al. (2016). *JSCR*, 30(7), 1805–1812.
 - Schoenfeld, B.J., et al. (2017). *J Sports Sci*, 35(11), 1073–1082.
-- Zourdos, M.C., et al. (2016). *JSCR*, 30(2), 267–275.
+- Zourdos, M.C., et al. (2016). *JSCR*, 30(1), 267–275.
 
 ### Nutrition
 - Hämäläinen, E.K., et al. (1984). *J Steroid Biochem*, 20(1), 459–464.
@@ -654,7 +654,7 @@ Based on this analysis, several derived metrics would add significant value to B
 - Sung, E., et al. (2014). *SpringerPlus*, 3, 668.
 
 ### Environment
-- Chaudhuri, S., et al. (2022). *Environmental Research*, 212, 113472.
+- Chaudhuri, S., et al. (2022). *Environmental Research*, 212, 113472. [citation unverified]
 - Gooley, J.J., et al. (2011). *J Clin Endocrinol Metab*, 96(3), E463–E472.
 - Okamoto-Mizuno, K., & Mizuno, K. (2012). *J Physiol Anthropol*, 31(1), 14.
 
@@ -665,5 +665,6 @@ Based on this analysis, several derived metrics would add significant value to B
 
 ### Other
 - Daanen, H.A., et al. (2012). *Int J Sports Physiol Perform*, 7(3), 251–260.
-- Natarajan, A., et al. (2020). *BMJ Open Sport & Exercise Medicine*, 6(1), e000898.
+- Natarajan, A., et al. (2020). *Nature Medicine*, 27(1), 73–77. [Note: used Fitbit, not Oura]
+- Smarr, B.L., et al. (2020). *Scientific Reports*, 10, 19006. [Oura Ring COVID detection via temperature; 76% sensitivity]
 - Waterhouse, J., et al. (2007). *J Sports Sci*, 25(14), 1557–1566.
