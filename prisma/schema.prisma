@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin-arm64"]
 }
 
 datasource db {
@@ -56,7 +57,7 @@ model DailyActivity {
   totalCalories             Int?
   steps                     Int?
   equivalentWalkingDistance Int?
-  highActivityTime          Int?     // seconds
+  highActivityTime          Int? // seconds
   mediumActivityTime        Int?
   lowActivityTime           Int?
   sedentaryTime             Int?
@@ -86,7 +87,7 @@ model HeartRateSample {
 model CyclePhaseLog {
   id        Int      @id @default(autoincrement())
   day       DateTime @unique
-  phase     String   // menstrual | follicular | ovulation | luteal
+  phase     String // menstrual | follicular | ovulation | luteal
   source    String   @default("manual")
   createdAt DateTime @default(now())
 }
@@ -94,7 +95,7 @@ model CyclePhaseLog {
 model SyncLog {
   id        Int      @id @default(autoincrement())
   syncDate  DateTime @default(now())
-  status    String   // success | partial | failed
+  status    String // success | partial | failed
   details   String?
   createdAt DateTime @default(now())
 }
@@ -102,23 +103,23 @@ model SyncLog {
 // --- Mind Mode ---
 
 model Experiment {
-  id                  String          @id @default(cuid())
+  id                  String    @id @default(cuid())
   title               String
   hypothesis          String
   independentVariable String
   dependentVariable   String
-  dependentMetric     String          // field name: deepSleepDuration, averageHrv, score, etc.
-  metricSource        String          // DailySleep | DailyReadiness | DailyStress | HeartRateSample
-  lagDays             Int             @default(0) // 0 = same day, 1 = next day, etc.
+  dependentMetric     String // field name: deepSleepDuration, averageHrv, score, etc.
+  metricSource        String // DailySleep | DailyReadiness | DailyStress | HeartRateSample
+  lagDays             Int       @default(0) // 0 = same day, 1 = next day, etc.
   startDate           DateTime
   endDate             DateTime?
-  minDays             Int             @default(14)
-  status              String          @default("draft") // draft | active | completed | analyzed
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  minDays             Int       @default(14)
+  status              String    @default("draft") // draft | active | completed | analyzed
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  logs                ExperimentLog[]
-  tags                ActivityTag[]
+  logs ExperimentLog[]
+  tags ActivityTag[]
 }
 
 model ExperimentLog {
@@ -126,8 +127,8 @@ model ExperimentLog {
   experimentId     String
   experiment       Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
   day              DateTime
-  independentValue Boolean    // true = condition applied, false = control
-  intensity        Float?     // optional 0.0-1.0 for variable-dose experiments
+  independentValue Boolean // true = condition applied, false = control
+  intensity        Float? // optional 0.0-1.0 for variable-dose experiments
   notes            String?
   createdAt        DateTime   @default(now())
 
@@ -137,9 +138,9 @@ model ExperimentLog {
 model ActivityTag {
   id           String      @id @default(cuid())
   tag          String
-  category     String      // music | breathing | caffeine | alcohol | meditation | exercise | social | study | custom
+  category     String // music | breathing | caffeine | alcohol | meditation | exercise | social | study | custom
   timestamp    DateTime    @default(now())
-  metadata     String?     // JSON string for flexible extra data
+  metadata     String? // JSON string for flexible extra data
   experimentId String?
   experiment   Experiment? @relation(fields: [experimentId], references: [id])
   ouraTagId    String?     @unique // Oura enhanced_tag ID for dedup
@@ -148,30 +149,30 @@ model ActivityTag {
 }
 
 model NutritionLog {
-  id        String           @id @default(cuid())
-  day       DateTime         @unique
-  calories  Float            @default(0)
-  protein   Float            @default(0)
-  carbs     Float            @default(0)
-  fat       Float            @default(0)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  id        String   @id @default(cuid())
+  day       DateTime @unique
+  calories  Float    @default(0)
+  protein   Float    @default(0)
+  carbs     Float    @default(0)
+  fat       Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  entries   NutritionEntry[]
+  entries NutritionEntry[]
 }
 
 model NutritionEntry {
   id             String       @id @default(cuid())
   nutritionLogId String
   nutritionLog   NutritionLog @relation(fields: [nutritionLogId], references: [id], onDelete: Cascade)
-  description    String       // "3 eggs", "200g ground beef"
+  description    String // "3 eggs", "200g ground beef"
   calories       Float
   protein        Float
   carbs          Float
   fat            Float
   quantity       Float        @default(1) // parsed quantity
   unit           String       @default("serving") // g, oz, cup, serving
-  foodName       String       // normalized name from USDA match
+  foodName       String // normalized name from USDA match
   mealType       String       @default("snack") // breakfast | lunch | dinner | snack
   eatenAt        DateTime     @default(now()) // actual time the food was eaten
   createdAt      DateTime     @default(now())
@@ -180,25 +181,25 @@ model NutritionEntry {
 // --- Body Mode ---
 
 model Exercise {
-  id              String       @id @default(cuid())
-  name            String       @unique
-  muscleGroup     String       // chest | back | shoulders | biceps | triceps | quads | hamstrings | glutes | calves | core
+  id              String   @id @default(cuid())
+  name            String   @unique
+  muscleGroup     String // chest | back | shoulders | biceps | triceps | quads | hamstrings | glutes | calves | core
   secondaryMuscle String?
-  movementPattern String       // push | pull | hinge | squat | carry | isolation | olympic
-  equipment       String       // barbell | dumbbell | cable | machine | bodyweight | kettlebell | band
-  isCompound      Boolean      @default(false)
-  defaultSets     Int          @default(3)
-  defaultReps     Int          @default(10)
+  movementPattern String // push | pull | hinge | squat | carry | isolation | olympic
+  equipment       String // barbell | dumbbell | cable | machine | bodyweight | kettlebell | band
+  isCompound      Boolean  @default(false)
+  defaultSets     Int      @default(3)
+  defaultReps     Int      @default(10)
   notes           String?
-  createdAt       DateTime     @default(now())
+  createdAt       DateTime @default(now())
 
-  sets            WorkoutSet[]
+  sets WorkoutSet[]
 }
 
 model WorkoutSession {
-  id             String       @id @default(cuid())
+  id             String    @id @default(cuid())
   date           DateTime
-  startedAt      DateTime     @default(now())
+  startedAt      DateTime  @default(now())
   completedAt    DateTime?
   durationMin    Int?
   readinessScore Int?
@@ -207,11 +208,12 @@ model WorkoutSession {
   sessionVolume  Float?
   notes          String?
   templateName   String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  sets           WorkoutSet[]
-  goalTags       GoalWorkoutTag[]
+  sets         WorkoutSet[]
+  goalTags     GoalWorkoutTag[]
+  hyroxSession HyroxSession?
 }
 
 model WorkoutSet {
@@ -238,7 +240,7 @@ model WorkoutTemplate {
   id        String   @id @default(cuid())
   name      String   @unique
   split     String   @default("custom") // PPL | Upper/Lower | custom
-  exercises String   // JSON array of { exerciseName, targetSets, targetReps }
+  exercises String // JSON array of { exerciseName, targetSets, targetReps }
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -249,7 +251,7 @@ model UserProfile {
   bodyFatPct         Float?
   heightCm           Float?
   age                Int?
-  sex                String?  // female | male
+  sex                String? // female | male
   experienceLevel    String   @default("intermediate") // beginner | intermediate | advanced
   activityLevel      String   @default("moderate") // sedentary | light | moderate | active | very_active
   goal               String   @default("maintain") // lose | maintain | gain
@@ -261,20 +263,100 @@ model UserProfile {
 }
 
 model Goal {
-  id          String    @id @default(cuid())
-  title       String
-  type        String    // race | strength | physique | cognitive | weight | health | custom
-  subtype     String?   // hyrox | marathon | half_marathon | 5k | 10k | triathlon | powerlifting_meet | bodybuilding | cfa | finals | certification | cut | bulk | recomp | maintain | sleep_optimization | hrv_baseline | stress_management | custom
-  target      String?
-  deadline    DateTime?
-  status      String    @default("active")    // active | completed | abandoned | archived
-  isPrimary   Boolean   @default(false)
-  priority    Int       @default(0)
-  notes       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String    @id @default(cuid())
+  title     String
+  type      String // race | strength | physique | cognitive | weight | health | custom
+  subtype   String? // hyrox | marathon | half_marathon | 5k | 10k | triathlon | powerlifting_meet | bodybuilding | cfa | finals | certification | cut | bulk | recomp | maintain | sleep_optimization | hrv_baseline | stress_management | custom
+  target    String?
+  deadline  DateTime?
+  status    String    @default("active") // active | completed | abandoned | archived
+  isPrimary Boolean   @default(false)
+  priority  Int       @default(0)
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   workoutTags GoalWorkoutTag[]
+  hyroxPlan   HyroxPlan?
+}
+
+// --- Hyrox Race-Prep Module ---
+
+model HyroxPlan {
+  id         String   @id @default(cuid())
+  goalId     String   @unique
+  goal       Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  raceDate   DateTime
+  targetTime Int // total seconds (e.g., 85min = 5100)
+  startDate  DateTime @default(now())
+
+  // Weekly targets (hours) — auto-derived from block at creation, user-editable
+  weeklyRunHours         Float @default(3.0)
+  weeklyStrengthHours    Float @default(2.0)
+  weeklyCompromisedHours Float @default(1.0)
+
+  // Block schedule (in days) — auto-scaled at creation based on weeksToRace,
+  // user-editable thereafter. 0 allowed for accumulation on very short runways.
+  accumulationDays  Int @default(14)
+  transmutationDays Int @default(14)
+  realizationDays   Int @default(11) // ~1.5 weeks
+  taperDays         Int @default(14)
+
+  // Current block state (computed from startDate + above, cached for display)
+  currentBlock   String   @default("accumulation") // accumulation | transmutation | realization | taper | complete
+  blockStartDate DateTime @default(now())
+
+  // Lifecycle: active while race is upcoming; auto-archived after raceDate
+  status String @default("active") // active | archived
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions          HyroxSession[]
+  stationBenchmarks HyroxStationBenchmark[]
+}
+
+model HyroxSession {
+  id     String    @id @default(cuid())
+  planId String
+  plan   HyroxPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  // FK to WorkoutSession (the canonical training record). Never duplicate
+  // sets, reps, weights, HR — all of that lives on WorkoutSession. HyroxSession
+  // is a thin race-specific layer.
+  workoutSessionId String?         @unique
+  workoutSession   WorkoutSession? @relation(fields: [workoutSessionId], references: [id], onDelete: SetNull)
+
+  day         DateTime
+  sessionType String // easy_run | tempo | intervals | long_run | strength | compromised | station_work | recovery | race_simulation
+
+  // Race-specific layer (fields that only make sense for Hyrox-flavored sessions)
+  stationOrderJson    String? // JSON array of station keys in the order performed
+  transitionTimesJson String? // JSON array of seconds per transition
+  racePaceTargetJson  String? // JSON { kmPaceSeconds, perStationBudget: { [key]: seconds } }
+  intervalsJson       String? // compromised: JSON of { runMeters, runSeconds, station, stationReps, stationSeconds }[]
+
+  // Plan-level metadata — actual performance numbers live on WorkoutSession
+  prescriptionNotes String?
+  rationale         String?
+
+  createdAt DateTime @default(now())
+
+  @@index([planId])
+  @@index([day])
+}
+
+model HyroxStationBenchmark {
+  id          String    @id @default(cuid())
+  planId      String
+  plan        HyroxPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  station     String // ski_erg | sled_push | sled_pull | burpee_broad_jump | row | farmers_carry | sandbag_lunges | wall_balls
+  timeSeconds Int
+  weightKg    Float?
+  notes       String?
+  recordedAt  DateTime  @default(now())
+
+  @@index([planId, station])
 }
 
 model GoalWorkoutTag {
@@ -289,19 +371,19 @@ model GoalWorkoutTag {
 }
 
 model ChatSession {
-  id        String        @id @default(cuid())
+  id        String   @id @default(cuid())
   title     String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  messages  ChatMessage[]
+  messages ChatMessage[]
 }
 
 model ChatMessage {
   id        String      @id @default(cuid())
   sessionId String
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  role      String      // user | assistant
+  role      String // user | assistant
   content   String
   createdAt DateTime    @default(now())
 
@@ -325,7 +407,7 @@ model HealthKitSync {
   id       String   @id @default(cuid())
   syncedAt DateTime @default(now())
   source   String   @default("health-auto-export")
-  status   String   // success | partial | failed
+  status   String // success | partial | failed
   details  String?
   metrics  Int      @default(0)
   workouts Int      @default(0)
@@ -372,12 +454,12 @@ model DailySpO2 {
 model OuraWorkout {
   id              String   @id
   day             DateTime
-  activity        String   // cycling, running, strength_training, etc.
+  activity        String // cycling, running, strength_training, etc.
   calories        Float?
-  distance        Float?   // meters
-  intensity       String?  // easy | moderate | hard
+  distance        Float? // meters
+  intensity       String? // easy | moderate | hard
   label           String?
-  source          String?  // manual | autodetected | apple_health
+  source          String? // manual | autodetected | apple_health
   startedAt       DateTime
   endedAt         DateTime
   durationSeconds Int
@@ -389,7 +471,7 @@ model OuraWorkout {
 model OuraSession {
   id              String   @id
   day             DateTime
-  type            String   // breathing | meditation | nap | relaxation | rest | body_status
+  type            String // breathing | meditation | nap | relaxation | rest | body_status
   startedAt       DateTime
   endedAt         DateTime
   durationSeconds Int
@@ -404,35 +486,35 @@ model OuraSession {
 model SleepTimeRecommendation {
   id                  String   @id
   day                 DateTime @unique
-  optimalBedtimeStart Int?     // seconds from midnight (negative = before midnight)
+  optimalBedtimeStart Int? // seconds from midnight (negative = before midnight)
   optimalBedtimeEnd   Int?
-  recommendation      String?  // improve_efficiency | earlier_bedtime | later_bedtime | follow_optimal_bedtime
-  status              String?  // not_enough_nights | optimal_found | etc.
+  recommendation      String? // improve_efficiency | earlier_bedtime | later_bedtime | follow_optimal_bedtime
+  status              String? // not_enough_nights | optimal_found | etc.
   createdAt           DateTime @default(now())
 }
 
 model DailyResilience {
   id              String   @id
   day             DateTime @unique
-  level           String   // limited | adequate | solid | strong | exceptional
-  sleepRecovery   Int?     // 0-100
-  daytimeRecovery Int?     // 0-100
-  stress          Int?     // 0-100
+  level           String // limited | adequate | solid | strong | exceptional
+  sleepRecovery   Int? // 0-100
+  daytimeRecovery Int? // 0-100
+  stress          Int? // 0-100
   createdAt       DateTime @default(now())
 }
 
 model DailyRunningMetrics {
   id                     String   @id @default(cuid())
   day                    DateTime @unique
-  runningSpeed           Float?   // avg km/h
-  runningPower           Float?   // avg watts
-  groundContactTime      Float?   // avg milliseconds
-  verticalOscillation    Float?   // avg cm
-  strideLength           Float?   // avg meters
-  cardioRecovery         Float?   // HR recovery metric (BPM drop post-workout)
-  walkingRunningDistance  Float?   // total meters
-  respiratoryRate        Float?   // breaths per minute
-  physicalEffort         Float?   // Apple effort score
+  runningSpeed           Float? // avg km/h
+  runningPower           Float? // avg watts
+  groundContactTime      Float? // avg milliseconds
+  verticalOscillation    Float? // avg cm
+  strideLength           Float? // avg meters
+  cardioRecovery         Float? // HR recovery metric (BPM drop post-workout)
+  walkingRunningDistance Float? // total meters
+  respiratoryRate        Float? // breaths per minute
+  physicalEffort         Float? // Apple effort score
   createdAt              DateTime @default(now())
 
   @@index([day])
@@ -441,7 +523,7 @@ model DailyRunningMetrics {
 model DailyVO2Max {
   id        String   @id
   day       DateTime @unique
-  vo2Max    Float?   // mL/kg/min
+  vo2Max    Float? // mL/kg/min
   createdAt DateTime @default(now())
 }
 
