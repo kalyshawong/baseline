@@ -25,6 +25,7 @@ import { WeightTrendChart } from "@/components/weight/weight-trend-chart";
 import { WeightGoalSettings } from "@/components/weight/weight-goal-settings";
 import { TdeeCard } from "@/components/weight/tdee-card";
 import { RunningMetricsCard } from "@/components/body/running-metrics-card";
+import { HyroxSummaryCard } from "@/components/hyrox-summary-card";
 import {
   totalDailyEnergyExpenditure,
   goalCalories,
@@ -298,6 +299,8 @@ export default async function BodyPage() {
 
   return (
     <div className="space-y-6">
+      <HyroxSummaryCard />
+
       {/* ─── SECTION 1: COMPOSITION & ENERGY ─── */}
       <div className="space-y-3">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
