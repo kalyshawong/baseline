@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { apiError } from "@/lib/utils";
+import { syncHyroxPlanForGoal } from "@/lib/hyrox-plan-sync";
 
 export async function PATCH(
   request: NextRequest,
@@ -28,6 +29,11 @@ export async function PATCH(
 
     // BUG-C3 fix: wrap the isPrimary cascade + update in a single transaction
     // so concurrent PATCHes can't leave the DB with multiple primaries or zero.
+    //
+    // Hyrox hook: if the goal is (or becomes) a race/hyrox goal with a
+    // deadline, sync the HyroxPlan inside the same transaction. Exceptions
+    // roll the goal update back. Moving a goal away from subtype=hyrox is a
+    // no-op — the existing plan is left in place so the user can revert.
     const goal = await prisma.$transaction(async (tx) => {
       if (body.isPrimary === true) {
         await tx.goal.updateMany({
@@ -35,7 +41,9 @@ export async function PATCH(
           data: { isPrimary: false },
         });
       }
-      return tx.goal.update({ where: { id }, data });
+      const updated = await tx.goal.update({ where: { id }, data });
+      await syncHyroxPlanForGoal(tx, updated);
+      return updated;
     });
     return NextResponse.json(goal);
   } catch (error) {

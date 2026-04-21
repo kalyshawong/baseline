@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { apiError } from "@/lib/utils";
+import { syncHyroxPlanForGoal } from "@/lib/hyrox-plan-sync";
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,6 +37,10 @@ export async function POST(request: NextRequest) {
     // BUG-C3 fix: wrap the isPrimary cascade + create in a single transaction
     // so two concurrent "set primary" requests can't interleave and leave the
     // DB with 0 or 2 primary goals.
+    //
+    // Hyrox hook: when a race/hyrox goal is created, auto-create its
+    // HyroxPlan inside the same transaction. Any exception rolls the goal
+    // save back — we never want an orphaned goal or an orphaned plan.
     const goal = await prisma.$transaction(async (tx) => {
       if (isPrimary) {
         await tx.goal.updateMany({
@@ -43,7 +48,7 @@ export async function POST(request: NextRequest) {
           data: { isPrimary: false },
         });
       }
-      return tx.goal.create({
+      const created = await tx.goal.create({
         data: {
           title,
           type,
@@ -54,6 +59,8 @@ export async function POST(request: NextRequest) {
           isPrimary: isPrimary ?? false,
         },
       });
+      await syncHyroxPlanForGoal(tx, created);
+      return created;
     });
     return NextResponse.json(goal, { status: 201 });
   } catch (error) {
