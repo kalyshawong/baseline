@@ -37,3 +37,21 @@ export function getDateStrFromParams(searchParams: Record<string, string | strin
   }
   return getLocalDayStr();
 }
+
+/**
+ * Returns [start, end) Date bounds for a YYYY-MM-DD date string, anchored at
+ * LOCAL midnight. Use this for filtering tables whose timestamps are stored as
+ * true points-in-time (e.g. ActivityTag.timestamp, NutritionEntry.eatenAt).
+ *
+ * Using UTC midnight for these filters (as happens when you pass the output of
+ * `dateStrToUTC` straight into a `gte/lt` query) causes a timezone skew: tags
+ * logged late in the local evening get pushed into the *next* UTC day's
+ * bucket, and early-morning local tags bleed in from the *previous* local day.
+ * This helper fixes that by using the server's local clock.
+ */
+export function getLocalDayBounds(dateStr: string): { start: Date; end: Date } {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+  const end = new Date(y, m - 1, d + 1, 0, 0, 0, 0);
+  return { start, end };
+}

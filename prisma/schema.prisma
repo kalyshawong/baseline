@@ -542,3 +542,39 @@ model EnvReading {
   @@index([timestamp])
   @@index([deviceId, timestamp])
 }
+
+// --- Life Context ---
+// Day-level state markers that don't fit ActivityTag's point-in-time model:
+// "with partner", "alone in bed", "sick", "interview today", "studying for X".
+// Designed to extend into spans (start/end) and events (with time) later;
+// for now LifeContextLog is a day-flag only (one row per defId per day).
+
+model LifeContextDef {
+  id        String   @id @default(cuid())
+  label     String   @unique // user-facing — "with partner", "alone", "sick", "exam day"
+  category  String   @default("custom") // relationship | sleep | stressor | effort | milestone | illness | travel | cycle | custom
+  emoji     String? // single character for fast recognition in the toggle row
+  color     String? // tailwind palette key (e.g. "rose", "emerald") for UI consistency
+  archived  Boolean  @default(false) // hide from quick-toggle without losing history
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  logs LifeContextLog[]
+}
+
+model LifeContextLog {
+  id    String         @id @default(cuid())
+  defId String
+  def   LifeContextDef @relation(fields: [defId], references: [id], onDelete: Cascade)
+
+  // Stored as UTC midnight of the local day, mirroring NutritionLog.day so it
+  // composes with the rest of the day-keyed tables. The unique constraint
+  // prevents accidental double-toggling of the same flag on the same day.
+  day DateTime
+
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@unique([defId, day])
+  @@index([day])
+}

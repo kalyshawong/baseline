@@ -10,8 +10,9 @@ import { EnvCard } from "@/components/mind/env-card";
 import { NutritionInput } from "@/components/mind/nutrition-input";
 import { MacroSummary } from "@/components/dashboard/macro-summary";
 import { NutritionLog } from "@/components/mind/nutrition-log";
+import { LifeContextCard } from "@/components/mind/life-context-card";
 import { DateNav } from "@/components/date-nav";
-import { getDateFromParams } from "@/lib/date-utils";
+import { getDateFromParams, getLocalDayBounds } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -31,9 +32,14 @@ export default async function MindPage({
   const viewDate = getDateFromParams(params);
   const viewDateStr = viewDate.toISOString().split("T")[0];
 
-  // Date range for tags: start/end of the viewed day
-  const dayStart = viewDate;
-  const dayEnd = new Date(viewDate.getTime() + 24 * 60 * 60 * 1000);
+  // Date range for tags: start/end of the viewed day in LOCAL time. Tag and
+  // nutrition timestamps are stored as true points-in-time, so filtering by
+  // UTC midnight bounds causes a timezone skew (tags logged in the local
+  // evening spill into the next UTC day). Using local-midnight bounds keeps
+  // "Recent Tags" for April 5 to actual-April-5-local events only.
+  const { start: dayStart, end: dayEnd } = getLocalDayBounds(viewDateStr);
+
+  const lifeContextDay = new Date(viewDateStr + "T00:00:00.000Z"); // UTC midnight, matches LifeContextLog.day storage
 
   const [
     experiments,
@@ -45,6 +51,8 @@ export default async function MindPage({
     latestEnv,
     insights,
     nutritionLog,
+    lifeContextDefs,
+    lifeContextLogs,
   ] = await Promise.all([
     prisma.experiment.findMany({
       include: { _count: { select: { logs: true } } },
@@ -79,6 +87,13 @@ export default async function MindPage({
       where: { day: viewDate },
       include: { entries: { orderBy: { eatenAt: "asc" } } },
     }),
+    prisma.lifeContextDef.findMany({
+      where: { archived: false },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.lifeContextLog.findMany({
+      where: { day: lifeContextDay },
+    }),
   ]);
 
   const active = experiments.filter((e) => e.status === "active");
@@ -101,6 +116,25 @@ export default async function MindPage({
           stressSummary: dayStress?.daySummary ?? null,
           cyclePhase: cyclePhase?.phase ?? null,
         }}
+      />
+
+      {/* Day-level context flags (with partner, sick, exam day, etc.) */}
+      <LifeContextCard
+        key={viewDateStr}
+        dateStr={viewDateStr}
+        defs={lifeContextDefs.map((d) => ({
+          id: d.id,
+          label: d.label,
+          category: d.category,
+          emoji: d.emoji ?? null,
+          color: d.color ?? null,
+          archived: d.archived,
+        }))}
+        todayLogs={lifeContextLogs.map((l) => ({
+          id: l.id,
+          defId: l.defId,
+          day: typeof l.day === "string" ? l.day : (l.day as unknown as Date).toISOString(),
+        }))}
       />
 
       {/* Quick Tag — pass the viewed date */}
