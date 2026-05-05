@@ -23,6 +23,7 @@ export async function estimateMacros(rawInput: string): Promise<MacroEstimate[]>
       client.messages.create({
         model: "claude-sonnet-4-20250514",
         max_tokens: 1024,
+        temperature: 0,
         messages: [
           {
             role: "user",

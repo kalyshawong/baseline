@@ -40,3 +40,9 @@ prisma/dev.db-journal
 # python (legacy from initial setup)
 .venv/
 __pycache__/
+
+# local-only artifacts
+.commit-plan.md
+.playwright-mcp/
+*.bak
+hyrox-smoke.ts
