@@ -27,13 +27,7 @@ export function TdeeCard({
   flag,
   energyAvailability,
 }: Props) {
-  if (!tdee) {
-    return (
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 text-center text-xs text-[var(--color-text-muted)]">
-        Log your weight and set a goal to see TDEE and calorie targets.
-      </div>
-    );
-  }
+  if (!tdee) return null;
 
   const proteinPct = proteinTarget && actualProtein
     ? Math.min(100, (actualProtein / proteinTarget) * 100)

@@ -314,6 +314,8 @@ export default async function BodyPage() {
             goal={profile?.goal ?? null}
             targetWeightKg={profile?.targetWeightKg ?? null}
             weightTrend={weightTrend}
+            tdee={tdee}
+            goalCals={goalCals}
           />
           <WeightInput currentUnit={unit} latestWeightKg={weightKg} />
         </div>
@@ -563,23 +565,6 @@ export default async function BodyPage() {
           </div>
         )}
 
-        {/* Bedtime Recommendation */}
-        {sleepTimeRec && (
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-            <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Bedtime</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums">
-              {sleepTimeRec.optimalBedtimeStart != null
-                ? formatSecondsFromMidnight(sleepTimeRec.optimalBedtimeStart)
-                : "—"}
-              {sleepTimeRec.optimalBedtimeEnd != null
-                ? ` – ${formatSecondsFromMidnight(sleepTimeRec.optimalBedtimeEnd)}`
-                : ""}
-            </p>
-            <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-              {sleepTimeRec.recommendation?.replace(/_/g, " ") ?? "Oura recommendation"}
-            </p>
-          </div>
-        )}
 
         {/* Nutrition check */}
         <NutritionCheck

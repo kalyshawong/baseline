@@ -10,16 +10,16 @@ import { MacroSummary } from "@/components/dashboard/macro-summary";
 import { DateNav } from "@/components/date-nav";
 import { getDateFromParams } from "@/lib/date-utils";
 import { WeightCard } from "@/components/weight/weight-card";
-import { WeightInput } from "@/components/weight/weight-input";
 import { TdeeCard } from "@/components/weight/tdee-card";
 import { ActivityCard } from "@/components/dashboard/activity-card";
 import { CalorieBalanceCard } from "@/components/dashboard/calorie-balance-card";
-import { HealthKitStatus } from "@/components/dashboard/healthkit-status";
 import {
   totalDailyEnergyExpenditure,
   goalCalories,
   calorieFlag,
   weightTrendDirection,
+  kgToLb,
+  lbToKg,
 } from "@/lib/tdee";
 import {
   proteinTarget as proteinTargetFn,
@@ -71,6 +71,7 @@ export default async function Dashboard({
   let dayResilience: Awaited<ReturnType<typeof prisma.dailyResilience.findUnique>> = null;
   let sleepTimeRec: Awaited<ReturnType<typeof prisma.sleepTimeRecommendation.findFirst>> = null;
   let todaySessions: Awaited<ReturnType<typeof prisma.ouraSession.findMany>> = [];
+  let activeWeightGoal: Awaited<ReturnType<typeof prisma.goal.findFirst>> = null;
 
   try {
     const token = await prisma.ouraToken.findFirst();
@@ -91,7 +92,16 @@ export default async function Dashboard({
         prisma.dailyActivity.findUnique({ where: { day: viewDate } }),
         prisma.dailySpO2.findUnique({ where: { day: viewDate } }),
         prisma.dailyResilience.findUnique({ where: { day: viewDate } }),
-        prisma.sleepTimeRecommendation.findFirst({ orderBy: { day: "desc" } }),
+        prisma.sleepTimeRecommendation.findFirst({
+          where: { day: viewDate },
+        }).then(async (rec) => {
+          if (rec) return rec;
+          const sevenDaysAgo = new Date(viewDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return prisma.sleepTimeRecommendation.findFirst({
+            where: { day: { gte: sevenDaysAgo, lte: viewDate } },
+            orderBy: { day: "desc" },
+          });
+        }),
         prisma.ouraSession.findMany({
           where: { day: viewDate },
           orderBy: { startedAt: "desc" },
@@ -118,11 +128,15 @@ export default async function Dashboard({
     // HealthKit data
     const viewDayStart = viewDate;
     const viewDayEnd = new Date(viewDate.getTime() + 24 * 60 * 60 * 1000);
-    [lastHkSync, todayHkWorkout] = await Promise.all([
+    [lastHkSync, todayHkWorkout, activeWeightGoal] = await Promise.all([
       prisma.healthKitSync.findFirst({ orderBy: { syncedAt: "desc" } }),
       prisma.healthKitWorkout.findFirst({
         where: { startedAt: { gte: viewDayStart, lt: viewDayEnd } },
         orderBy: { startedAt: "desc" },
+      }),
+      prisma.goal.findFirst({
+        where: { type: "weight", status: "active" },
+        orderBy: { isPrimary: "desc" },
       }),
     ]);
   } catch {
@@ -135,6 +149,36 @@ export default async function Dashboard({
   const bodyFat = latestWeight?.bodyFatPct ?? profile?.bodyFatPct ?? null;
   const unit = (profile?.unit ?? "lb") as "lb" | "kg";
 
+  // Derive goal direction and target weight from goals system, falling back to profile
+  const goalSubtype = activeWeightGoal?.subtype; // cut, bulk, recomp, maintain
+  const effectiveGoal = goalSubtype === "cut" ? "lose"
+    : goalSubtype === "bulk" ? "gain"
+    : goalSubtype === "maintain" ? "maintain"
+    : profile?.goal ?? "maintain";
+
+  // Parse target weight from goal's target string (e.g. "Lose 15 lbs" or "110 lb")
+  function parseTargetWeightKg(goal: typeof activeWeightGoal, currentKg: number | null): number | null {
+    if (!goal?.target) return null;
+    const targetStr = goal.target;
+    // Match "110 lb" or "50 kg" style
+    const directMatch = targetStr.match(/([\d.]+)\s*(lb|kg)/i);
+    if (directMatch) {
+      const val = parseFloat(directMatch[1]);
+      return directMatch[2].toLowerCase() === "lb" ? lbToKg(val) : val;
+    }
+    // Match "Lose 15 lbs" style — subtract from current
+    const deltaMatch = targetStr.match(/(?:lose|drop)\s+([\d.]+)\s*(lb|kg)/i);
+    if (deltaMatch && currentKg) {
+      const delta = parseFloat(deltaMatch[1]);
+      const deltaKg = deltaMatch[2].toLowerCase() === "lb" ? lbToKg(delta) : delta;
+      return Math.round((currentKg - deltaKg) * 10) / 10;
+    }
+    return null;
+  }
+
+  const targetWeightKg = parseTargetWeightKg(activeWeightGoal, weightKg) ?? profile?.targetWeightKg ?? null;
+  const goalDeadline = activeWeightGoal?.deadline ?? null;
+
   const tdee = weightKg && profile
     ? totalDailyEnergyExpenditure({
         weightKg,
@@ -142,16 +186,35 @@ export default async function Dashboard({
         age: profile.age,
         sex: profile.sex,
         activityLevel: profile.activityLevel,
-        goal: profile.goal,
-        targetWeightKg: profile.targetWeightKg,
+        goal: effectiveGoal,
+        targetWeightKg,
       })
     : null;
-  const goalCals = tdee ? goalCalories(tdee, profile?.goal ?? "maintain") : null;
+
+  // Compute goal calories: use deadline-based deficit if available, else standard formula
+  let goalCals: number | null = null;
+  let weeklyRateLb: number | null = null;
+  if (tdee && targetWeightKg && weightKg && goalDeadline) {
+    const daysLeft = Math.max(1, Math.ceil((goalDeadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+    const deltaKg = weightKg - targetWeightKg; // positive = need to lose
+    const dailyDeficit = Math.round((deltaKg * 7700) / daysLeft); // 7700 kcal/kg of body weight
+    // Clamp to safe range: no more than 1000 kcal/day deficit, no more than 500 surplus
+    const clampedDeficit = effectiveGoal === "lose"
+      ? Math.min(dailyDeficit, 1000)
+      : effectiveGoal === "gain"
+        ? Math.max(-dailyDeficit, -500)
+        : 0;
+    goalCals = tdee - clampedDeficit;
+    weeklyRateLb = Math.round(kgToLb(Math.abs(deltaKg) / (daysLeft / 7)) * 10) / 10;
+  } else if (tdee) {
+    goalCals = goalCalories(tdee, effectiveGoal);
+  }
+
   const trendDirection = weightTrendDirection(
     weightLogs.map((l) => ({ day: l.day, weightKg: l.weightKg }))
   );
   const flag = tdee && goalCals && nutritionLog
-    ? calorieFlag(nutritionLog.calories, goalCals, trendDirection, profile?.goal ?? "maintain")
+    ? calorieFlag(nutritionLog.calories, goalCals, trendDirection, effectiveGoal)
     : null;
 
   const proteinGoal = weightKg ? proteinTargetFn(weightKg) : null;
@@ -276,7 +339,7 @@ export default async function Dashboard({
       {/* Activity + Calorie Balance */}
       <div className="mb-6 space-y-3">
         <ActivityCard
-          data={
+          activity={
             dayActivity
               ? {
                   totalCalories: dayActivity.totalCalories,
@@ -287,23 +350,8 @@ export default async function Dashboard({
                 }
               : null
           }
-        />
-        <CalorieBalanceCard
-          caloriesIn={nutritionLog?.calories ?? null}
-          caloriesOut={dayActivity?.totalCalories ?? null}
-          goal={profile?.goal ?? null}
-          goalCals={goalCals}
-        />
-        <HealthKitStatus
-          data={{
-            lastSync: lastHkSync
-              ? {
-                  syncedAt: lastHkSync.syncedAt.toISOString(),
-                  status: lastHkSync.status,
-                  details: lastHkSync.details,
-                }
-              : null,
-            todayWorkout: todayHkWorkout
+          workout={
+            todayHkWorkout
               ? {
                   name: todayHkWorkout.name,
                   durationSeconds: todayHkWorkout.durationSeconds,
@@ -311,28 +359,23 @@ export default async function Dashboard({
                   avgHeartRate: todayHkWorkout.avgHeartRate,
                   maxHeartRate: todayHkWorkout.maxHeartRate,
                 }
-              : null,
-          }}
+              : null
+          }
+          lastHkSync={
+            lastHkSync
+              ? { syncedAt: lastHkSync.syncedAt.toISOString(), status: lastHkSync.status }
+              : null
+          }
+          lastOuraSync={lastSync?.syncDate ?? null}
+        />
+        <CalorieBalanceCard
+          caloriesIn={nutritionLog?.calories ?? null}
+          caloriesOut={dayActivity?.totalCalories ?? null}
+          goal={profile?.goal ?? null}
+          goalCals={goalCals}
         />
       </div>
 
-      {/* Bedtime Recommendation */}
-      <div className="mb-6">
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">Bedtime</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums">
-            {sleepTimeRec?.optimalBedtimeStart != null
-              ? formatSecondsFromMidnight(sleepTimeRec.optimalBedtimeStart)
-              : "—"}
-            {sleepTimeRec?.optimalBedtimeEnd != null
-              ? ` – ${formatSecondsFromMidnight(sleepTimeRec.optimalBedtimeEnd)}`
-              : ""}
-          </p>
-          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-            {sleepTimeRec?.recommendation?.replace(/_/g, " ") ?? "Oura recommendation"}
-          </p>
-        </div>
-      </div>
 
       {/* Sessions */}
       {todaySessions.length > 0 && (
@@ -384,17 +427,18 @@ export default async function Dashboard({
 
       {/* Weight + TDEE section */}
       <div className="mt-6 space-y-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <WeightCard
-            latestWeightKg={weightKg}
-            latestBodyFat={bodyFat}
-            unit={unit}
-            goal={profile?.goal ?? null}
-            targetWeightKg={profile?.targetWeightKg ?? null}
-            weightTrend={trendDirection}
-          />
-          <WeightInput currentUnit={unit} latestWeightKg={weightKg} />
-        </div>
+        <WeightCard
+          latestWeightKg={weightKg}
+          latestBodyFat={bodyFat}
+          unit={unit}
+          goal={effectiveGoal}
+          targetWeightKg={targetWeightKg}
+          weightTrend={trendDirection}
+          goalDeadline={goalDeadline}
+          goalCals={goalCals}
+          tdee={tdee}
+          weeklyRate={weeklyRateLb}
+        />
         <TdeeCard
           tdee={tdee}
           goalCals={goalCals}

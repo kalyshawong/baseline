@@ -7,6 +7,10 @@ interface Props {
   goal: string | null;
   targetWeightKg: number | null;
   weightTrend: "up" | "down" | "flat" | null;
+  goalDeadline?: Date | null;
+  goalCals?: number | null;
+  tdee?: number | null;
+  weeklyRate?: number | null;
 }
 
 function formatWeight(kg: number | null, unit: "lb" | "kg"): string {
@@ -20,6 +24,10 @@ const trendSymbol: Record<string, string> = {
   flat: "→",
 };
 
+function daysUntilDeadline(deadline: Date): number {
+  return Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+}
+
 export function WeightCard({
   latestWeightKg,
   latestBodyFat,
@@ -27,9 +35,12 @@ export function WeightCard({
   goal,
   targetWeightKg,
   weightTrend,
+  goalDeadline,
+  goalCals,
+  tdee,
+  weeklyRate,
 }: Props) {
-  const deltaToTarget =
-    latestWeightKg && targetWeightKg ? latestWeightKg - targetWeightKg : null;
+  const hasGoal = !!goal && goal !== "maintain" && !!targetWeightKg;
 
   return (
     <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
@@ -56,15 +67,31 @@ export function WeightCard({
           {latestBodyFat.toFixed(1)}% body fat
         </p>
       )}
-      {goal && targetWeightKg && deltaToTarget != null && (
-        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-          {goal === "maintain"
-            ? `${Math.abs(Math.round((unit === "lb" ? kgToLb(Math.abs(deltaToTarget)) : Math.abs(deltaToTarget)) * 10) / 10)} ${unit} from target`
-            : goal === "lose"
-              ? `${Math.max(0, Math.round((unit === "lb" ? kgToLb(deltaToTarget) : deltaToTarget) * 10) / 10)} ${unit} to goal`
-              : `${Math.max(0, Math.round((unit === "lb" ? kgToLb(-deltaToTarget) : -deltaToTarget) * 10) / 10)} ${unit} to goal`}
+
+      {hasGoal && goalDeadline ? (
+        <div className="mt-3 space-y-1.5 border-t border-[var(--color-border)] pt-3">
+          <p className="text-xs text-[var(--color-text-muted)]">
+            Goal: {formatWeight(targetWeightKg, unit)} {unit} · {daysUntilDeadline(goalDeadline)} days
+          </p>
+          {goalCals != null && tdee != null && (
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Daily target: <span className="font-mono text-white">{goalCals}</span> cal
+              {goalCals < tdee && (
+                <span> ({tdee - goalCals} cal deficit)</span>
+              )}
+            </p>
+          )}
+          {weeklyRate != null && weeklyRate > 0 && (
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Based on {weeklyRate} {unit}/week {goal === "lose" ? "loss" : "gain"}
+            </p>
+          )}
+        </div>
+      ) : !hasGoal ? (
+        <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+          Set a weight goal to see your TDEE and calorie targets.
         </p>
-      )}
+      ) : null}
     </div>
   );
 }
