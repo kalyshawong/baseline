@@ -15,21 +15,9 @@ export function SyncButton() {
         const res = await fetch("/api/sync", { method: "POST" });
         const data = await res.json();
         if (data.success) {
-          const s = data.synced;
-          const parts = [];
-          if (s.readiness) parts.push(`${s.readiness} readiness`);
-          if (s.sleep) parts.push(`${s.sleep} sleep`);
-          if (s.stress) parts.push(`${s.stress} stress`);
-          if (s.activity) parts.push(`${s.activity} activity`);
-          if (s.heartrate) parts.push(`${s.heartrate} HR samples`);
-          if (s.spo2) parts.push(`${s.spo2} SpO2`);
-          if (s.tags) parts.push(`${s.tags} tags`);
-          if (s.sessions) parts.push(`${s.sessions} sessions`);
-          if (s.resilience) parts.push(`${s.resilience} resilience`);
-          if (s.vo2max) parts.push(`${s.vo2max} VO2`);
-          if (s.workouts) parts.push(`${s.workouts} workouts`);
-          if (s.sleepTime) parts.push(`${s.sleepTime} sleep time`);
-          setResult(parts.length > 0 ? `Synced: ${parts.join(", ")}` : "Synced (no new data)");
+          // No success label — the "Last sync: 7:46pm" timestamp on the
+          // dashboard already conveys success, and listing each endpoint's
+          // record count next to the button was noisy.
           router.refresh();
         } else {
           setResult(`Error: ${data.error}`);
@@ -50,7 +38,7 @@ export function SyncButton() {
         {isPending ? "Syncing..." : "Sync Now"}
       </button>
       {result && (
-        <span className="text-xs text-[var(--color-text-muted)]">{result}</span>
+        <span className="text-xs text-red-400">{result}</span>
       )}
     </div>
   );
