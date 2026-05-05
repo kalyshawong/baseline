@@ -909,12 +909,13 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
   // --- Recent Insights ---
   try {
     const insights = await generateInsights();
-    const significant = insights.filter((i) => i.significance !== "not_significant").slice(0, 5);
-    if (significant.length > 0) {
+    const top = insights.slice(0, 5);
+    if (top.length > 0) {
       const insightLines: string[] = [];
       insightLines.push("## Recent Insights (passive correlations)");
-      for (const ins of significant) {
-        insightLines.push(`- "${ins.tag}" correlates with ${ins.percentDiff}% ${ins.direction} ${ins.metricLabel} (p=${ins.pValue}, n=${ins.taggedN})`);
+      for (const ins of top) {
+        const metricsSummary = ins.metrics.map((m) => `${m.percentDiff}% ${ins.direction} ${m.metricLabel} (p=${m.pValue})`).join(", ");
+        insightLines.push(`- "${ins.tag}": ${metricsSummary} (n=${ins.taggedN})`);
       }
       addSection("insights", insightLines);
     }

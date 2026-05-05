@@ -1,21 +1,21 @@
-import type { Insight } from "@/lib/insights";
+import type { Insight, InsightMetric } from "@/lib/insights";
 
 const sigStyles: Record<string, string> = {
   significant: "border-emerald-500/30 bg-emerald-500/5",
   suggestive: "border-yellow-500/30 bg-yellow-500/5",
-  not_significant: "border-[var(--color-border)] bg-[var(--color-surface)]",
+  watching: "border-[var(--color-border)] bg-[var(--color-surface)]",
 };
 
 const sigBadge: Record<string, string> = {
   significant: "bg-emerald-500/20 text-emerald-400",
   suggestive: "bg-yellow-500/20 text-yellow-400",
-  not_significant: "bg-neutral-500/20 text-neutral-400",
+  watching: "bg-neutral-500/20 text-neutral-400",
 };
 
 const sigLabel: Record<string, string> = {
   significant: "Strong signal",
   suggestive: "Suggestive trend",
-  not_significant: "Weak signal",
+  watching: "Watching",
 };
 
 function formatMetricValue(value: number, metric: string): string {
@@ -27,6 +27,25 @@ function formatMetricValue(value: number, metric: string): string {
   if (metric === "sleepEfficiency") return `${Math.round(value)}%`;
   if (metric === "averageHrv") return `${Math.round(value)} ms`;
   return String(Math.round(value));
+}
+
+function MetricLine({ m }: { m: InsightMetric }) {
+  return (
+    <span>
+      {m.metricLabel}{" "}
+      <span className="font-mono font-semibold">
+        {formatMetricValue(m.taggedMean, m.metric)}
+      </span>
+      {" "}vs{" "}
+      <span className="font-mono font-semibold">
+        {formatMetricValue(m.untaggedMean, m.metric)}
+      </span>
+      {" "}
+      <span className="text-[var(--color-text-muted)]">
+        ({m.percentDiff}%, p={m.pValue})
+      </span>
+    </span>
+  );
 }
 
 export function InsightsFeed({ insights }: { insights: Insight[] }) {
@@ -50,38 +69,34 @@ export function InsightsFeed({ insights }: { insights: Insight[] }) {
         Insights
       </h2>
       <div className="space-y-3">
-        {insights.map((insight, i) => (
+        {insights.map((insight) => (
           <div
-            key={`${insight.tag}-${insight.metric}-${i}`}
+            key={`${insight.tag}-${insight.direction}`}
             className={`rounded-2xl border p-5 ${sigStyles[insight.significance]}`}
           >
-            {/* Finding */}
+            {/* Finding header */}
             <div className="flex items-start justify-between gap-3">
               <p className="text-sm">
                 Days with <span className="font-semibold">&ldquo;{insight.tag}&rdquo;</span>:{" "}
-                avg {insight.metricLabel}{" "}
-                <span className="font-mono font-semibold">
-                  {formatMetricValue(insight.taggedMean, insight.metric)}
-                </span>{" "}
-                vs without:{" "}
-                <span className="font-mono font-semibold">
-                  {formatMetricValue(insight.untaggedMean, insight.metric)}
-                </span>
+                {insight.direction} —
               </p>
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${sigBadge[insight.significance]}`}>
                 {sigLabel[insight.significance]}
               </span>
             </div>
 
-            {/* Stats */}
-            <div className="mt-2 flex gap-4 text-xs text-[var(--color-text-muted)]">
-              <span>
-                {insight.percentDiff}% {insight.direction}
-              </span>
-              <span>p={insight.pValue}</span>
-              <span>
-                n={insight.taggedN} tagged, {insight.untaggedN} control
-              </span>
+            {/* Metric lines */}
+            <ul className="mt-1.5 space-y-0.5 text-sm">
+              {insight.metrics.map((m) => (
+                <li key={m.metric}>
+                  <MetricLine m={m} />
+                </li>
+              ))}
+            </ul>
+
+            {/* Sample size */}
+            <div className="mt-2 text-xs text-[var(--color-text-muted)]">
+              n={insight.taggedN} tagged, {insight.untaggedN} control
             </div>
 
             {/* Recommendation */}
