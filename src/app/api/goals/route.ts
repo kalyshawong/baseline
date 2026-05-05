@@ -1,11 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { apiError } from "@/lib/utils";
+import {
+  apiError,
+  collectErrors,
+  validateString,
+  validateEnum,
+  validateDateString,
+} from "@/lib/utils";
 import { syncHyroxPlanForGoal } from "@/lib/hyrox-plan-sync";
+
+const GOAL_TYPES = ["race", "strength", "physique", "cognitive", "weight", "health", "custom"] as const;
+const GOAL_STATUSES = ["active", "completed", "abandoned", "archived"] as const;
+const GOAL_PRIORITIES = ["low", "medium", "high"] as const;
+const TITLE_MAX = 200;
+const TARGET_MAX = 200;
+const SUBTYPE_MAX = 80;
+const NOTES_MAX = 4_000;
 
 export async function GET(request: NextRequest) {
   try {
     const status = new URL(request.url).searchParams.get("status");
+    if (status != null && !(GOAL_STATUSES as readonly string[]).includes(status)) {
+      return NextResponse.json(
+        { error: `status must be one of: ${GOAL_STATUSES.join(", ")}` },
+        { status: 400 }
+      );
+    }
     const goals = await prisma.goal.findMany({
       where: status ? { status } : undefined,
       orderBy: [{ status: "asc" }, { deadline: "asc" }],
@@ -22,16 +42,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { title, type, subtype, target, deadline, notes, isPrimary } = body;
 
-    if (!title || !type) {
-      return NextResponse.json({ error: "title and type are required" }, { status: 400 });
+    const validationError = collectErrors(
+      validateString(title, "title", { maxLen: TITLE_MAX, required: true }),
+      validateEnum(type, GOAL_TYPES, "type", { required: true }),
+      validateString(subtype, "subtype", { maxLen: SUBTYPE_MAX }),
+      validateString(target, "target", { maxLen: TARGET_MAX }),
+      validateString(notes, "notes", { maxLen: NOTES_MAX }),
+      deadline != null ? validateDateString(deadline, "deadline") : null
+    );
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
-
-    const validTypes = ["race", "strength", "physique", "cognitive", "weight", "health", "custom"];
-    if (!validTypes.includes(type)) {
-      return NextResponse.json(
-        { error: `Invalid type. Must be one of: ${validTypes.join(", ")}` },
-        { status: 400 }
-      );
+    if (isPrimary != null && typeof isPrimary !== "boolean") {
+      return NextResponse.json({ error: "isPrimary must be a boolean" }, { status: 400 });
     }
 
     // BUG-C3 fix: wrap the isPrimary cascade + create in a single transaction

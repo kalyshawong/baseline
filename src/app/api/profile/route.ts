@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { apiError } from "@/lib/utils";
+import { apiError, collectErrors, validateEnum, validateNumber } from "@/lib/utils";
+
+// Body composition + activity ranges. These feed TDEE math, energy availability,
+// and protein targets — bad values silently corrupt downstream metrics, so reject
+// at the boundary. Bounds chosen to cover plausible adult range with margin.
+// Enums match prisma/schema.prisma comments on UserProfile fields.
+const SEX = ["male", "female"] as const;
+const EXPERIENCE_LEVEL = ["beginner", "intermediate", "advanced"] as const;
+const ACTIVITY_LEVEL = ["sedentary", "light", "moderate", "active", "very_active"] as const;
+const GOAL = ["lose", "maintain", "gain"] as const;
+const UNIT = ["lb", "kg"] as const;
 
 export async function GET() {
   try {
@@ -15,6 +25,40 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    const validationError = collectErrors(
+      body.bodyWeightKg !== undefined
+        ? validateNumber(body.bodyWeightKg, "bodyWeightKg", { min: 20, max: 400 })
+        : null,
+      body.bodyFatPct !== undefined
+        ? validateNumber(body.bodyFatPct, "bodyFatPct", { min: 2, max: 70 })
+        : null,
+      body.heightCm !== undefined
+        ? validateNumber(body.heightCm, "heightCm", { min: 100, max: 250 })
+        : null,
+      body.age !== undefined
+        ? validateNumber(body.age, "age", { min: 13, max: 120, integer: true })
+        : null,
+      body.targetWeightKg !== undefined
+        ? validateNumber(body.targetWeightKg, "targetWeightKg", { min: 20, max: 400 })
+        : null,
+      body.dailyCalorieTarget !== undefined
+        ? validateNumber(body.dailyCalorieTarget, "dailyCalorieTarget", { min: 800, max: 8000, integer: true })
+        : null,
+      body.sex !== undefined ? validateEnum(body.sex, SEX, "sex") : null,
+      body.experienceLevel !== undefined
+        ? validateEnum(body.experienceLevel, EXPERIENCE_LEVEL, "experienceLevel")
+        : null,
+      body.activityLevel !== undefined
+        ? validateEnum(body.activityLevel, ACTIVITY_LEVEL, "activityLevel")
+        : null,
+      body.goal !== undefined ? validateEnum(body.goal, GOAL, "goal") : null,
+      body.unit !== undefined ? validateEnum(body.unit, UNIT, "unit") : null,
+    );
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+
     const allowed = [
       "bodyWeightKg",
       "bodyFatPct",

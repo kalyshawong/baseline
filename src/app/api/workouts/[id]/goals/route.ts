@@ -20,6 +20,10 @@ export async function GET(
   }
 }
 
+// Cap to prevent DOS via huge fake-id array swelling the transaction.
+// In practice a workout maps to ≤5 goals; 50 is generous headroom.
+const GOAL_IDS_MAX = 50;
+
 // PUT: replace all goal tags for this workout
 export async function PUT(
   request: NextRequest,
@@ -31,6 +35,20 @@ export async function PUT(
 
     if (!Array.isArray(goalIds)) {
       return NextResponse.json({ error: "goalIds must be an array" }, { status: 400 });
+    }
+    if (goalIds.length > GOAL_IDS_MAX) {
+      return NextResponse.json(
+        { error: `goalIds must contain at most ${GOAL_IDS_MAX} entries` },
+        { status: 400 }
+      );
+    }
+    for (const gid of goalIds) {
+      if (typeof gid !== "string" || gid.length === 0) {
+        return NextResponse.json(
+          { error: "goalIds entries must be non-empty strings" },
+          { status: 400 }
+        );
+      }
     }
 
     // Delete existing tags and create new ones in a transaction

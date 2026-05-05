@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { apiError } from "@/lib/utils";
+import {
+  apiError,
+  collectErrors,
+  validateDateString,
+  validateNumber,
+  validateString,
+} from "@/lib/utils";
+
+const NOTES_MAX = 4_000;
+// 24 hours of training is already an outlier; cap at 1440 minutes for safety.
+const DURATION_MIN_MAX = 1_440;
 
 export async function GET(
   _request: NextRequest,
@@ -38,10 +48,28 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
+    const validationError = collectErrors(
+      body.sessionRPE !== undefined && body.sessionRPE !== null
+        ? validateNumber(body.sessionRPE, "sessionRPE", { min: 1, max: 10 })
+        : null,
+      body.notes !== undefined ? validateString(body.notes, "notes", { maxLen: NOTES_MAX }) : null,
+      body.completedAt !== undefined && body.completedAt !== null
+        ? validateDateString(body.completedAt, "completedAt")
+        : null,
+      body.durationMin !== undefined && body.durationMin !== null
+        ? validateNumber(body.durationMin, "durationMin", { min: 0, max: DURATION_MIN_MAX })
+        : null,
+    );
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+
     const data: Record<string, unknown> = {};
     if (body.sessionRPE !== undefined) data.sessionRPE = body.sessionRPE;
     if (body.notes !== undefined) data.notes = body.notes;
-    if (body.completedAt !== undefined) data.completedAt = new Date(body.completedAt);
+    if (body.completedAt !== undefined) {
+      data.completedAt = body.completedAt === null ? null : new Date(body.completedAt);
+    }
     if (body.durationMin !== undefined) data.durationMin = body.durationMin;
 
     // If completing the session, compute total volume

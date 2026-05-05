@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getLocalDay } from "@/lib/date-utils";
 import { compoundContributions, volumeZones, estimate1RM } from "@/lib/training";
-import { apiError } from "@/lib/utils";
+import { apiError, parseIntInRange } from "@/lib/utils";
 
 /**
  * Returns per-week volume per muscle group + e1RM trend per compound exercise
@@ -11,7 +11,7 @@ import { apiError } from "@/lib/utils";
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const weeks = Math.min(parseInt(url.searchParams.get("weeks") ?? "8"), 13); // Cap at ~90 days
+    const weeks = parseIntInRange(url.searchParams.get("weeks"), 8, 1, 13); // Cap at ~90 days
 
     const today = getLocalDay();
 

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { apiError } from "@/lib/utils";
+import { apiError, parseIntInRange } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const days = parseInt(url.searchParams.get("days") ?? "30");
+    const days = parseIntInRange(url.searchParams.get("days"), 30, 1, 365);
 
     const since = new Date();
     since.setDate(since.getDate() - days);

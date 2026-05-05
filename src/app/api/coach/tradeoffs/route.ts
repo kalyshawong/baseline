@@ -4,6 +4,7 @@ import { detectTradeoffs } from "@/lib/coach-context";
 import { getLocalDay } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import { hrvCV, energyAvailability, ffmFromBodyComposition } from "@/lib/training";
+import { apiError } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +75,8 @@ export async function GET() {
     });
 
     return NextResponse.json({ tradeoffs });
-  } catch {
-    return NextResponse.json({ tradeoffs: [] });
+  } catch (error) {
+    const { status, body } = apiError(error);
+    return NextResponse.json(body, { status });
   }
 }

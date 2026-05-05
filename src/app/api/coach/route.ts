@@ -38,12 +38,36 @@ async function getCachedContext(focusGoalId?: string | null): Promise<string> {
   return text;
 }
 
+// Bound the Anthropic-bound free-text field. The whole message is sent to
+// Claude verbatim, so unbounded length = unbounded token cost. 8 KB covers
+// even a long pasted log/journal entry while capping the worst case.
+const COACH_MESSAGE_MAX_LEN = 8_000;
+const VALID_COACH_MODES = ["today", "open"] as const;
+
 export async function POST(request: NextRequest) {
   try {
     const { sessionId, message, focusGoalId, mode } = await request.json();
 
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "message is required" }, { status: 400 });
+    }
+    if (message.length > COACH_MESSAGE_MAX_LEN) {
+      return NextResponse.json(
+        { error: `message must be ≤${COACH_MESSAGE_MAX_LEN} chars` },
+        { status: 400 }
+      );
+    }
+    if (sessionId != null && typeof sessionId !== "string") {
+      return NextResponse.json({ error: "sessionId must be a string" }, { status: 400 });
+    }
+    if (focusGoalId != null && typeof focusGoalId !== "string") {
+      return NextResponse.json({ error: "focusGoalId must be a string" }, { status: 400 });
+    }
+    if (mode != null && !VALID_COACH_MODES.includes(mode)) {
+      return NextResponse.json(
+        { error: `mode must be one of: ${VALID_COACH_MODES.join(", ")}` },
+        { status: 400 }
+      );
     }
 
     if (!process.env.ANTHROPIC_API_KEY) {

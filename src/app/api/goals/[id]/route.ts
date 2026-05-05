@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { apiError } from "@/lib/utils";
+import {
+  apiError,
+  collectErrors,
+  validateString,
+  validateEnum,
+  validateDateString,
+} from "@/lib/utils";
 import { syncHyroxPlanForGoal } from "@/lib/hyrox-plan-sync";
+
+const GOAL_TYPES = ["race", "strength", "physique", "cognitive", "weight", "health", "custom"] as const;
+const GOAL_STATUSES = ["active", "completed", "abandoned", "archived"] as const;
+const GOAL_PRIORITIES = ["low", "medium", "high"] as const;
+const TITLE_MAX = 200;
+const TARGET_MAX = 200;
+const SUBTYPE_MAX = 80;
+const NOTES_MAX = 4_000;
 
 export async function PATCH(
   request: NextRequest,
@@ -10,6 +24,24 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
+
+    // Validate any field that's present (PATCH = all optional, but if provided must be valid)
+    const validationError = collectErrors(
+      body.title !== undefined ? validateString(body.title, "title", { maxLen: TITLE_MAX }) : null,
+      body.type !== undefined ? validateEnum(body.type, GOAL_TYPES, "type") : null,
+      body.subtype !== undefined ? validateString(body.subtype, "subtype", { maxLen: SUBTYPE_MAX }) : null,
+      body.target !== undefined ? validateString(body.target, "target", { maxLen: TARGET_MAX }) : null,
+      body.notes !== undefined ? validateString(body.notes, "notes", { maxLen: NOTES_MAX }) : null,
+      body.status !== undefined ? validateEnum(body.status, GOAL_STATUSES, "status") : null,
+      body.priority !== undefined ? validateEnum(body.priority, GOAL_PRIORITIES, "priority") : null,
+      body.deadline !== undefined && body.deadline != null ? validateDateString(body.deadline, "deadline") : null
+    );
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+    if (body.isPrimary !== undefined && typeof body.isPrimary !== "boolean") {
+      return NextResponse.json({ error: "isPrimary must be a boolean" }, { status: 400 });
+    }
 
     const data: Record<string, unknown> = {};
     for (const field of ["title", "type", "subtype", "target", "notes", "status", "priority"] as const) {

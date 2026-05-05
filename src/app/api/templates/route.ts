@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(
-      { ...template, exercises: JSON.parse(template.exercises) },
+      { ...template, exercises: safeJsonParse(template.exercises, []) },
       { status: 201 }
     );
   } catch (error) {

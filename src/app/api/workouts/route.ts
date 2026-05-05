@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getLocalDay } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
-import { apiError } from "@/lib/utils";
+import { apiError, parseIntInRange } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const limit = parseInt(url.searchParams.get("limit") ?? "20");
+    const limit = parseIntInRange(url.searchParams.get("limit"), 20, 1, 200);
 
     const sessions = await prisma.workoutSession.findMany({
       orderBy: { date: "desc" },
