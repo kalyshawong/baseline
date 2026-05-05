@@ -13,6 +13,7 @@ interface Entry {
   fat: number;
   mealType: string;
   eatenAt: string;
+  timeUnknown?: boolean;
 }
 
 const mealOrder = ["breakfast", "lunch", "dinner", "snack"];
@@ -81,11 +82,14 @@ export function NutritionLog({ entries }: { entries: Entry[] }) {
           const totalCarbs = Math.round(items.reduce((s, e) => s + e.carbs, 0) * 10) / 10;
           const totalFat = Math.round(items.reduce((s, e) => s + e.fat, 0) * 10) / 10;
 
-          // Use earliest eaten time for this meal group
+          // Use earliest eaten time for this meal group. If every entry in the
+          // group was logged without a specific time, show "sometime today"
+          // instead of the 12:00 AM that a day-anchored timestamp would render.
           const sortedByTime = [...items].sort(
             (a, b) => new Date(a.eatenAt).getTime() - new Date(b.eatenAt).getTime()
           );
-          const mealTime = formatTime(sortedByTime[0].eatenAt);
+          const allUnknown = items.every((e) => e.timeUnknown === true);
+          const mealTime = allUnknown ? "sometime today" : formatTime(sortedByTime[0].eatenAt);
 
           return (
             <div key={mealType}>

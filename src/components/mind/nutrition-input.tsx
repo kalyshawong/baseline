@@ -29,6 +29,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
   const [text, setText] = useState("");
   const [mealType, setMealType] = useState<string>("snack");
   const [time, setTime] = useState(currentTimeString);
+  const [timeUnknown, setTimeUnknown] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [results, setResults] = useState<MacroEstimate[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,9 +40,11 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
     setError(null);
     setResults(null);
 
-    // Build timestamp from the viewed date + chosen time
+    // Build timestamp from the viewed date + chosen time. When timeUnknown,
+    // anchor at 00:00 local so the day bucket is correct without inventing
+    // a specific meal time.
     const baseDate = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
-    const [h, m] = time.split(":").map(Number);
+    const [h, m] = timeUnknown ? [0, 0] : time.split(":").map(Number);
     const eatenAt = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), h, m);
 
     startTransition(async () => {
@@ -54,6 +57,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
             mealType,
             eatenAt: eatenAt.toISOString(),
             date: dateStr,
+            timeUnknown,
           }),
         });
         if (!res.ok) {
@@ -64,6 +68,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
         setResults(data.estimates);
         setText("");
         setTime(currentTimeString());
+        setTimeUnknown(false);
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
@@ -96,14 +101,24 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
         </div>
 
         {/* Time picker */}
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <label className="text-xs text-[var(--color-text-muted)]">Time eaten:</label>
           <input
             type="time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-1.5 text-xs [color-scheme:dark]"
+            disabled={timeUnknown}
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-1.5 text-xs [color-scheme:dark] disabled:opacity-40"
           />
+          <label className="ml-auto flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={timeUnknown}
+              onChange={(e) => setTimeUnknown(e.target.checked)}
+              className="accent-[var(--color-text-muted)]"
+            />
+            Forgot time — sometime today
+          </label>
         </div>
 
         {/* Food text */}

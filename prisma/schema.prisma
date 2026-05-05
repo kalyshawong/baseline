@@ -175,6 +175,7 @@ model NutritionEntry {
   foodName       String // normalized name from USDA match
   mealType       String       @default("snack") // breakfast | lunch | dinner | snack
   eatenAt        DateTime     @default(now()) // actual time the food was eaten
+  timeUnknown    Boolean      @default(false) // true = user didn't remember exact time; eatenAt anchored at day start
   createdAt      DateTime     @default(now())
 }
 

@@ -8,6 +8,7 @@ interface TagItem {
   tag: string;
   category: string;
   timestamp: string;
+  metadata?: string | null;
   experiment: { id: string; title: string } | null;
 }
 
@@ -32,6 +33,21 @@ function formatTime(iso: string): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatDateOnly(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function isTimeUnknown(metadata: string | null | undefined): boolean {
+  if (!metadata) return false;
+  try {
+    const parsed = JSON.parse(metadata);
+    return parsed && typeof parsed === "object" && parsed.timeUnknown === true;
+  } catch {
+    return false;
+  }
 }
 
 export function TagTimeline({ tags }: { tags: TagItem[] }) {
@@ -81,7 +97,9 @@ export function TagTimeline({ tags }: { tags: TagItem[] }) {
               </span>
             )}
             <span className="ml-auto text-xs text-[var(--color-text-muted)]">
-              {formatTime(t.timestamp)}
+              {isTimeUnknown(t.metadata)
+                ? `${formatDateOnly(t.timestamp)} · sometime today`
+                : formatTime(t.timestamp)}
             </span>
             <button
               onClick={() => handleDelete(t.id)}

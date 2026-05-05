@@ -38,19 +38,32 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
   const [customTag, setCustomTag] = useState("");
   const [tagNotes, setTagNotes] = useState("");
   const [tagTime, setTagTime] = useState(currentTimeString);
+  const [timeUnknown, setTimeUnknown] = useState(false);
 
   function resetForm() {
     setTagNotes("");
     setCustomTag("");
     setTagTime(currentTimeString());
+    setTimeUnknown(false);
   }
 
   function buildTimestamp(): string {
     // Base date = viewed date (if any) or today local
     const base = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
-    const [h, m] = tagTime.split(":").map(Number);
+    // When time is unknown we anchor at 00:00 local of the day so downstream
+    // analyses that only key off the date (e.g. insights.ts) still bucket it
+    // correctly, and the UI can render "sometime today" from the metadata flag
+    // instead of showing a fake time of day.
+    const [h, m] = timeUnknown ? [0, 0] : tagTime.split(":").map(Number);
     const ts = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m);
     return ts.toISOString();
+  }
+
+  function buildMetadata(): Record<string, unknown> | undefined {
+    const meta: Record<string, unknown> = {};
+    if (tagNotes) meta.notes = tagNotes;
+    if (timeUnknown) meta.timeUnknown = true;
+    return Object.keys(meta).length > 0 ? meta : undefined;
   }
 
   function handleTag(category: string, tag: string) {
@@ -61,7 +74,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
         body: JSON.stringify({
           tag,
           category,
-          metadata: tagNotes ? { notes: tagNotes } : undefined,
+          metadata: buildMetadata(),
           timestamp: buildTimestamp(),
         }),
       });
@@ -141,21 +154,32 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
           </div>
 
           {/* Time picker */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <label className="text-xs text-[var(--color-text-muted)]">Time:</label>
             <input
               type="time"
               value={tagTime}
               onChange={(e) => setTagTime(e.target.value)}
-              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-xs [color-scheme:dark]"
+              disabled={timeUnknown}
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-xs [color-scheme:dark] disabled:opacity-40"
             />
             <button
               type="button"
               onClick={() => setTagTime(currentTimeString())}
-              className="text-xs text-[var(--color-text-muted)] underline hover:text-white"
+              disabled={timeUnknown}
+              className="text-xs text-[var(--color-text-muted)] underline hover:text-white disabled:opacity-40 disabled:no-underline"
             >
               Now
             </button>
+            <label className="ml-auto flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={timeUnknown}
+                onChange={(e) => setTimeUnknown(e.target.checked)}
+                className="accent-[var(--color-text-muted)]"
+              />
+              Sometime today — don&apos;t remember time
+            </label>
           </div>
 
           {/* Notes */}
@@ -170,21 +194,50 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
       )}
 
       {/* Custom tag input */}
-      <form onSubmit={handleCustomSubmit} className="mt-3 flex gap-2">
-        <input
-          type="text"
-          value={customTag}
-          onChange={(e) => setCustomTag(e.target.value)}
-          placeholder="Custom tag (e.g. cold shower, creatine, sauna)"
-          className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
-        />
-        <button
-          type="submit"
-          disabled={isPending || !customTag.trim()}
-          className="rounded-lg bg-white/10 px-3 py-2 text-xs font-medium transition-colors hover:bg-white/20 disabled:opacity-30"
-        >
-          Tag
-        </button>
+      <form onSubmit={handleCustomSubmit} className="mt-3 space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="text"
+            value={customTag}
+            onChange={(e) => setCustomTag(e.target.value)}
+            placeholder="Custom tag (e.g. cold shower, creatine, sauna)"
+            className="min-w-0 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+          />
+          {!timeUnknown && (
+            <>
+              <input
+                type="time"
+                value={tagTime}
+                onChange={(e) => setTagTime(e.target.value)}
+                aria-label="Tag time"
+                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-2 text-xs [color-scheme:dark]"
+              />
+              <button
+                type="button"
+                onClick={() => setTagTime(currentTimeString())}
+                className="rounded-lg border border-[var(--color-border)] px-2 py-2 text-xs text-[var(--color-text-muted)] hover:text-white"
+              >
+                Now
+              </button>
+            </>
+          )}
+          <button
+            type="submit"
+            disabled={isPending || !customTag.trim()}
+            className="rounded-lg bg-white/10 px-3 py-2 text-xs font-medium transition-colors hover:bg-white/20 disabled:opacity-30"
+          >
+            Tag
+          </button>
+        </div>
+        <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={timeUnknown}
+            onChange={(e) => setTimeUnknown(e.target.checked)}
+            className="accent-[var(--color-text-muted)]"
+          />
+          Sometime today — don&apos;t remember time
+        </label>
       </form>
     </div>
   );

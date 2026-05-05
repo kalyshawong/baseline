@@ -166,6 +166,7 @@ export default async function MindPage({
           fat: e.fat,
           mealType: e.mealType,
           eatenAt: e.eatenAt.toISOString(),
+          timeUnknown: e.timeUnknown,
         }))}
       />
 
@@ -276,6 +277,7 @@ export default async function MindPage({
           tag: t.tag,
           category: t.category,
           timestamp: t.timestamp.toISOString(),
+          metadata: t.metadata ?? null,
           experiment: t.experiment ? { id: t.experiment.id, title: t.experiment.title } : null,
         }))}
       />
