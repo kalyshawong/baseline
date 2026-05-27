@@ -165,6 +165,7 @@ export default async function MindPage({
           carbs: e.carbs,
           fat: e.fat,
           mealType: e.mealType,
+          source: e.source,
           eatenAt: e.eatenAt.toISOString(),
           timeUnknown: e.timeUnknown,
         }))}

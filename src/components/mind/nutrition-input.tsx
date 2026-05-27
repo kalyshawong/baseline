@@ -19,6 +19,13 @@ const mealTypes = [
   { id: "snack", label: "Snack" },
 ] as const;
 
+const mealSources = [
+  { id: "home_cooked", label: "Home cooked" },
+  { id: "takeout", label: "Takeout" },
+  { id: "restaurant", label: "Restaurant" },
+  { id: "pre_packaged", label: "Pre-packaged" },
+] as const;
+
 function currentTimeString(): string {
   const now = new Date();
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -28,6 +35,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [mealType, setMealType] = useState<string>("snack");
+  const [source, setSource] = useState<string>("home_cooked");
   const [time, setTime] = useState(currentTimeString);
   const [timeUnknown, setTimeUnknown] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -55,6 +63,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
           body: JSON.stringify({
             text: text.trim(),
             mealType,
+            source,
             eatenAt: eatenAt.toISOString(),
             date: dateStr,
             timeUnknown,
@@ -67,6 +76,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
         const data = await res.json();
         setResults(data.estimates);
         setText("");
+        setSource("home_cooked");
         setTime(currentTimeString());
         setTimeUnknown(false);
         router.refresh();
@@ -96,6 +106,24 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
               }`}
             >
               {mt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Meal source selector — visually lighter than meal type */}
+        <div className="mb-3 grid grid-cols-4 gap-1.5">
+          {mealSources.map((ms) => (
+            <button
+              key={ms.id}
+              type="button"
+              onClick={() => setSource(ms.id)}
+              className={`rounded-md py-1 text-[11px] transition-all ${
+                source === ms.id
+                  ? "bg-white/8 text-[var(--color-text-muted)] ring-1 ring-white/20"
+                  : "text-[var(--color-text-muted)]/50 hover:text-[var(--color-text-muted)]"
+              }`}
+            >
+              {ms.label}
             </button>
           ))}
         </div>

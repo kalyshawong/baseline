@@ -161,6 +161,13 @@ model NutritionLog {
   entries NutritionEntry[]
 }
 
+enum MealSource {
+  home_cooked
+  takeout
+  restaurant
+  pre_packaged
+}
+
 model NutritionEntry {
   id             String       @id @default(cuid())
   nutritionLogId String
@@ -174,6 +181,7 @@ model NutritionEntry {
   unit           String       @default("serving") // g, oz, cup, serving
   foodName       String // normalized name from USDA match
   mealType       String       @default("snack") // breakfast | lunch | dinner | snack
+  source         MealSource? // home_cooked | takeout | restaurant | pre_packaged — null for pre-feature entries
   eatenAt        DateTime     @default(now()) // actual time the food was eaten
   timeUnknown    Boolean      @default(false) // true = user didn't remember exact time; eatenAt anchored at day start
   createdAt      DateTime     @default(now())

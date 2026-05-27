@@ -12,9 +12,17 @@ interface Entry {
   carbs: number;
   fat: number;
   mealType: string;
+  source?: string | null;
   eatenAt: string;
   timeUnknown?: boolean;
 }
+
+const sourceLabels: Record<string, string> = {
+  home_cooked: "Home cooked",
+  takeout: "Takeout",
+  restaurant: "Restaurant",
+  pre_packaged: "Pre-packaged",
+};
 
 const mealOrder = ["breakfast", "lunch", "dinner", "snack"];
 
@@ -118,7 +126,12 @@ export function NutritionLog({ entries }: { entries: Entry[] }) {
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{entry.description}</p>
-                      <p className="truncate text-[var(--color-text-muted)]">{entry.foodName}</p>
+                      <p className="truncate text-[var(--color-text-muted)]">
+                        {entry.foodName}
+                        {entry.source && sourceLabels[entry.source] && (
+                          <span className="ml-1.5 opacity-60"> · {sourceLabels[entry.source]}</span>
+                        )}
+                      </p>
                     </div>
                     <div className="flex shrink-0 gap-3 font-mono text-[var(--color-text-muted)]">
                       <span>{entry.calories}<span className="opacity-50">cal</span></span>

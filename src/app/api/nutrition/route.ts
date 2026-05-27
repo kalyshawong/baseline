@@ -22,10 +22,11 @@ function revalidateNutritionPages() {
 // for "two slices of sourdough toast with avocado and an egg".
 const NUTRITION_TEXT_MAX_LEN = 4_000;
 const VALID_MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"] as const;
+const VALID_MEAL_SOURCES = ["home_cooked", "takeout", "restaurant", "pre_packaged"] as const;
 
 export async function POST(request: NextRequest) {
   try {
-    const { text, mealType, eatenAt, date, timeUnknown } = await request.json();
+    const { text, mealType, eatenAt, date, timeUnknown, source } = await request.json();
 
     if (!text || typeof text !== "string") {
       return NextResponse.json({ error: "text is required" }, { status: 400 });
@@ -46,6 +47,13 @@ export async function POST(request: NextRequest) {
       );
     }
     const meal = mealType ?? "snack";
+
+    if (source != null && !VALID_MEAL_SOURCES.includes(source)) {
+      return NextResponse.json(
+        { error: `source must be one of: ${VALID_MEAL_SOURCES.join(", ")}` },
+        { status: 400 }
+      );
+    }
 
     let eatenTime: Date;
     if (eatenAt == null) {
@@ -100,6 +108,7 @@ export async function POST(request: NextRequest) {
           carbs: est.carbs,
           fat: est.fat,
           mealType: meal,
+          source: source ?? undefined,
           eatenAt: eatenTime,
           timeUnknown: timeUnknownFlag,
         },
@@ -134,6 +143,7 @@ export async function POST(request: NextRequest) {
         timestamp: eatenTime,
         metadata: JSON.stringify({
           mealType: meal,
+          source: source ?? null,
           eatenAt: eatenTime.toISOString(),
           time: timeLabel,
           timeUnknown: timeUnknownFlag,
