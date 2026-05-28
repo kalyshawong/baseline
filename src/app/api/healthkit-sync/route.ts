@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { dateStrToUTC } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
 
+// Allow up to 5 minutes for large backfills (e.g. 16-day HAE re-exports).
+export const maxDuration = 300;
+
 // --- Processing functions per spec ---
 
 interface MetricEntry {
@@ -46,56 +49,59 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
     console.log("[HealthKit] metric name received:", metric.name);
 
     switch (metric.name) {
-      case "heart_rate":
-        for (const d of metric.data) {
-          const bpm = d.Avg ?? d.qty;
-          if (!bpm || !d.date) continue;
-          try {
-            await prisma.heartRateSample.upsert({
-              where: {
-                timestamp_source: {
-                  timestamp: new Date(d.date),
-                  source: "apple-watch",
-                },
-              },
-              update: { bpm: Math.round(bpm) },
-              create: {
-                bpm: Math.round(bpm),
-                source: "apple-watch",
-                timestamp: new Date(d.date),
-              },
-            });
-            count++;
-          } catch {
-            // Skip duplicate/constraint errors
-          }
+      case "heart_rate": {
+        // Batch upsert via raw SQL — processes ~30k samples/day in seconds
+        // instead of minutes of sequential Prisma upserts.
+        const hrRows = metric.data
+          .filter((d) => (d.Avg ?? d.qty) && d.date)
+          .map((d) => ({
+            bpm: Math.round((d.Avg ?? d.qty)!),
+            ts: new Date(d.date),
+          }));
+        const BATCH = 500;
+        for (let i = 0; i < hrRows.length; i += BATCH) {
+          const batch = hrRows.slice(i, i + BATCH);
+          const values = batch
+            .map(
+              (r) =>
+                `(${r.bpm}, 'apple-watch', '${r.ts.toISOString()}'::timestamptz)`,
+            )
+            .join(",\n");
+          await prisma.$executeRawUnsafe(`
+            INSERT INTO "HeartRateSample" (bpm, source, timestamp)
+            VALUES ${values}
+            ON CONFLICT (timestamp, source) DO UPDATE SET bpm = EXCLUDED.bpm
+          `);
         }
+        count += hrRows.length;
         break;
+      }
 
-      case "resting_heart_rate":
-        for (const d of metric.data) {
-          if (!d.qty || !d.date) continue;
-          try {
-            await prisma.heartRateSample.upsert({
-              where: {
-                timestamp_source: {
-                  timestamp: new Date(d.date),
-                  source: "apple-watch-resting",
-                },
-              },
-              update: { bpm: Math.round(d.qty) },
-              create: {
-                bpm: Math.round(d.qty),
-                source: "apple-watch-resting",
-                timestamp: new Date(d.date),
-              },
-            });
-            count++;
-          } catch {
-            // Skip
-          }
+      case "resting_heart_rate": {
+        const rhrRows = metric.data
+          .filter((d) => d.qty && d.date)
+          .map((d) => ({
+            bpm: Math.round(d.qty!),
+            ts: new Date(d.date),
+          }));
+        const RHR_BATCH = 500;
+        for (let i = 0; i < rhrRows.length; i += RHR_BATCH) {
+          const batch = rhrRows.slice(i, i + RHR_BATCH);
+          const values = batch
+            .map(
+              (r) =>
+                `(${r.bpm}, 'apple-watch-resting', '${r.ts.toISOString()}'::timestamptz)`,
+            )
+            .join(",\n");
+          await prisma.$executeRawUnsafe(`
+            INSERT INTO "HeartRateSample" (bpm, source, timestamp)
+            VALUES ${values}
+            ON CONFLICT (timestamp, source) DO UPDATE SET bpm = EXCLUDED.bpm
+          `);
         }
+        count += rhrRows.length;
         break;
+      }
 
       case "step_count":
         for (const d of metric.data) {
@@ -325,6 +331,31 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
   for (const w of workouts) {
     if (!w.id || !w.name || !w.start || !w.end) continue;
 
+    let avgHR = w.heartRate?.data?.[0]?.Avg ?? null;
+    let maxHR = w.heartRate?.data?.[0]?.Max ?? null;
+    let minHR = w.heartRate?.data?.[0]?.Min ?? null;
+
+    // If the export didn't include HR on the workout object, derive it
+    // from HeartRateSample data recorded during the workout window.
+    if (avgHR == null) {
+      const startedAt = new Date(w.start);
+      const endedAt = new Date(w.end);
+      const hrStats = await prisma.heartRateSample.aggregate({
+        where: {
+          source: { startsWith: "apple" },
+          timestamp: { gte: startedAt, lte: endedAt },
+        },
+        _avg: { bpm: true },
+        _max: { bpm: true },
+        _min: { bpm: true },
+      });
+      if (hrStats._avg.bpm != null) {
+        avgHR = Math.round(hrStats._avg.bpm);
+        maxHR = hrStats._max.bpm;
+        minHR = hrStats._min.bpm;
+      }
+    }
+
     await prisma.healthKitWorkout.upsert({
       where: { externalId: w.id },
       update: {
@@ -335,9 +366,9 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
         activeCalories: w.activeEnergyBurned?.qty ?? null,
         distance: w.distance?.qty ?? null,
         distanceUnit: w.distance?.units ?? null,
-        avgHeartRate: w.heartRate?.data?.[0]?.Avg ?? null,
-        maxHeartRate: w.heartRate?.data?.[0]?.Max ?? null,
-        minHeartRate: w.heartRate?.data?.[0]?.Min ?? null,
+        avgHeartRate: avgHR,
+        maxHeartRate: maxHR,
+        minHeartRate: minHR,
       },
       create: {
         externalId: w.id,
@@ -348,9 +379,9 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
         activeCalories: w.activeEnergyBurned?.qty ?? null,
         distance: w.distance?.qty ?? null,
         distanceUnit: w.distance?.units ?? null,
-        avgHeartRate: w.heartRate?.data?.[0]?.Avg ?? null,
-        maxHeartRate: w.heartRate?.data?.[0]?.Max ?? null,
-        minHeartRate: w.heartRate?.data?.[0]?.Min ?? null,
+        avgHeartRate: avgHR,
+        maxHeartRate: maxHR,
+        minHeartRate: minHR,
       },
     });
     count++;
@@ -404,6 +435,33 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
     const expectedKey = process.env.HEALTHKIT_SYNC_KEY;
     if (!expectedKey || authHeader !== `Bearer ${expectedKey}`) {
+      // Observability fix (2026-05-27): previously this 401 was silent —
+      // no log, no HealthKitSync row, no surface anywhere. That hid 16+
+      // days of failures because HAE retried daily and got rejected on
+      // every attempt with zero downstream signal. Now: log to stderr
+      // AND write a "unauthorized" row so the dashboard / GET endpoint /
+      // sync staleness indicator can see something happened.
+      const headerPresent = authHeader != null;
+      const keyConfigured = !!expectedKey;
+      console.error(
+        `[HealthKit] 401 unauthorized — keyConfigured=${keyConfigured}, headerPresent=${headerPresent}, headerPrefix=${authHeader?.slice(0, 12) ?? "<none>"}`,
+      );
+      try {
+        await prisma.healthKitSync.create({
+          data: {
+            status: "unauthorized",
+            metrics: 0,
+            workouts: 0,
+            details: !keyConfigured
+              ? "HEALTHKIT_SYNC_KEY env var not set on the server."
+              : !headerPresent
+                ? "Request missing Authorization header. HAE may not have an API key configured."
+                : "Authorization header didn't match HEALTHKIT_SYNC_KEY. HAE's stored key is probably stale.",
+          },
+        });
+      } catch {
+        // Don't let a logging failure mask the auth failure.
+      }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -452,6 +510,23 @@ export async function POST(request: NextRequest) {
       cycle: cycleCount,
     });
   } catch (error) {
+    // Previously silent. Now: log to stderr + record a "error" row in
+    // HealthKitSync so a sync that explodes (malformed body, bug in a
+    // processor, etc.) doesn't disappear into the void.
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[HealthKit] sync handler crashed:", message);
+    try {
+      await prisma.healthKitSync.create({
+        data: {
+          status: "error",
+          metrics: 0,
+          workouts: 0,
+          details: `Handler crashed: ${message.slice(0, 400)}`,
+        },
+      });
+    } catch {
+      // Logging failures shouldn't mask the original error.
+    }
     const { status, body: errBody } = apiError(error);
     return NextResponse.json(errBody, { status });
   }
