@@ -529,16 +529,60 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     }
   }
 
-  // Sync Oura Workouts (skip apple_health source — already captured via HealthKit)
+  // Sync Oura Workouts — always bridge into HealthKitWorkout (the table the
+  // dashboard reads) when no existing HK row matches within a 5-min window.
+  // Also upsert into OuraWorkout for the full Oura-specific fields.
   try {
     const workouts = await ouraFetch<OuraListResponse<OuraWorkoutRecord>>("workout", params);
     for (const w of workouts.data) {
-      if (w.source === "apple_health") continue;
-
       const startedAt = new Date(w.start_datetime);
       const endedAt = new Date(w.end_datetime);
       const durationSeconds = Math.round((endedAt.getTime() - startedAt.getTime()) / 1000);
 
+      // Dedup: skip bridging if HealthKit already has a matching workout
+      const existingHk = await prisma.healthKitWorkout.findFirst({
+        where: {
+          externalId: { not: `oura-${w.id}` }, // don't match our own bridge row
+          startedAt: {
+            gte: new Date(startedAt.getTime() - 5 * 60 * 1000),
+            lte: new Date(startedAt.getTime() + 5 * 60 * 1000),
+          },
+        },
+      });
+
+      if (!existingHk) {
+        // Bridge into HealthKitWorkout so the dashboard surfaces it
+        const bridgedSource = `oura-${w.source ?? "unknown"}`;
+        await prisma.healthKitWorkout.upsert({
+          where: { externalId: `oura-${w.id}` },
+          update: {
+            name: w.activity,
+            startedAt,
+            endedAt,
+            durationSeconds,
+            activeCalories: w.calories ?? null,
+            distance: w.distance ?? null,
+            distanceUnit: w.distance != null ? "m" : null,
+            source: bridgedSource,
+          },
+          create: {
+            externalId: `oura-${w.id}`,
+            name: w.activity,
+            startedAt,
+            endedAt,
+            durationSeconds,
+            activeCalories: w.calories ?? null,
+            distance: w.distance ?? null,
+            distanceUnit: w.distance != null ? "m" : null,
+            avgHeartRate: null,
+            maxHeartRate: null,
+            minHeartRate: null,
+            source: bridgedSource,
+          },
+        });
+      }
+
+      // Always upsert into OuraWorkout for Oura-specific fields
       await prisma.ouraWorkout.upsert({
         where: { id: w.id },
         update: {
