@@ -7,6 +7,9 @@ import {
   compoundContributions,
   volumeZones,
   hrvCV,
+  rollingHrvCvBaseline,
+  isHrvCvElevated,
+  hrvCvThreshold,
   estimate1RM,
   ffmFromBodyComposition,
   energyAvailability as computeEA,
@@ -14,6 +17,7 @@ import {
   computeTrainingCall,
   detectRpeCreep,
 } from "@/lib/training";
+import { getHrvBaselineChoice } from "@/lib/training-call";
 import { ReadinessTierCard } from "@/components/body/readiness-tier-card";
 import { TodayCallCard } from "@/components/dashboard/today-call-card";
 import { VolumeZones } from "@/components/body/volume-zones";
@@ -34,6 +38,7 @@ import {
   weightTrendDirection,
   movingAverage,
 } from "@/lib/tdee";
+import { DateNav } from "@/components/date-nav";
 
 function formatDuration(seconds: number | null): string {
   if (seconds == null) return "—";
@@ -203,8 +208,27 @@ export default async function BodyPage() {
   const hrvValues = recentSleep
     .map((s) => s.averageHrv)
     .filter((v): v is number => v != null);
-  const cv = hrvCV(hrvValues);
-  const hrvCvElevated = cv != null && cv > 10;
+  // Current CV over the recent 7-night window — same window the dashboard's
+  // getTrainingCallForDate uses, so the two surfaces agree.
+  const cv = hrvCV(hrvValues.slice(0, 7));
+
+  // Personal CV baseline from a longer history so "elevated" means "high for
+  // her," not above a flat 10%. See rollingHrvCvBaseline for the rationale.
+  const hrvBaselineSleep = await prisma.dailySleep.findMany({
+    where: { day: { lte: localToday }, averageHrv: { not: null } },
+    orderBy: { day: "desc" },
+    take: 60,
+    select: { averageHrv: true },
+  });
+  const personalHrvBaseline = rollingHrvCvBaseline(
+    hrvBaselineSleep
+      .map((s) => s.averageHrv)
+      .filter((v): v is number => v != null)
+  );
+  // Respect her calibration choice: "standard" reverts to the flat 10%.
+  const hrvChoice = await getHrvBaselineChoice();
+  const hrvCvBaseline = hrvChoice === "standard" ? null : personalHrvBaseline;
+  const hrvCvElevated = isHrvCvElevated(cv, hrvCvBaseline);
 
   // --- Fatigue score ---
   const volumeApproachingMRV = Object.entries(muscleSets).some(
@@ -297,6 +321,7 @@ export default async function BodyPage() {
     baselineScore: score?.overall ?? null,
     cyclePhase: phaseLog.phase,
     hrvCv: cv,
+    hrvCvBaseline,
     fatigueScore: fatigue.score,
     stressSummary: dayStress?.daySummary ?? null,
   });
@@ -321,118 +346,131 @@ export default async function BodyPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
+      {/* ─── PAGE HEADER ─── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="disp text-[46px] leading-[0.9] tracking-[0.02em]">BODY</h1>
           <p className="mt-1 text-sm font-medium text-[var(--color-text-muted)]">Training readiness, recovery &amp; composition</p>
         </div>
+        <DateNav basePath="/body" />
       </div>
 
+      {/* ─── HYROX STRIP ─── */}
       <HyroxSummaryCard />
 
-      {/* ─── SECTION 1: TRAINING READINESS ─── */}
+      {/* ─── READINESS HERO BAND ─── */}
       <div className="space-y-[14px]">
-        {/* Integrated training call — single synthesized verdict above the
-            breakdown cards. Same logic as the dashboard hero, so both pages
-            give the same answer. */}
         <TodayCallCard call={trainingCall} isConnected={true} />
-
-        <ReadinessTierCard call={trainingCall} baselineScore={score?.overall ?? null} hrvCv={cv} />
-
-        {/* Ambient recovery signals — HRV, Stress, SpO2, Resilience.
-         * Moved from /dashboard on 2026-05-27. These contextualize the
-         * readiness tier above and the cycle phase below. */}
-        <RecoverySignalsRow
-          hrv={todaySleep?.averageHrv ?? null}
-          stress={
-            dayStress
-              ? {
-                  daySummary: dayStress.daySummary ?? null,
-                  stressHigh: dayStress.stressHigh ?? null,
-                  recoveryHigh: dayStress.recoveryHigh ?? null,
-                }
-              : null
-          }
-          spO2={daySpO2?.avgSpO2 ?? null}
-          resilience={
-            dayResilience
-              ? {
-                  level: dayResilience.level ?? null,
-                  sleepRecovery: dayResilience.sleepRecovery ?? null,
-                  daytimeRecovery: dayResilience.daytimeRecovery ?? null,
-                  stress: dayResilience.stress ?? null,
-                }
-              : null
-          }
-        />
-
-        {guidance && <CyclePhaseGuidanceCard guidance={guidance} />}
-
-        {/* Cycle phase setter — co-located with the guidance card
-         * above. Moved from /dashboard on 2026-05-27. Setting the
-         * phase and reading its guidance belong on the same page. */}
-        <CyclePhaseSelector currentPhase={phaseLog.phase} />
-
-        {/* Fatigue / deload signal */}
-        {fatigue.score > 0 && (
-          <div
-            className={`border p-5 ${
-              fatigue.score >= 5
-                ? "border-[var(--color-red)]/30 bg-[var(--color-red)]/10"
-                : fatigue.score >= 3
-                  ? "border-[var(--color-yellow)]/30 bg-[var(--color-yellow)]/10"
-                  : "border-[var(--color-border)] bg-[var(--color-surface)]"
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-                  Fatigue Signal (Pritchard 2024, Cadegiani 2019)
-                </p>
-                <p className="mt-1 text-sm font-semibold">{fatigue.recommendation}</p>
-              </div>
-              <div className="text-right">
-                <span className="font-mono text-2xl font-bold">{fatigue.score}</span>
-                <p className="text-[10px] text-[var(--color-text-muted)]">/8 composite</p>
-              </div>
-            </div>
-            <div className="mt-3 space-y-1 text-xs">
-              {weeksSinceDeload >= 5 && (
-                <p className="text-[var(--color-yellow)]">
-                  {weeksSinceDeload} consecutive training weeks (deload every 5-6 per Pritchard)
-                </p>
-              )}
-              {hrvBelowBaseline && (
-                <p className="text-[var(--color-yellow)]">HRV &gt;1 SD below 14-day baseline for 2+ days</p>
-              )}
-              {hrvCvElevated && (
-                <p className="text-[var(--color-yellow)]">HRV CV elevated: {cv?.toFixed(1)}% (Flatt threshold: 10%)</p>
-              )}
-              {recentSleep.slice(0, 3).every((s) => (s.score ?? 100) < 70) && (
-                <p className="text-[var(--color-yellow)]">Sleep score &lt;70 for 3+ nights</p>
-              )}
-              {rhrElevated && (
-                <p className="text-[var(--color-yellow)]">Resting HR elevated 5+ BPM above baseline for 3+ mornings</p>
-              )}
-              {anyRpeCreep && (
-                <p className="text-[var(--color-red)] font-medium">RPE creep: +1 point at same loads over recent sessions (2× weight)</p>
-              )}
-              {volumeApproachingMRV && (
-                <p className="text-[var(--color-yellow)]">Volume approaching/at MRV in 1+ muscle groups</p>
-              )}
-            </div>
-            {fatigue.score >= 3 && (
-              <div className="mt-3 bg-[var(--color-surface-2)] p-3 text-xs text-[var(--color-text-muted)]">
-                <p className="font-medium text-white">Deload protocol:</p>
-                <p className="mt-1">Reduce volume 40-60% for 1 week. Maintain training frequency and intensity (keep same loads, fewer sets). Resume normal programming after 7 days.</p>
-              </div>
-            )}
-          </div>
-        )}
+        <ReadinessTierCard call={trainingCall} baselineScore={score?.overall ?? null} hrvCv={cv} hrvCvElevated={hrvCvElevated} />
       </div>
 
-      {/* ─── SECTION 2: RUNNING & CARDIO ─── */}
+      {/* ─── RECOVERY SIGNALS ─── */}
+      <div className="ov flex items-center gap-3">
+        <span className="flex-none">Recovery Signals</span>
+        <span className="h-px flex-1 bg-[var(--color-border)]" />
+      </div>
+      <RecoverySignalsRow
+        hrv={todaySleep?.averageHrv ?? null}
+        stress={
+          dayStress
+            ? {
+                daySummary: dayStress.daySummary ?? null,
+                stressHigh: dayStress.stressHigh ?? null,
+                recoveryHigh: dayStress.recoveryHigh ?? null,
+              }
+            : null
+        }
+        spO2={daySpO2?.avgSpO2 ?? null}
+        resilience={
+          dayResilience
+            ? {
+                level: dayResilience.level ?? null,
+                sleepRecovery: dayResilience.sleepRecovery ?? null,
+                daytimeRecovery: dayResilience.daytimeRecovery ?? null,
+                stress: dayResilience.stress ?? null,
+              }
+            : null
+        }
+      />
+
+      {/* ─── CYCLE + FATIGUE — TWO COLUMN ROW ─── */}
+      <div className="grid grid-cols-2 gap-[14px] items-stretch">
+        {/* Left: Cycle Phase Guidance + Selector */}
+        <div className="space-y-[14px]">
+          {guidance && <CyclePhaseGuidanceCard guidance={guidance} />}
+          <CyclePhaseSelector currentPhase={phaseLog.phase} />
+        </div>
+
+        {/* Right: Fatigue Signal */}
+        <div>
+          {fatigue.score > 0 ? (
+            <div
+              className={`border p-5 h-full ${
+                fatigue.score >= 5
+                  ? "border-[var(--color-red)]/30 bg-[var(--color-red)]/10"
+                  : fatigue.score >= 3
+                    ? "border-[var(--color-yellow)]/30 bg-[var(--color-yellow)]/10"
+                    : "border-[var(--color-border)] bg-[var(--color-surface)]"
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+                    Fatigue Signal (Pritchard 2024, Cadegiani 2019)
+                  </p>
+                  <p className="mt-1 text-sm font-semibold">{fatigue.recommendation}</p>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono text-2xl font-bold">{fatigue.score}</span>
+                  <p className="text-[10px] text-[var(--color-text-muted)]">/8 composite</p>
+                </div>
+              </div>
+              <div className="mt-3 space-y-1 text-xs">
+                {weeksSinceDeload >= 5 && (
+                  <p className="text-[var(--color-yellow)]">
+                    {weeksSinceDeload} consecutive training weeks (deload every 5-6 per Pritchard)
+                  </p>
+                )}
+                {hrvBelowBaseline && (
+                  <p className="text-[var(--color-yellow)]">HRV &gt;1 SD below 14-day baseline for 2+ days</p>
+                )}
+                {hrvCvElevated && (
+                  <p className="text-[var(--color-yellow)]">
+                    HRV CV elevated: {cv?.toFixed(1)}%
+                    {hrvCvBaseline
+                      ? ` (your normal ~${Math.round(hrvCvThreshold(hrvCvBaseline))}%)`
+                      : " (Flatt threshold: 10%)"}
+                  </p>
+                )}
+                {recentSleep.slice(0, 3).every((s) => (s.score ?? 100) < 70) && (
+                  <p className="text-[var(--color-yellow)]">Sleep score &lt;70 for 3+ nights</p>
+                )}
+                {rhrElevated && (
+                  <p className="text-[var(--color-yellow)]">Resting HR elevated 5+ BPM above baseline for 3+ mornings</p>
+                )}
+                {anyRpeCreep && (
+                  <p className="text-[var(--color-red)] font-medium">RPE creep: +1 point at same loads over recent sessions (2x weight)</p>
+                )}
+                {volumeApproachingMRV && (
+                  <p className="text-[var(--color-yellow)]">Volume approaching/at MRV in 1+ muscle groups</p>
+                )}
+              </div>
+              {fatigue.score >= 3 && (
+                <div className="mt-3 bg-[var(--color-surface-2)] p-3 text-xs text-[var(--color-text-muted)]">
+                  <p className="font-medium text-white">Deload protocol:</p>
+                  <p className="mt-1">Reduce volume 40-60% for 1 week. Maintain training frequency and intensity (keep same loads, fewer sets). Resume normal programming after 7 days.</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="panel h-full flex items-center justify-center">
+              <p className="text-xs text-[var(--color-text-muted)]">No fatigue signals detected</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─── RUNNING & CARDIO ─── */}
       <div className="ov flex items-center gap-3">
         <span className="flex-none">Running &amp; Cardio</span>
         <span className="h-px flex-1 bg-[var(--color-border)]" />
@@ -455,7 +493,7 @@ export default async function BodyPage() {
           : null}
       />
 
-      {/* ─── SECTION 3: STRENGTH TRAINING ─── */}
+      {/* ─── STRENGTH TRAINING ─── */}
       <div className="ov flex items-center gap-3">
         <span className="flex-none">Strength Training</span>
         <span className="h-px flex-1 bg-[var(--color-border)]" />
@@ -476,123 +514,127 @@ export default async function BodyPage() {
           </Link>
         </div>
 
-        <VolumeZones data={weeklyVolumeData} />
+        {/* Two-column: VolumeZones left, PRs + Recent Workouts right */}
+        <div className="grid grid-cols-[1.5fr_1fr] gap-[14px] items-start">
+          <VolumeZones data={weeklyVolumeData} />
 
-        {/* Personal Records */}
-        {prs.length > 0 && (
-          <div className="panel">
-            <h2 className="mb-3 ov">
-              Recent PRs
-            </h2>
-            <div className="space-y-2">
-              {prs.map((pr) => (
-                <div
-                  key={pr.id}
-                  className="flex items-center justify-between bg-[var(--color-surface-2)] px-3 py-2 text-xs"
-                >
-                  <div>
-                    <p className="font-medium">{pr.exercise.name}</p>
-                    <p className="text-[var(--color-text-muted)]">
-                      {pr.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono tabular-nums">
-                      {pr.weight} × {pr.reps}
-                    </p>
-                    <p className="text-[var(--color-text-muted)]">
-                      e1RM: {Math.round(estimate1RM(pr.weight, pr.reps))}
-                    </p>
-                  </div>
+          <div className="space-y-[14px]">
+            {/* Personal Records */}
+            {prs.length > 0 && (
+              <div className="panel">
+                <h2 className="mb-3 ov">
+                  Recent PRs
+                </h2>
+                <div className="space-y-2">
+                  {prs.map((pr) => (
+                    <div
+                      key={pr.id}
+                      className="flex items-center justify-between bg-[var(--color-surface-2)] px-3 py-2 text-xs"
+                    >
+                      <div>
+                        <p className="font-medium">{pr.exercise.name}</p>
+                        <p className="text-[var(--color-text-muted)]">
+                          {pr.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-mono tabular-nums">
+                          {pr.weight} × {pr.reps}
+                        </p>
+                        <p className="text-[var(--color-text-muted)]">
+                          e1RM: {Math.round(estimate1RM(pr.weight, pr.reps))}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+            )}
+
+            {/* Recent sessions */}
+            <div className="panel">
+              <h2 className="mb-3 ov">
+                Recent Workouts
+              </h2>
+              {recentSessions.length === 0 ? (
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  No workouts logged yet.{" "}
+                  <Link href="/body/workout/new" className="underline hover:text-white">
+                    Start your first session
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {recentSessions.map((session) => (
+                    <Link
+                      key={session.id}
+                      href={`/body/workout/${session.id}`}
+                      className="block bg-[var(--color-surface-2)] px-3 py-2 text-xs hover:bg-white/10"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">
+                            {session.templateName ?? "Freestyle"}
+                          </p>
+                          <p className="text-[var(--color-text-muted)]">
+                            {session.date.toLocaleDateString("en-US", {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                            })}{" "}
+                            · {session.sets.length} sets
+                            {session.completedAt && session.sessionVolume != null && (
+                              <> · {Math.round(session.sessionVolume)} vol</>
+                            )}
+                          </p>
+                        </div>
+                        {session.completedAt ? (
+                          <span className="rounded-full bg-[var(--color-green)]/20 px-2 py-0.5 text-[10px] text-[var(--color-green)]">
+                            done
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-[var(--color-yellow)]/20 px-2 py-0.5 text-[10px] text-[var(--color-yellow)]">
+                            active
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        )}
-
-        {/* Recent sessions */}
-        <div className="panel">
-          <h2 className="mb-3 ov">
-            Recent Workouts
-          </h2>
-          {recentSessions.length === 0 ? (
-            <p className="text-xs text-[var(--color-text-muted)]">
-              No workouts logged yet.{" "}
-              <Link href="/body/workout/new" className="underline hover:text-white">
-                Start your first session
-              </Link>
-              .
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {recentSessions.map((session) => (
-                <Link
-                  key={session.id}
-                  href={`/body/workout/${session.id}`}
-                  className="block bg-[var(--color-surface-2)] px-3 py-2 text-xs hover:bg-white/10"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">
-                        {session.templateName ?? "Freestyle"}
-                      </p>
-                      <p className="text-[var(--color-text-muted)]">
-                        {session.date.toLocaleDateString("en-US", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                        })}{" "}
-                        · {session.sets.length} sets
-                        {session.completedAt && session.sessionVolume != null && (
-                          <> · {Math.round(session.sessionVolume)} vol</>
-                        )}
-                      </p>
-                    </div>
-                    {session.completedAt ? (
-                      <span className="rounded-full bg-[var(--color-green)]/20 px-2 py-0.5 text-[10px] text-[var(--color-green)]">
-                        done
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-[var(--color-yellow)]/20 px-2 py-0.5 text-[10px] text-[var(--color-yellow)]">
-                        active
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
-      {/* ─── SECTION 4: RECOVERY ─── */}
+      {/* ─── RECOVERY ─── */}
       <div className="ov flex items-center gap-3">
         <span className="flex-none">Recovery</span>
         <span className="h-px flex-1 bg-[var(--color-border)]" />
       </div>
-      <div className="space-y-[14px]">
-
+      <div className="grid grid-cols-2 gap-[14px] items-stretch">
         {/* Sleep Breakdown */}
-        {todaySleep && (
+        {todaySleep ? (
           <div className="panel">
             <h3 className="mb-4 ov">
               Sleep Breakdown
             </h3>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-lg font-bold tabular-nums">
+                <p className="disp num text-[38px] text-[var(--color-blue)]">
                   {formatDuration(todaySleep.deepSleepDuration)}
                 </p>
                 <p className="text-xs text-[var(--color-text-muted)]">Deep</p>
               </div>
               <div>
-                <p className="text-lg font-bold tabular-nums">
+                <p className="disp num text-[38px] text-[var(--color-gold)]">
                   {formatDuration(todaySleep.remSleepDuration)}
                 </p>
                 <p className="text-xs text-[var(--color-text-muted)]">REM</p>
               </div>
               <div>
-                <p className="text-lg font-bold tabular-nums">
+                <p className="disp num text-[38px]">
                   {formatDuration(todaySleep.lightSleepDuration)}
                 </p>
                 <p className="text-xs text-[var(--color-text-muted)]">Light</p>
@@ -604,8 +646,11 @@ export default async function BodyPage() {
               </p>
             )}
           </div>
+        ) : (
+          <div className="panel flex items-center justify-center">
+            <p className="text-xs text-[var(--color-text-muted)]">No sleep data today</p>
+          </div>
         )}
-
 
         {/* Nutrition check */}
         <NutritionCheck
@@ -624,62 +669,64 @@ export default async function BodyPage() {
           dailyCalorieTarget={profile?.dailyCalorieTarget ?? null}
           energyAvailability={eaValue}
         />
-
-        {/* Multi-week trend charts */}
-        <TrendsCharts />
       </div>
 
-      {/* ─── SECTION 5: COMPOSITION & ENERGY ─── */}
-      {/* Moved from top (was SECTION 1) on 2026-05-28. Reference data —
-       * weight, body comp, TDEE, goal — that doesn't drive the daily
-       * call. The scale auto-syncs via Withings/HealthKit so manual
-       * weight entry has been removed; this section is now read-only
-       * except for the goal-settings form. */}
+      {/* Multi-week trend charts */}
+      <TrendsCharts />
+
+      {/* ─── COMPOSITION & ENERGY ─── */}
       <div className="ov flex items-center gap-3">
         <span className="flex-none">Composition &amp; Energy</span>
         <span className="h-px flex-1 bg-[var(--color-border)]" />
       </div>
-      <div className="space-y-[14px]">
-        <WeightCard
-          latestWeightKg={weightKg}
-          latestBodyFat={latestBodyFat}
-          unit={unit}
-          goal={profile?.goal ?? null}
-          targetWeightKg={profile?.targetWeightKg ?? null}
-          weightTrend={weightTrend}
-          tdee={tdee}
-          goalCals={goalCals}
-        />
-        <WeightTrendChart
-          logs={weightChartData}
-          unit={unit}
-          targetWeightKg={profile?.targetWeightKg ?? null}
-        />
-        <WeightGoalSettings
-          profile={
-            profile
-              ? {
-                  bodyWeightKg: profile.bodyWeightKg,
-                  heightCm: profile.heightCm,
-                  age: profile.age,
-                  sex: profile.sex,
-                  activityLevel: profile.activityLevel,
-                  goal: profile.goal,
-                  targetWeightKg: profile.targetWeightKg,
-                  unit: profile.unit,
-                }
-              : null
-          }
-        />
-        <TdeeCard
-          tdee={tdee}
-          goalCals={goalCals}
-          actualCals={todayNutrition?.calories ?? null}
-          proteinTarget={weightKg ? Math.round(weightKg * 1.6) : null}
-          actualProtein={todayNutrition?.protein ?? null}
-          flag={null}
-          energyAvailability={eaValue}
-        />
+      <div className="grid grid-cols-[1.5fr_1fr] gap-[14px] items-start">
+        {/* Left: Weight + Trend Chart */}
+        <div className="space-y-[14px]">
+          <WeightCard
+            latestWeightKg={weightKg}
+            latestBodyFat={latestBodyFat}
+            unit={unit}
+            goal={profile?.goal ?? null}
+            targetWeightKg={profile?.targetWeightKg ?? null}
+            weightTrend={weightTrend}
+            tdee={tdee}
+            goalCals={goalCals}
+          />
+          <WeightTrendChart
+            logs={weightChartData}
+            unit={unit}
+            targetWeightKg={profile?.targetWeightKg ?? null}
+          />
+        </div>
+
+        {/* Right: TDEE + Goal Settings */}
+        <div className="space-y-[14px]">
+          <TdeeCard
+            tdee={tdee}
+            goalCals={goalCals}
+            actualCals={todayNutrition?.calories ?? null}
+            proteinTarget={weightKg ? Math.round(weightKg * 1.6) : null}
+            actualProtein={todayNutrition?.protein ?? null}
+            flag={null}
+            energyAvailability={eaValue}
+          />
+          <WeightGoalSettings
+            profile={
+              profile
+                ? {
+                    bodyWeightKg: profile.bodyWeightKg,
+                    heightCm: profile.heightCm,
+                    age: profile.age,
+                    sex: profile.sex,
+                    activityLevel: profile.activityLevel,
+                    goal: profile.goal,
+                    targetWeightKg: profile.targetWeightKg,
+                    unit: profile.unit,
+                  }
+                : null
+            }
+          />
+        </div>
       </div>
     </div>
   );
