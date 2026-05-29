@@ -51,7 +51,7 @@ function MetricLine({ m }: { m: InsightMetric }) {
 export function InsightsFeed({ insights }: { insights: Insight[] }) {
   if (insights.length === 0) {
     return (
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center">
+      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center">
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Insights
         </h2>
@@ -72,7 +72,7 @@ export function InsightsFeed({ insights }: { insights: Insight[] }) {
         {insights.map((insight) => (
           <div
             key={`${insight.tag}-${insight.direction}`}
-            className={`rounded-2xl border p-5 ${sigStyles[insight.significance]}`}
+            className={`border p-5 ${sigStyles[insight.significance]}`}
           >
             {/* Finding header */}
             <div className="flex items-start justify-between gap-3">
@@ -94,9 +94,10 @@ export function InsightsFeed({ insights }: { insights: Insight[] }) {
               ))}
             </ul>
 
-            {/* Sample size */}
+            {/* Sample size + what we compared against */}
             <div className="mt-2 text-xs text-[var(--color-text-muted)]">
-              n={insight.taggedN} tagged, {insight.untaggedN} control
+              n={insight.taggedN} tagged vs n={insight.untaggedN}{" "}
+              <span className="italic">{insight.controlLabel}</span>
             </div>
 
             {/* Recommendation */}

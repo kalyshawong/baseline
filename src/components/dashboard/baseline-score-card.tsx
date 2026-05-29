@@ -2,27 +2,33 @@
 
 import type { BaselineScore } from "@/lib/baseline-score";
 
+/* Colors are derived from the --color-green/yellow/red tokens via
+ * color-mix so the score card respects the design system tokens rather
+ * than drifting to Tailwind's emerald/yellow/red palette. */
 const colorMap = {
   green: {
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/30",
-    text: "text-emerald-400",
-    ring: "ring-emerald-500",
-    glow: "shadow-emerald-500/20",
+    bg: "bg-[color-mix(in_srgb,var(--color-green)_10%,transparent)]",
+    border: "border-[color-mix(in_srgb,var(--color-green)_30%,transparent)]",
+    text: "text-[var(--color-green)]",
+    ring: "ring-[var(--color-green)]",
+    dot: "bg-[var(--color-green)]",
+    glow: "shadow-[0_0_24px_color-mix(in_srgb,var(--color-green)_20%,transparent)]",
   },
   yellow: {
-    bg: "bg-yellow-500/10",
-    border: "border-yellow-500/30",
-    text: "text-yellow-400",
-    ring: "ring-yellow-500",
-    glow: "shadow-yellow-500/20",
+    bg: "bg-[color-mix(in_srgb,var(--color-yellow)_10%,transparent)]",
+    border: "border-[color-mix(in_srgb,var(--color-yellow)_30%,transparent)]",
+    text: "text-[var(--color-yellow)]",
+    ring: "ring-[var(--color-yellow)]",
+    dot: "bg-[var(--color-yellow)]",
+    glow: "shadow-[0_0_24px_color-mix(in_srgb,var(--color-yellow)_20%,transparent)]",
   },
   red: {
-    bg: "bg-red-500/10",
-    border: "border-red-500/30",
-    text: "text-red-400",
-    ring: "ring-red-500",
-    glow: "shadow-red-500/20",
+    bg: "bg-[color-mix(in_srgb,var(--color-red)_10%,transparent)]",
+    border: "border-[color-mix(in_srgb,var(--color-red)_30%,transparent)]",
+    text: "text-[var(--color-red)]",
+    ring: "ring-[var(--color-red)]",
+    dot: "bg-[var(--color-red)]",
+    glow: "shadow-[0_0_24px_color-mix(in_srgb,var(--color-red)_20%,transparent)]",
   },
 };
 
@@ -49,7 +55,7 @@ function ComponentBar({
       </div>
       <div className="h-1.5 rounded-full bg-[var(--color-surface-2)]">
         <div
-          className="h-full rounded-full bg-white/30 transition-all duration-500"
+          className="h-full rounded-full bg-white/30 transition-[width] duration-300 ease-out-strong"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -66,7 +72,7 @@ export function BaselineScoreCard({
 }) {
   if (!score) {
     return (
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+      <div className="card-enter border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
         <p className="text-[var(--color-text-muted)]">
           {isConnected
             ? "No readiness data yet. Hit Sync to pull your latest Oura data."
@@ -75,7 +81,7 @@ export function BaselineScoreCard({
         {!isConnected && (
           <a
             href="/api/auth/oura"
-            className="mt-4 inline-block rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20 transition-colors"
+            className="mt-4 inline-block bg-white/10 px-4 py-2 text-sm transition duration-150 ease-out-strong hover:bg-white/20 active:scale-[0.97]"
           >
             Connect Oura
           </a>
@@ -88,7 +94,7 @@ export function BaselineScoreCard({
 
   return (
     <div
-      className={`rounded-2xl border ${colors.border} ${colors.bg} p-6 shadow-lg ${colors.glow}`}
+      className={`card-enter border ${colors.border} ${colors.bg} bg-[var(--color-surface-2)] p-8 shadow-lg ${colors.glow}`}
     >
       <div className="flex items-start justify-between">
         <div>
@@ -100,20 +106,14 @@ export function BaselineScoreCard({
               {score.overall}
             </span>
             <span
-              className={`rounded-full px-3 py-1 text-sm font-semibold ${colors.bg} ${colors.text} border ${colors.border}`}
+              className={`rounded-full px-3 py-1 text-sm font-medium ${colors.bg} ${colors.text} border ${colors.border}`}
             >
               {score.label}
             </span>
           </div>
         </div>
         <div
-          className={`h-3 w-3 rounded-full ${colors.ring} ring-4 ring-offset-0 ${
-            score.color === "green"
-              ? "bg-emerald-400"
-              : score.color === "yellow"
-                ? "bg-yellow-400"
-                : "bg-red-400"
-          }`}
+          className={`h-3 w-3 rounded-full ${colors.dot} ring-4 ring-offset-0 ${colors.ring}/30`}
         />
       </div>
 

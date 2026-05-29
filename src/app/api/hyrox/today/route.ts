@@ -78,10 +78,12 @@ export async function GET() {
         orderBy: { day: "desc" },
         take: 7,
       }),
-      prisma.cyclePhaseLog.findFirst({
-        where: { day: { lte: today } },
-        orderBy: { day: "desc" },
-      }),
+      // Staleness-guarded — phase: null when last log is older than
+      // its phase's max-days cap. See src/lib/cycle-phase.ts.
+      (async () => {
+        const { resolveCyclePhase } = await import("@/lib/cycle-phase");
+        return resolveCyclePhase(today);
+      })(),
       prisma.hyroxSession.findFirst({
         where: {
           planId: archived.id,
@@ -114,7 +116,7 @@ export async function GET() {
       }
     }
 
-    const cyclePhase = cycleRow?.phase ?? null;
+    const cyclePhase = cycleRow.phase;
 
     // null = no prior hard session on this plan. The recommender treats null
     // as stale and fires Rule 4 in transmutation — semantically distinct from

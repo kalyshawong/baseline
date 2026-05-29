@@ -91,18 +91,23 @@ export function ChatInterface({
   initialMessages,
   sessions,
   goals,
+  initialInput,
 }: {
   initialSession: Session | null;
   initialMessages: Message[];
   sessions: Session[];
   goals: GoalOption[];
+  /** Pre-populates the input field on first mount (e.g. when arriving
+   *  via /coach?workout=<id> from the WorkoutCard's "Discuss" button).
+   *  Never auto-sends; the user reviews + edits before hitting send. */
+  initialInput?: string | null;
 }) {
   const router = useRouter();
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(
     initialSession?.id ?? null
   );
   const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialInput ?? "");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -242,7 +247,7 @@ export function ChatInterface({
       <aside className="space-y-2">
         <button
           onClick={startNewChat}
-          className="w-full rounded-xl bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/20"
+          className="w-full bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/20"
         >
           + New Chat
         </button>
@@ -250,7 +255,7 @@ export function ChatInterface({
           {sessions.map((s) => (
             <div
               key={s.id}
-              className={`group relative rounded-lg border px-3 py-2 text-xs transition-all ${
+              className={`group relative border px-3 py-2 text-xs transition-all ${
                 currentSessionId === s.id
                   ? "border-white/30 bg-white/10"
                   : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]/30"
@@ -282,7 +287,7 @@ export function ChatInterface({
       </aside>
 
       {/* Chat area */}
-      <div className="flex min-h-[70vh] flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+      <div className="flex min-h-[70vh] flex-col border border-[var(--color-border)] bg-[var(--color-surface)]">
         {/* Coaching focus pills */}
         {goals.length > 0 && (
           <div className="border-b border-[var(--color-border)] px-5 py-3">
@@ -343,7 +348,7 @@ export function ChatInterface({
             {tradeoffs.map((t, i) => (
               <div
                 key={i}
-                className={`rounded-lg px-3 py-2 text-xs ${
+                className={`px-3 py-2 text-xs ${
                   t.severity === "critical"
                     ? "bg-red-500/10 text-red-400"
                     : t.severity === "warning"
@@ -373,7 +378,7 @@ export function ChatInterface({
                   <button
                     key={i}
                     onClick={() => setInput(sp.prompt)}
-                    className="block w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-left text-xs hover:bg-white/5"
+                    className="block w-full border border-[var(--color-border)] px-3 py-2 text-left text-xs hover:bg-white/5"
                   >
                     &ldquo;{sp.label}&rdquo;
                   </button>
@@ -397,7 +402,7 @@ export function ChatInterface({
                       ) : null;
                     })()}
                     <div
-                      className={`rounded-2xl px-4 py-3 text-sm ${
+                      className={`px-4 py-3 text-sm ${
                         m.role === "user"
                           ? "bg-white/10 text-white"
                           : "bg-[var(--color-surface-2)] text-white"
@@ -414,7 +419,7 @@ export function ChatInterface({
               ))}
               {isPending && (
                 <div className="flex justify-start">
-                  <div className="rounded-2xl bg-[var(--color-surface-2)] px-4 py-3 text-sm text-[var(--color-text-muted)]">
+                  <div className="bg-[var(--color-surface-2)] px-4 py-3 text-sm text-[var(--color-text-muted)]">
                     <span className="inline-flex gap-1">
                       <span className="animate-pulse">●</span>
                       <span className="animate-pulse [animation-delay:0.2s]">●</span>
@@ -429,7 +434,7 @@ export function ChatInterface({
         </div>
 
         {error && (
-          <div className="mx-5 mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+          <div className="mx-5 mb-2 bg-red-500/10 px-3 py-2 text-xs text-red-400">
             {error}
           </div>
         )}
@@ -450,12 +455,12 @@ export function ChatInterface({
               }}
               placeholder="Ask your coach..."
               rows={2}
-              className="flex-1 resize-none rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
+              className="flex-1 resize-none border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
             />
             <button
               type="submit"
               disabled={!input.trim() || isPending}
-              className="rounded-xl bg-white/10 px-4 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
+              className="bg-white/10 px-4 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
             >
               Send
             </button>

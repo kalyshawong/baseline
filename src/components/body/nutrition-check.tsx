@@ -23,7 +23,7 @@ export function NutritionCheck({ nutrition, bodyWeightKg, dailyCalorieTarget, en
   const lowEA = energyAvailability != null && energyAvailability < 30;
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Nutrition Check
       </h2>
@@ -84,7 +84,7 @@ export function NutritionCheck({ nutrition, bodyWeightKg, dailyCalorieTarget, en
                   return (
                     <div
                       key={i}
-                      className="flex items-center justify-between rounded-lg bg-[var(--color-surface-2)] px-3 py-1.5 text-xs"
+                      className="flex items-center justify-between bg-[var(--color-surface-2)] px-3 py-1.5 text-xs"
                     >
                       <span className="capitalize">{m.mealType}</span>
                       <span className={`font-mono ${excess ? "text-amber-400" : low ? "text-yellow-400" : "text-emerald-400"}`}>
@@ -101,7 +101,7 @@ export function NutritionCheck({ nutrition, bodyWeightKg, dailyCalorieTarget, en
 
           {/* Energy availability warning */}
           {lowEA && (
-            <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+            <div className="mt-3 border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
               <p className="font-semibold">Low energy availability detected</p>
               <p className="mt-1 leading-relaxed">
                 EA: {energyAvailability?.toFixed(1)} kcal/kg FFM. Below 30 impairs recovery

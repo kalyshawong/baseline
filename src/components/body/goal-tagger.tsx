@@ -69,20 +69,20 @@ export function GoalTagger({
   if (goals.length === 0) return null;
   if (saved) {
     return (
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-center text-xs text-[var(--color-text-muted)]">
+      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-center text-xs text-[var(--color-text-muted)]">
         Goals tagged
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
       <p className="mb-3 text-sm font-medium">Which goals did this serve?</p>
       <div className="space-y-2">
         {goals.map((g) => (
           <label
             key={g.id}
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-white/5 cursor-pointer"
+            className="flex items-center gap-2 px-2 py-1.5 text-xs hover:bg-white/5 cursor-pointer"
           >
             <input
               type="checkbox"
@@ -100,7 +100,7 @@ export function GoalTagger({
       <button
         onClick={save}
         disabled={isPending}
-        className="mt-3 w-full rounded-xl bg-white/10 py-2 text-xs font-medium hover:bg-white/20 disabled:opacity-30"
+        className="mt-3 w-full bg-white/10 py-2 text-xs font-medium hover:bg-white/20 disabled:opacity-30"
       >
         Save
       </button>

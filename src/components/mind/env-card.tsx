@@ -15,7 +15,7 @@ function quality(pm25: number): { label: string; color: string } {
 export function EnvCard({ latest }: { latest: EnvData | null }) {
   if (!latest) {
     return (
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 text-center text-sm text-[var(--color-text-muted)]">
+      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5 text-center text-sm text-[var(--color-text-muted)]">
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider">
           Environment
         </h2>
@@ -27,7 +27,7 @@ export function EnvCard({ latest }: { latest: EnvData | null }) {
   const aq = latest.pm25 != null ? quality(latest.pm25) : null;
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Environment

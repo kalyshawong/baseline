@@ -18,6 +18,10 @@ export interface Insight {
   significance: "significant" | "suggestive" | "watching";
   taggedN: number;
   untaggedN: number;
+  // Human-readable description of what the comparison's control set was. Lets
+  // the card explain "1h 48m vs 1h 26m" without leaving the reader guessing
+  // which days are in the second bucket (untagged? sibling tags? everyone?).
+  controlLabel: string;
   recommendation: string;
   metrics: InsightMetric[];
 }
@@ -84,6 +88,7 @@ interface RawFinding {
   taggedN: number;
   untaggedN: number;
   higherIsBetter: boolean;
+  controlLabel: string;
 }
 
 /** Compare two groups across all biometric metrics, push significant findings. */
@@ -95,6 +100,7 @@ function compareBuckets(
   sleepByDay: Map<string, Record<string, unknown>>,
   readinessByDay: Map<string, Record<string, unknown>>,
   out: RawFinding[],
+  controlLabel: string,
 ) {
   for (const metric of metricConfigs) {
     const taggedValues: number[] = [];
@@ -150,6 +156,7 @@ function compareBuckets(
       taggedN: taggedValues.length,
       untaggedN: controlValues.length,
       higherIsBetter: metric.higherIsBetter,
+      controlLabel,
     });
   }
 }
@@ -172,7 +179,7 @@ export async function generateInsights(): Promise<Insight[]> {
     }),
     prisma.lifeContextLog.findMany({
       where: { day: { gte: ninetyDaysAgo } },
-      select: { day: true, def: { select: { label: true, category: true } } },
+      select: { day: true, def: { select: { label: true, category: true, groupKey: true } } },
     }),
     prisma.dailySleep.findMany({
       where: { day: { gte: ninetyDaysAgo } },
@@ -198,6 +205,11 @@ export async function generateInsights(): Promise<Insight[]> {
   // ─── TAG-BASED ANALYSIS ───────────────────────────────────────────────
 
   const tagDays = new Map<string, { category: string; days: Set<string> }>();
+  // Maps a tag label → its groupKey (when set on the underlying LifeContextDef).
+  // Only LifeContextDef-backed tags carry groups; ActivityTag-backed tags are
+  // always ungrouped today. If we add groups to ActivityTag later this map
+  // expands; the rest of the pipeline doesn't care which source set the group.
+  const labelToGroup = new Map<string, string>();
   for (const t of allTags) {
     if (t.category === "nutrition") continue;
 
@@ -219,6 +231,15 @@ export async function generateInsights(): Promise<Insight[]> {
     } else {
       tagDays.set(key, { category: `life:${log.def.category}`, days: new Set([dayStr]) });
     }
+    if (log.def.groupKey) labelToGroup.set(log.def.label, log.def.groupKey);
+  }
+
+  // Invert labelToGroup so we can ask "what other tags share this group?"
+  const groupToLabels = new Map<string, Set<string>>();
+  for (const [label, grp] of labelToGroup) {
+    const set = groupToLabels.get(grp) ?? new Set<string>();
+    set.add(label);
+    groupToLabels.set(grp, set);
   }
 
   const allBioDays = new Set([...sleepByDay.keys(), ...readinessByDay.keys()]);
@@ -228,11 +249,91 @@ export async function generateInsights(): Promise<Insight[]> {
   );
 
   for (const [tagName, { category, days: taggedDaySet }] of qualifiedTags) {
-    const controlDays = new Set<string>();
-    for (const d of allBioDays) {
-      if (!taggedDaySet.has(d)) controlDays.add(d);
+    // For grouped tags, the default "everyone-else" control mixes sibling
+    // tags into the comparison, which produces mirrored insights (alone
+    // higher / shared-bed lower describe the same axis from opposite poles).
+    // Strategy:
+    //   1) Try: control = bio days with no tag in this group → cleanest
+    //      comparison vs "no-context" days.
+    //   2) Fallback when (1) has <5 days: control = sibling days only.
+    //      This happens when the user has complete coverage on the group
+    //      axis (e.g. every sleep day is tagged with one of alone/with-partner/
+    //      non-partner). Pairwise-against-siblings is the next-honest move
+    //      and still answers "what's the effect of this tag on the axis".
+    //   3) Ungrouped tags keep the original "everyone else" control.
+    const grp = labelToGroup.get(tagName);
+    const siblingDays = new Set<string>();
+    if (grp) {
+      const siblings = groupToLabels.get(grp);
+      if (siblings) {
+        for (const sibling of siblings) {
+          if (sibling === tagName) continue;
+          const sibDayBucket = tagDays.get(sibling);
+          if (!sibDayBucket) continue;
+          for (const d of sibDayBucket.days) siblingDays.add(d);
+        }
+      }
     }
-    compareBuckets(tagName, category, taggedDaySet, controlDays, sleepByDay, readinessByDay, rawFindings);
+
+    const cleanControl = new Set<string>();
+    for (const d of allBioDays) {
+      if (taggedDaySet.has(d)) continue;
+      if (grp && siblingDays.has(d)) continue;
+      cleanControl.add(d);
+    }
+
+    let controlDays = cleanControl;
+    let controlLabel: string;
+    if (!grp) {
+      controlLabel = "days without this tag";
+    } else if (cleanControl.size < 5 && siblingDays.size >= 5) {
+      // Fallback: compare against siblings only. Exclude any days that also
+      // carry the tag itself to keep groups disjoint at the day level.
+      const fallback = new Set<string>();
+      for (const d of siblingDays) {
+        if (!taggedDaySet.has(d)) fallback.add(d);
+      }
+      controlDays = fallback;
+      // Build a sibling label like "Shared bed (with partner), Shared bed
+      // (non-partner)" so the user can see exactly which days are in the
+      // comparison bucket — without revealing how the group itself was named.
+      const siblings = groupToLabels.get(grp);
+      const siblingNames = siblings
+        ? Array.from(siblings).filter((s) => s !== tagName)
+        : [];
+      controlLabel = siblingNames.length > 0
+        ? `days with ${siblingNames.join(" or ")}`
+        : `other ${grp} days`;
+    } else {
+      controlLabel = `days outside the ${grp} group`;
+    }
+
+    compareBuckets(tagName, category, taggedDaySet, controlDays, sleepByDay, readinessByDay, rawFindings, controlLabel);
+  }
+
+  // Collapse mirrored findings within the same group. Even after the control
+  // exclusion above, two siblings can still both produce significant findings
+  // on the same metric (e.g. "alone" vs untagged days → higher deep sleep;
+  // "with partner" vs untagged days → lower deep sleep). They describe the
+  // same axis from opposite poles, so we keep only the strongest per
+  // (groupKey, metric) — the one with the smallest p-value.
+  if (labelToGroup.size > 0 && rawFindings.length > 0) {
+    const ungroupedFindings: RawFinding[] = [];
+    const bestPerGroupMetric = new Map<string, RawFinding>();
+    for (const f of rawFindings) {
+      const tagGroup = labelToGroup.get(f.tag);
+      if (!tagGroup) {
+        ungroupedFindings.push(f);
+        continue;
+      }
+      const key = `${tagGroup}::${f.metric}`;
+      const existing = bestPerGroupMetric.get(key);
+      if (!existing || f.pValue < existing.pValue) {
+        bestPerGroupMetric.set(key, f);
+      }
+    }
+    rawFindings.length = 0;
+    rawFindings.push(...ungroupedFindings, ...bestPerGroupMetric.values());
   }
 
   // ─── DAILY MACROS (tertile analysis) ──────────────────────────────────
@@ -267,11 +368,13 @@ export async function generateInsights(): Promise<Insight[]> {
           `high ${macro.label} days`, "nutrition:macro",
           highDays, lowDays,
           sleepByDay, readinessByDay, rawFindings,
+          `low ${macro.label} days`,
         );
         compareBuckets(
           `low ${macro.label} days`, "nutrition:macro",
           lowDays, highDays,
           sleepByDay, readinessByDay, rawFindings,
+          `high ${macro.label} days`,
         );
       }
     }
@@ -327,11 +430,13 @@ export async function generateInsights(): Promise<Insight[]> {
       "short eating window (<8h)", "nutrition:timing",
       shortWindow, longWindow,
       sleepByDay, readinessByDay, rawFindings,
+      "long eating-window days (12h+)",
     );
     compareBuckets(
       "long eating window (12h+)", "nutrition:timing",
       longWindow, shortWindow,
       sleepByDay, readinessByDay, rawFindings,
+      "short eating-window days (<8h)",
     );
   }
   // Compare short vs medium
@@ -340,6 +445,7 @@ export async function generateInsights(): Promise<Insight[]> {
       "short eating window (<8h)", "nutrition:timing",
       shortWindow, mediumWindow,
       sleepByDay, readinessByDay, rawFindings,
+      "medium eating-window days (8–12h)",
     );
   }
   // Compare medium vs long
@@ -348,6 +454,7 @@ export async function generateInsights(): Promise<Insight[]> {
       "long eating window (12h+)", "nutrition:timing",
       longWindow, mediumWindow,
       sleepByDay, readinessByDay, rawFindings,
+      "medium eating-window days (8–12h)",
     );
   }
 
@@ -392,6 +499,7 @@ export async function generateInsights(): Promise<Insight[]> {
       significance,
       taggedN: best.taggedN,
       untaggedN: best.untaggedN,
+      controlLabel: best.controlLabel,
       recommendation: generateRecommendation(
         best.tag,
         findings.map((f) => f.metricLabel),

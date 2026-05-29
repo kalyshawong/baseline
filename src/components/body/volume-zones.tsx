@@ -9,7 +9,7 @@ export function VolumeZones({ data }: { data: MuscleVolume[] }) {
   const groups = Object.keys(volumeZones);
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <h2 className="mb-1 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Weekly Volume
       </h2>
@@ -30,12 +30,12 @@ export function VolumeZones({ data }: { data: MuscleVolume[] }) {
         return (
           <div className="mb-4 space-y-1.5">
             {nearMrv.length > 0 && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+              <div className="border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
                 Approaching/exceeding MRV: <span className="font-semibold capitalize">{nearMrv.join(", ")}</span> — consider deload
               </div>
             )}
             {belowMev.length > 0 && (
-              <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-400">
+              <div className="border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-400">
                 Below MEV: <span className="font-semibold capitalize">{belowMev.join(", ")}</span> — insufficient stimulus for growth
               </div>
             )}

@@ -233,7 +233,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
   return (
     <div className="space-y-6">
       {error && (
-        <div className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+        <div className="bg-red-500/10 px-3 py-2 text-xs text-red-400">
           {error}
         </div>
       )}
@@ -242,14 +242,14 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
       {!showForm ? (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full rounded-xl border border-dashed border-[var(--color-border)] py-3 text-sm font-medium text-[var(--color-text-muted)] transition-colors hover:border-white/30 hover:text-white"
+          className="w-full border border-dashed border-[var(--color-border)] py-3 text-sm font-medium text-[var(--color-text-muted)] transition duration-150 ease-out-strong active:scale-[0.97] hover:border-white/30 hover:text-white"
         >
           + New Goal
         </button>
       ) : (
         <form
           onSubmit={createGoal}
-          className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
+          className="space-y-3 border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
         >
           <h3 className="text-sm font-semibold">New Goal</h3>
           <input
@@ -257,7 +257,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Goal title (e.g. Finish Hyrox under 90 min, Pass CFA Level I)"
-            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+            className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
           />
 
           {/* Type selector */}
@@ -272,7 +272,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
                     setType(t.id);
                     setSubtype(null);
                   }}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                  className={`border px-3 py-1.5 text-xs font-medium transition-all ${
                     type === t.id
                       ? "border-white/30 bg-white/10 text-white"
                       : "border-[var(--color-border)] text-[var(--color-text-muted)]"
@@ -294,7 +294,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
                     key={st}
                     type="button"
                     onClick={() => setSubtype(subtype === st ? null : st)}
-                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all ${
+                    className={`border px-2.5 py-1 text-[11px] font-medium transition-all ${
                       subtype === st
                         ? "border-white/30 bg-white/10 text-white"
                         : "border-[var(--color-border)] text-[var(--color-text-muted)]"
@@ -312,20 +312,20 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
             value={target}
             onChange={(e) => setTarget(e.target.value)}
             placeholder="Target (optional, e.g. sub-60 min, 140 lb, score > 70%)"
-            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+            className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
           />
           <input
             type="date"
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
-            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm [color-scheme:dark]"
+            className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm [color-scheme:dark]"
           />
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Notes (optional)"
             rows={2}
-            className="w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+            className="w-full resize-none border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
           />
 
           {/* Primary focus toggle */}
@@ -350,14 +350,14 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
             <button
               type="submit"
               disabled={isPending || !title.trim()}
-              className="flex-1 rounded-xl bg-white/10 py-2 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
+              className="flex-1 bg-white/10 py-2 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
             >
               Save
             </button>
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-xl bg-[var(--color-surface-2)] px-4 py-2 text-sm text-[var(--color-text-muted)]"
+              className="bg-[var(--color-surface-2)] px-4 py-2 text-sm text-[var(--color-text-muted)]"
             >
               Cancel
             </button>
@@ -382,7 +382,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
                 <div
                   key={g.id}
                   id={`goal-${g.id}`}
-                  className={`group rounded-2xl border bg-[var(--color-surface)] p-5 transition-all ${
+                  className={`group border bg-[var(--color-surface)] p-5 transition-all ${
                     g.isPrimary
                       ? "border-amber-500/40"
                       : "border-[var(--color-border)]"
@@ -396,7 +396,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
                         value={editFields.title ?? ""}
                         onChange={(e) => setEditFields({ ...editFields, title: e.target.value })}
                         placeholder="Goal title"
-                        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+                        className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
                       />
 
                       {/* Type selector */}
@@ -408,7 +408,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
                               key={t.id}
                               type="button"
                               onClick={() => setEditFields({ ...editFields, type: t.id, subtype: null })}
-                              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                              className={`border px-3 py-1.5 text-xs font-medium transition-all ${
                                 editFields.type === t.id
                                   ? "border-white/30 bg-white/10 text-white"
                                   : "border-[var(--color-border)] text-[var(--color-text-muted)]"
@@ -435,7 +435,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
                                     subtype: editFields.subtype === st ? null : st,
                                   })
                                 }
-                                className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-all ${
+                                className={`border px-2.5 py-1 text-[11px] font-medium transition-all ${
                                   editFields.subtype === st
                                     ? "border-white/30 bg-white/10 text-white"
                                     : "border-[var(--color-border)] text-[var(--color-text-muted)]"
@@ -453,33 +453,33 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
                         value={editFields.target ?? ""}
                         onChange={(e) => setEditFields({ ...editFields, target: e.target.value })}
                         placeholder="Target (optional)"
-                        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+                        className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
                       />
                       <input
                         type="date"
                         value={editFields.deadline ?? ""}
                         onChange={(e) => setEditFields({ ...editFields, deadline: e.target.value })}
-                        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm [color-scheme:dark]"
+                        className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm [color-scheme:dark]"
                       />
                       <textarea
                         value={editFields.notes ?? ""}
                         onChange={(e) => setEditFields({ ...editFields, notes: e.target.value })}
                         placeholder="Notes (optional)"
                         rows={2}
-                        className="w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+                        className="w-full resize-none border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
                       />
 
                       <div className="flex gap-2">
                         <button
                           onClick={saveEdit}
                           disabled={isPending || !editFields.title?.trim()}
-                          className="flex-1 rounded-xl bg-white/10 py-2 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
+                          className="flex-1 bg-white/10 py-2 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
                         >
                           Save
                         </button>
                         <button
                           onClick={() => { setEditingId(null); setEditFields({}); }}
-                          className="rounded-xl bg-[var(--color-surface-2)] px-4 py-2 text-sm text-[var(--color-text-muted)]"
+                          className="bg-[var(--color-surface-2)] px-4 py-2 text-sm text-[var(--color-text-muted)]"
                         >
                           Cancel
                         </button>
@@ -493,7 +493,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
                           {/* Primary star toggle */}
                           <button
                             onClick={() => updateGoal(g.id, { isPrimary: !g.isPrimary })}
-                            className={`text-sm transition-colors ${
+                            className={`text-sm transition duration-150 ease-out-strong active:scale-[0.97] ${
                               g.isPrimary
                                 ? "text-amber-400"
                                 : "text-[var(--color-text-muted)]/30 hover:text-amber-400/60"
@@ -599,7 +599,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
             {archived.map((g) => (
               <div
                 key={g.id}
-                className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-xs opacity-70"
+                className="flex items-center justify-between border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-xs opacity-70"
               >
                 <div className="flex items-center gap-2">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${typeColor(g.type)}`}>
@@ -637,7 +637,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
             {completed.map((g) => (
               <div
                 key={g.id}
-                className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-xs opacity-70"
+                className="flex items-center justify-between border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-xs opacity-70"
               >
                 <div className="flex items-center gap-2">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${typeColor(g.type)}`}>

@@ -60,7 +60,7 @@ export default function NewExperimentPage() {
             <button
               key={i}
               onClick={() => selectTemplate(t)}
-              className="block w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 text-left transition-colors hover:border-[var(--color-text-muted)]/30"
+              className="block w-full border border-[var(--color-border)] bg-[var(--color-surface)] p-5 text-left transition duration-150 ease-out-strong active:scale-[0.97] hover:border-[var(--color-text-muted)]/30"
             >
               <p className="font-medium">{t.title}</p>
               <p className="mt-1 text-xs text-[var(--color-text-muted)]">
@@ -90,12 +90,12 @@ export default function NewExperimentPage() {
           </div>
 
           {error && (
-            <div className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            <div className="bg-red-500/10 px-3 py-2 text-xs text-red-400">
               {error}
             </div>
           )}
 
-          <div className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <div className="space-y-3 border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
             <Field
               label="Title"
               value={form.title ?? ""}
@@ -128,7 +128,7 @@ export default function NewExperimentPage() {
                 <select
                   value={form.dependentMetric ?? ""}
                   onChange={(e) => setForm({ ...form, dependentMetric: e.target.value })}
-                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+                  className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
                 >
                   <option value="">Select metric</option>
                   <optgroup label="Sleep">
@@ -156,7 +156,7 @@ export default function NewExperimentPage() {
                 <select
                   value={form.metricSource ?? ""}
                   onChange={(e) => setForm({ ...form, metricSource: e.target.value })}
-                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+                  className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
                 >
                   <option value="">Select source</option>
                   <option value="DailySleep">DailySleep</option>
@@ -184,7 +184,7 @@ export default function NewExperimentPage() {
           <button
             type="submit"
             disabled={isPending}
-            className="w-full rounded-xl bg-white/10 py-3 text-sm font-medium transition-colors hover:bg-white/20 disabled:opacity-50"
+            className="w-full bg-white/10 py-3 text-sm font-medium transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-white/20 disabled:opacity-50"
           >
             {isPending ? "Creating..." : "Create Experiment"}
           </button>
@@ -217,7 +217,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
+        className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
       />
     </div>
   );

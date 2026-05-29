@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { workoutTemplates as builtinTemplates } from "@/lib/exercise-library";
 
 interface TemplateExercise {
@@ -28,11 +28,16 @@ interface Exercise {
 
 export default function NewWorkoutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isBackfill = searchParams.get("backfill") === "1";
+  const todayStr = new Date().toISOString().split("T")[0];
+
   const [isPending, startTransition] = useTransition();
   const [selected, setSelected] = useState<string | null>(null);
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [showEditor, setShowEditor] = useState(false);
+  const [workoutDate, setWorkoutDate] = useState(todayStr);
 
   // Editor state
   const [newName, setNewName] = useState("");
@@ -52,10 +57,14 @@ export default function NewWorkoutPage() {
 
   function startWorkout(templateName: string | null) {
     startTransition(async () => {
+      const payload: Record<string, unknown> = { templateName };
+      if (workoutDate !== todayStr) {
+        payload.date = workoutDate;
+      }
       const res = await fetch("/api/workouts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateName }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const session = await res.json();
@@ -123,6 +132,26 @@ export default function NewWorkoutPage() {
 
   return (
     <div className="space-y-4">
+      {/* Date picker — shown expanded for backfill, collapsed for today */}
+      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+          Workout Date
+        </label>
+        <input
+          type="date"
+          value={workoutDate}
+          max={todayStr}
+          autoFocus={isBackfill}
+          onChange={(e) => setWorkoutDate(e.target.value)}
+          className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm tabular-nums"
+        />
+        {workoutDate !== todayStr && (
+          <p className="mt-2 text-xs text-amber-400">
+            Logging a past workout — rest timer will be hidden.
+          </p>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Choose a Template
@@ -137,7 +166,7 @@ export default function NewWorkoutPage() {
 
       {/* Custom template editor */}
       {showEditor && (
-        <div className="rounded-2xl border border-white/20 bg-[var(--color-surface)] p-5">
+        <div className="border border-white/20 bg-[var(--color-surface)] p-5">
           <h3 className="mb-3 text-sm font-semibold">New Custom Template</h3>
           <div className="space-y-3">
             <input
@@ -145,12 +174,12 @@ export default function NewWorkoutPage() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Template name (e.g. Wednesday Heavy)"
-              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
+              className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
             />
             <select
               value={newSplit}
               onChange={(e) => setNewSplit(e.target.value)}
-              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+              className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
             >
               <option value="custom">Custom split</option>
               <option value="PPL">Push/Pull/Legs</option>
@@ -166,7 +195,7 @@ export default function NewWorkoutPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search exercises to add..."
-                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
+                className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
               />
               {search && filteredExercises.length > 0 && (
                 <div className="mt-2 max-h-40 space-y-1 overflow-y-auto">
@@ -188,7 +217,7 @@ export default function NewWorkoutPage() {
 
             {/* Picked exercises */}
             {pickedExercises.length > 0 && (
-              <div className="space-y-2 rounded-lg bg-[var(--color-surface-2)] p-3">
+              <div className="space-y-2 bg-[var(--color-surface-2)] p-3">
                 {pickedExercises.map((pe, idx) => (
                   <div key={idx} className="flex items-center gap-2 text-xs">
                     <span className="flex-1 font-medium">{pe.exerciseName}</span>
@@ -223,7 +252,7 @@ export default function NewWorkoutPage() {
             <button
               onClick={saveTemplate}
               disabled={isPending || !newName.trim() || pickedExercises.length === 0}
-              className="w-full rounded-lg bg-white/10 py-2 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
+              className="w-full bg-white/10 py-2 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
             >
               Save Template
             </button>
@@ -235,7 +264,7 @@ export default function NewWorkoutPage() {
       {customTemplates.map((tpl) => (
         <div
           key={tpl.id}
-          className={`group relative rounded-2xl border p-5 transition-all ${
+          className={`group relative border p-5 transition-all ${
             selected === tpl.name
               ? "border-white/30 bg-white/10"
               : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]/30"
@@ -282,7 +311,7 @@ export default function NewWorkoutPage() {
         <button
           key={tpl.name}
           onClick={() => setSelected(tpl.name)}
-          className={`block w-full rounded-2xl border p-5 text-left transition-all ${
+          className={`block w-full border p-5 text-left transition-all ${
             selected === tpl.name
               ? "border-white/30 bg-white/10"
               : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]/30"
@@ -312,7 +341,7 @@ export default function NewWorkoutPage() {
 
       <button
         onClick={() => setSelected("__freestyle__")}
-        className={`block w-full rounded-2xl border p-5 text-left transition-all ${
+        className={`block w-full border p-5 text-left transition-all ${
           selected === "__freestyle__"
             ? "border-white/30 bg-white/10"
             : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-text-muted)]/30"
@@ -327,7 +356,7 @@ export default function NewWorkoutPage() {
       <button
         onClick={() => startWorkout(selected === "__freestyle__" ? null : selected)}
         disabled={!selected || isPending}
-        className="w-full rounded-xl bg-emerald-500/20 py-3 text-sm font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/30 disabled:opacity-30"
+        className="w-full bg-emerald-500/20 py-3 text-sm font-semibold text-emerald-400 transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-emerald-500/30 disabled:opacity-30"
       >
         {isPending ? "Starting..." : "Start Workout"}
       </button>

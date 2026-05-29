@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db";
 import { getLocalDay } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import {
-  readinessTier,
   cyclePhaseGuidance,
   compoundContributions,
   volumeZones,
@@ -12,15 +11,18 @@ import {
   ffmFromBodyComposition,
   energyAvailability as computeEA,
   computeFatigueScore,
+  computeTrainingCall,
   detectRpeCreep,
 } from "@/lib/training";
 import { ReadinessTierCard } from "@/components/body/readiness-tier-card";
+import { TodayCallCard } from "@/components/dashboard/today-call-card";
 import { VolumeZones } from "@/components/body/volume-zones";
 import { CyclePhaseGuidanceCard } from "@/components/body/cycle-phase-guidance-card";
+import { CyclePhaseSelector } from "@/components/dashboard/cycle-phase-selector";
+import { RecoverySignalsRow } from "@/components/body/recovery-signals-row";
 import { NutritionCheck } from "@/components/body/nutrition-check";
 import { TrendsCharts } from "@/components/body/trends-charts";
 import { WeightCard } from "@/components/weight/weight-card";
-import { WeightInput } from "@/components/weight/weight-input";
 import { WeightTrendChart } from "@/components/weight/weight-trend-chart";
 import { WeightGoalSettings } from "@/components/weight/weight-goal-settings";
 import { TdeeCard } from "@/components/weight/tdee-card";
@@ -78,10 +80,12 @@ export default async function BodyPage() {
     sleepTimeRec,
   ] = await Promise.all([
     getScoreForDate(localToday),
-    prisma.cyclePhaseLog.findFirst({
-      where: { day: { lte: localToday } },
-      orderBy: { day: "desc" },
-    }),
+    // Staleness-guarded — see src/lib/cycle-phase.ts. Returns
+    // { phase: null, lastLoggedDaysAgo: N } when log is stale.
+    (async () => {
+      const { resolveCyclePhase } = await import("@/lib/cycle-phase");
+      return resolveCyclePhase(localToday);
+    })(),
     prisma.workoutSet.findMany({
       where: { isWarmup: false, session: { date: { gte: weekStart } } },
       include: { exercise: true },
@@ -127,6 +131,14 @@ export default async function BodyPage() {
     prisma.sleepTimeRecommendation.findFirst({ orderBy: { day: "desc" } }),
   ]);
 
+  // For the integrated training call + RecoverySignalsRow (moved from
+  // /dashboard 2026-05-27) — /body didn't fetch these before.
+  const [dayStress, daySpO2, dayResilience] = await Promise.all([
+    prisma.dailyStress.findUnique({ where: { day: localToday } }),
+    prisma.dailySpO2.findUnique({ where: { day: localToday } }),
+    prisma.dailyResilience.findUnique({ where: { day: localToday } }),
+  ]);
+
   const latestWeight = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1] : null;
   const weightKg = latestWeight?.weightKg ?? profile?.bodyWeightKg ?? null;
   const latestBodyFat = latestWeight?.bodyFatPct ?? profile?.bodyFatPct ?? null;
@@ -135,8 +147,7 @@ export default async function BodyPage() {
     weightLogs.map((l) => ({ day: l.day, weightKg: l.weightKg }))
   );
 
-  const tier = readinessTier(score?.overall ?? null);
-  const guidance = cyclePhaseGuidance(phaseLog?.phase ?? null);
+  const guidance = cyclePhaseGuidance(phaseLog.phase);
 
   // --- Weight / TDEE calculations ---
   const tdee = weightKg && profile
@@ -279,6 +290,17 @@ export default async function BodyPage() {
     volumeApproachingMRV,
   });
 
+  // Integrated training call — same logic the dashboard hero uses, so the
+  // two surfaces never disagree. Sits above the breakdown cards as the
+  // synthesis.
+  const trainingCall = computeTrainingCall({
+    baselineScore: score?.overall ?? null,
+    cyclePhase: phaseLog.phase,
+    hrvCv: cv,
+    fatigueScore: fatigue.score,
+    stressSummary: dayStress?.daySummary ?? null,
+  });
+
   // --- Nutrition data for Morton/Moore/Loucks checks ---
   const perMealProtein = new Map<string, number>();
   for (const entry of todayNutrition?.entries ?? []) {
@@ -301,66 +323,53 @@ export default async function BodyPage() {
     <div className="space-y-6">
       <HyroxSummaryCard />
 
-      {/* ─── SECTION 1: COMPOSITION & ENERGY ─── */}
+      {/* ─── SECTION 1: TRAINING READINESS ─── */}
       <div className="space-y-3">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-          Composition & Energy
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <WeightCard
-            latestWeightKg={weightKg}
-            latestBodyFat={latestBodyFat}
-            unit={unit}
-            goal={profile?.goal ?? null}
-            targetWeightKg={profile?.targetWeightKg ?? null}
-            weightTrend={weightTrend}
-            tdee={tdee}
-            goalCals={goalCals}
-          />
-          <WeightInput currentUnit={unit} latestWeightKg={weightKg} />
-        </div>
-        <WeightTrendChart
-          logs={weightChartData}
-          unit={unit}
-          targetWeightKg={profile?.targetWeightKg ?? null}
-        />
-        <WeightGoalSettings
-          profile={
-            profile
+        {/* Integrated training call — single synthesized verdict above the
+            breakdown cards. Same logic as the dashboard hero, so both pages
+            give the same answer. */}
+        <TodayCallCard call={trainingCall} isConnected={true} />
+
+        <ReadinessTierCard call={trainingCall} baselineScore={score?.overall ?? null} hrvCv={cv} />
+
+        {/* Ambient recovery signals — HRV, Stress, SpO2, Resilience.
+         * Moved from /dashboard on 2026-05-27. These contextualize the
+         * readiness tier above and the cycle phase below. */}
+        <RecoverySignalsRow
+          hrv={todaySleep?.averageHrv ?? null}
+          stress={
+            dayStress
               ? {
-                  bodyWeightKg: profile.bodyWeightKg,
-                  heightCm: profile.heightCm,
-                  age: profile.age,
-                  sex: profile.sex,
-                  activityLevel: profile.activityLevel,
-                  goal: profile.goal,
-                  targetWeightKg: profile.targetWeightKg,
-                  unit: profile.unit,
+                  daySummary: dayStress.daySummary ?? null,
+                  stressHigh: dayStress.stressHigh ?? null,
+                  recoveryHigh: dayStress.recoveryHigh ?? null,
+                }
+              : null
+          }
+          spO2={daySpO2?.avgSpO2 ?? null}
+          resilience={
+            dayResilience
+              ? {
+                  level: dayResilience.level ?? null,
+                  sleepRecovery: dayResilience.sleepRecovery ?? null,
+                  daytimeRecovery: dayResilience.daytimeRecovery ?? null,
+                  stress: dayResilience.stress ?? null,
                 }
               : null
           }
         />
-        <TdeeCard
-          tdee={tdee}
-          goalCals={goalCals}
-          actualCals={todayNutrition?.calories ?? null}
-          proteinTarget={weightKg ? Math.round(weightKg * 1.6) : null}
-          actualProtein={todayNutrition?.protein ?? null}
-          flag={null}
-          energyAvailability={eaValue}
-        />
-      </div>
-
-      {/* ─── SECTION 2: TRAINING READINESS ─── */}
-      <div className="space-y-3">
-        <ReadinessTierCard tier={tier} baselineScore={score?.overall ?? null} hrvCv={cv} />
 
         {guidance && <CyclePhaseGuidanceCard guidance={guidance} />}
+
+        {/* Cycle phase setter — co-located with the guidance card
+         * above. Moved from /dashboard on 2026-05-27. Setting the
+         * phase and reading its guidance belong on the same page. */}
+        <CyclePhaseSelector currentPhase={phaseLog.phase} />
 
         {/* Fatigue / deload signal */}
         {fatigue.score > 0 && (
           <div
-            className={`rounded-2xl border p-5 ${
+            className={`border p-5 ${
               fatigue.score >= 5
                 ? "border-red-500/30 bg-red-500/10"
                 : fatigue.score >= 3
@@ -406,7 +415,7 @@ export default async function BodyPage() {
               )}
             </div>
             {fatigue.score >= 3 && (
-              <div className="mt-3 rounded-lg bg-[var(--color-surface-2)] p-3 text-xs text-[var(--color-text-muted)]">
+              <div className="mt-3 bg-[var(--color-surface-2)] p-3 text-xs text-[var(--color-text-muted)]">
                 <p className="font-medium text-white">Deload protocol:</p>
                 <p className="mt-1">Reduce volume 40-60% for 1 week. Maintain training frequency and intensity (keep same loads, fewer sets). Resume normal programming after 7 days.</p>
               </div>
@@ -415,7 +424,7 @@ export default async function BodyPage() {
         )}
       </div>
 
-      {/* ─── SECTION 3: RUNNING & CARDIO (NEW) ─── */}
+      {/* ─── SECTION 2: RUNNING & CARDIO ─── */}
       <RunningMetricsCard
         metrics={todayRunning ? {
           runningSpeed: todayRunning.runningSpeed,
@@ -434,13 +443,28 @@ export default async function BodyPage() {
           : null}
       />
 
-      {/* ─── SECTION 4: STRENGTH TRAINING ─── */}
+      {/* ─── SECTION 3: STRENGTH TRAINING ─── */}
       <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/body/workout/new"
+            className="bg-emerald-500/20 px-5 py-2.5 text-sm font-semibold text-emerald-400 transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-emerald-500/30"
+          >
+            + Add Workout
+          </Link>
+          <Link
+            href="/body/workout/new?backfill=1"
+            className="text-xs text-[var(--color-text-muted)] underline hover:text-white"
+          >
+            Log past workout
+          </Link>
+        </div>
+
         <VolumeZones data={weeklyVolumeData} />
 
         {/* Personal Records */}
         {prs.length > 0 && (
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
             <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
               Recent PRs
             </h2>
@@ -448,7 +472,7 @@ export default async function BodyPage() {
               {prs.map((pr) => (
                 <div
                   key={pr.id}
-                  className="flex items-center justify-between rounded-lg bg-[var(--color-surface-2)] px-3 py-2 text-xs"
+                  className="flex items-center justify-between bg-[var(--color-surface-2)] px-3 py-2 text-xs"
                 >
                   <div>
                     <p className="font-medium">{pr.exercise.name}</p>
@@ -471,7 +495,7 @@ export default async function BodyPage() {
         )}
 
         {/* Recent sessions */}
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
             Recent Workouts
           </h2>
@@ -489,7 +513,7 @@ export default async function BodyPage() {
                 <Link
                   key={session.id}
                   href={`/body/workout/${session.id}`}
-                  className="block rounded-lg bg-[var(--color-surface-2)] px-3 py-2 text-xs hover:bg-white/10"
+                  className="block bg-[var(--color-surface-2)] px-3 py-2 text-xs hover:bg-white/10"
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -525,7 +549,7 @@ export default async function BodyPage() {
         </div>
       </div>
 
-      {/* ─── SECTION 5: RECOVERY ─── */}
+      {/* ─── SECTION 4: RECOVERY ─── */}
       <div className="space-y-3">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Recovery
@@ -533,7 +557,7 @@ export default async function BodyPage() {
 
         {/* Sleep Breakdown */}
         {todaySleep && (
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+          <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
             <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
               Sleep Breakdown
             </h3>
@@ -586,6 +610,58 @@ export default async function BodyPage() {
 
         {/* Multi-week trend charts */}
         <TrendsCharts />
+      </div>
+
+      {/* ─── SECTION 5: COMPOSITION & ENERGY ─── */}
+      {/* Moved from top (was SECTION 1) on 2026-05-28. Reference data —
+       * weight, body comp, TDEE, goal — that doesn't drive the daily
+       * call. The scale auto-syncs via Withings/HealthKit so manual
+       * weight entry has been removed; this section is now read-only
+       * except for the goal-settings form. */}
+      <div className="space-y-3">
+        <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+          Composition & Energy
+        </h2>
+        <WeightCard
+          latestWeightKg={weightKg}
+          latestBodyFat={latestBodyFat}
+          unit={unit}
+          goal={profile?.goal ?? null}
+          targetWeightKg={profile?.targetWeightKg ?? null}
+          weightTrend={weightTrend}
+          tdee={tdee}
+          goalCals={goalCals}
+        />
+        <WeightTrendChart
+          logs={weightChartData}
+          unit={unit}
+          targetWeightKg={profile?.targetWeightKg ?? null}
+        />
+        <WeightGoalSettings
+          profile={
+            profile
+              ? {
+                  bodyWeightKg: profile.bodyWeightKg,
+                  heightCm: profile.heightCm,
+                  age: profile.age,
+                  sex: profile.sex,
+                  activityLevel: profile.activityLevel,
+                  goal: profile.goal,
+                  targetWeightKg: profile.targetWeightKg,
+                  unit: profile.unit,
+                }
+              : null
+          }
+        />
+        <TdeeCard
+          tdee={tdee}
+          goalCals={goalCals}
+          actualCals={todayNutrition?.calories ?? null}
+          proteinTarget={weightKg ? Math.round(weightKg * 1.6) : null}
+          actualProtein={todayNutrition?.protein ?? null}
+          flag={null}
+          energyAvailability={eaValue}
+        />
       </div>
     </div>
   );

@@ -207,11 +207,12 @@ export async function getScoreForDate(forDate?: Date): Promise<BaselineScore | n
       ? baselineHrv.reduce((a, b) => a + b, 0) / baselineHrv.length
       : null;
 
-  // Get current cycle phase for temp deviation adjustment
-  const phaseLog = await prisma.cyclePhaseLog.findFirst({
-    where: { day: { lte: today } },
-    orderBy: { day: "desc" },
-  });
+  // Get current cycle phase for temp deviation adjustment.
+  // Staleness-guarded — if last log is past its phase's max-days cap,
+  // resolveCyclePhase returns phase: null and we skip the temp
+  // adjustment rather than applying a month-old phase's correction.
+  const { resolveCyclePhase } = await import("@/lib/cycle-phase");
+  const cycle = await resolveCyclePhase(today);
 
   return computeBaselineScore(
     readiness.score,
@@ -220,7 +221,7 @@ export async function getScoreForDate(forDate?: Date): Promise<BaselineScore | n
     sleep?.deepSleepDuration ?? null,
     sleep?.remSleepDuration ?? null,
     readiness.temperatureDeviation,
-    phaseLog?.phase
+    cycle.phase
   );
 }
 

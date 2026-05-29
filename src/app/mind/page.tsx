@@ -75,10 +75,11 @@ export default async function MindPage({
       where: { day: { lte: viewDate }, daySummary: { not: null } },
       orderBy: { day: "desc" },
     }),
-    prisma.cyclePhaseLog.findFirst({
-      where: { day: { lte: viewDate } },
-      orderBy: { day: "desc" },
-    }),
+    // Staleness-guarded — see src/lib/cycle-phase.ts.
+    (async () => {
+      const { resolveCyclePhase } = await import("@/lib/cycle-phase");
+      return resolveCyclePhase(viewDate);
+    })(),
     prisma.envReading.findFirst({
       orderBy: { timestamp: "desc" },
     }),
@@ -114,7 +115,7 @@ export default async function MindPage({
           totalSleep: daySleep?.totalSleepDuration ?? null,
           averageHrv: daySleep?.averageHrv ?? null,
           stressSummary: dayStress?.daySummary ?? null,
-          cyclePhase: cyclePhase?.phase ?? null,
+          cyclePhase: cyclePhase.phase,
         }}
       />
 
@@ -128,6 +129,7 @@ export default async function MindPage({
           category: d.category,
           emoji: d.emoji ?? null,
           color: d.color ?? null,
+          groupKey: d.groupKey ?? null,
           archived: d.archived,
         }))}
         todayLogs={lifeContextLogs.map((l) => ({
@@ -177,7 +179,7 @@ export default async function MindPage({
           Active Experiments
         </h2>
         {active.length === 0 ? (
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center text-sm text-[var(--color-text-muted)]">
+          <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center text-sm text-[var(--color-text-muted)]">
             No active experiments.{" "}
             <Link href="/mind/experiments/new" className="underline hover:text-white">
               Start one from a template
@@ -193,7 +195,7 @@ export default async function MindPage({
                 <Link
                   key={exp.id}
                   href={`/mind/experiments/${exp.id}`}
-                  className="block rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 transition-colors hover:border-[var(--color-text-muted)]/30"
+                  className="block border border-[var(--color-border)] bg-[var(--color-surface)] p-5 transition duration-150 ease-out-strong active:scale-[0.97] hover:border-[var(--color-text-muted)]/30"
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -236,7 +238,7 @@ export default async function MindPage({
               <Link
                 key={exp.id}
                 href={`/mind/experiments/${exp.id}`}
-                className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 transition-colors hover:border-[var(--color-text-muted)]/30"
+                className="flex items-center justify-between border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 transition duration-150 ease-out-strong active:scale-[0.97] hover:border-[var(--color-text-muted)]/30"
               >
                 <div>
                   <p className="text-sm font-medium">{exp.title}</p>

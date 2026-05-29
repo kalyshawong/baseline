@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { buildCoachContext, COACH_SYSTEM_PROMPT, goalSystemPromptSection } from "@/lib/coach-context";
 import { apiError } from "@/lib/utils";
 import { withAnthropicRetry } from "@/lib/anthropic-retry";
+import { COACH_TOOLS, runCoachTool } from "@/lib/coach-tools";
 
 const client = new Anthropic();
 
@@ -133,16 +134,60 @@ Keep it under 250 words. Be direct and specific with numbers.`
 
     const systemPrompt = `${COACH_SYSTEM_PROMPT}${goalPromptSection}${dailyBriefSection}\n\n---\n\n${contextBlock}`;
 
-    const response = await withAnthropicRetry(
-      () =>
-        client.messages.create({
-          model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514",
-          max_tokens: 2048,
-          system: systemPrompt,
-          messages: history,
-        }),
-      { label: "coach" }
-    );
+    // --- Tool-use loop ---
+    // The coach now has tools (defined in src/lib/coach-tools.ts) it can
+    // call to pull food log, workouts, signals, cycle, goals on demand.
+    // Loop pattern: send messages → model returns either text (done) or
+    // tool_use (run tools, append tool_results, loop). MAX_ITERATIONS
+    // bounds runaway tool chains; in practice 2-4 rounds suffice for any
+    // "explain why this workout was bad" question.
+    const MAX_TOOL_ITERATIONS = 8;
+    const messages: Anthropic.MessageParam[] = history.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    let response: Anthropic.Message | null = null;
+    let iterations = 0;
+    while (iterations < MAX_TOOL_ITERATIONS) {
+      response = await withAnthropicRetry(
+        () =>
+          client.messages.create({
+            model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514",
+            max_tokens: 2048,
+            system: systemPrompt,
+            tools: COACH_TOOLS,
+            messages,
+          }),
+        { label: `coach-iter-${iterations}` },
+      );
+
+      if (response.stop_reason !== "tool_use") break;
+
+      // Append the assistant's response (containing tool_use blocks) to
+      // messages, then run each requested tool and append a single user
+      // message containing all the tool_results.
+      messages.push({ role: "assistant", content: response.content });
+      const toolUses = response.content.filter(
+        (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
+      );
+      const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
+        toolUses.map(async (tu) => ({
+          type: "tool_result" as const,
+          tool_use_id: tu.id,
+          content: await runCoachTool(tu.name, tu.input),
+        })),
+      );
+      messages.push({ role: "user", content: toolResults });
+      iterations++;
+    }
+
+    if (!response) {
+      return NextResponse.json(
+        { error: "Coach returned no response." },
+        { status: 502 },
+      );
+    }
 
     // BUG-C2 fix: never persist a blank assistant message. If Anthropic returns
     // no text content (empty array, tool_use only, or safety-filtered), surface
@@ -153,10 +198,11 @@ Keep it under 250 words. Be direct and specific with numbers.`
       .trim();
 
     if (!assistantText) {
-      return NextResponse.json(
-        { error: "Coach returned an empty response. Try rephrasing your question." },
-        { status: 502 }
-      );
+      const reason =
+        iterations >= MAX_TOOL_ITERATIONS
+          ? `Coach exceeded ${MAX_TOOL_ITERATIONS} tool-use iterations without converging on an answer. Try a more specific question.`
+          : "Coach returned an empty response. Try rephrasing your question.";
+      return NextResponse.json({ error: reason }, { status: 502 });
     }
 
     const assistantMsg = await prisma.chatMessage.create({

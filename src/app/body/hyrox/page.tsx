@@ -4,6 +4,7 @@ import { currentBlock } from "@/lib/hyrox-blocks";
 import { formatClockTime } from "@/lib/hyrox-pace";
 import { maybeArchivePlan } from "@/lib/hyrox-archive";
 import { CountdownRing } from "@/components/goals/countdown-ring";
+import { StartHyroxSessionButton } from "@/components/body/start-hyrox-session-button";
 import { recommendSession } from "@/lib/hyrox-session-recommender";
 import { hrvCV } from "@/lib/training";
 
@@ -38,13 +39,13 @@ export default async function HyroxPage() {
 
   if (!plan) {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+      <div className="flex flex-col items-center gap-4 border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
         <p className="text-sm text-[var(--color-text-muted)]">
           No active Hyrox plan. Set a race goal with subtype=hyrox to auto-create one.
         </p>
         <Link
           href="/goals"
-          className="rounded-lg bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/30"
+          className="bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-400 transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-amber-500/30"
         >
           Go to Goals
         </Link>
@@ -55,13 +56,13 @@ export default async function HyroxPage() {
   const archivedPlan = await maybeArchivePlan(plan);
   if (archivedPlan.status !== "active") {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+      <div className="flex flex-col items-center gap-4 border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
         <p className="text-sm text-[var(--color-text-muted)]">
           Your Hyrox plan was archived (race date passed).
         </p>
         <Link
           href="/goals"
-          className="rounded-lg bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/30"
+          className="bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-400 transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-amber-500/30"
         >
           Create a new goal
         </Link>
@@ -94,10 +95,11 @@ export default async function HyroxPage() {
         orderBy: { day: "desc" },
         take: 7,
       }),
-      prisma.cyclePhaseLog.findFirst({
-        where: { day: { lte: today } },
-        orderBy: { day: "desc" },
-      }),
+      // Staleness-guarded — see src/lib/cycle-phase.ts.
+      (async () => {
+        const { resolveCyclePhase } = await import("@/lib/cycle-phase");
+        return resolveCyclePhase(today);
+      })(),
       prisma.hyroxSession.findFirst({
         where: {
           planId: archivedPlan.id,
@@ -133,15 +135,29 @@ export default async function HyroxPage() {
     readiness,
     hrvCv: cv,
     sleepHours,
-    cyclePhase: cycleRow?.phase ?? null,
+    cyclePhase: cycleRow.phase,
     daysSinceLastHardSession,
     today,
+  });
+
+  // Check whether any HyroxSession has already been logged today for
+  // this plan. If yes, the Start button mounts in the "Session logged"
+  // state instead of letting the user double-log.
+  const todayStart = startOfDay(today);
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayEnd.getDate() + 1);
+  const sessionLoggedToday = await prisma.hyroxSession.findFirst({
+    where: {
+      planId: archivedPlan.id,
+      day: { gte: todayStart, lt: todayEnd },
+    },
+    select: { id: true },
   });
 
   return (
     <div className="space-y-4">
       {/* ─── HEADER CARD ─── */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <h2 className="text-lg font-bold tracking-tight">
@@ -167,15 +183,15 @@ export default async function HyroxPage() {
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-3 text-center text-xs">
-          <div className="rounded-lg bg-[var(--color-bg)] p-2">
+          <div className="bg-[var(--color-bg)] p-2">
             <div className="text-lg font-bold">{blk.daysToRace}</div>
             <div className="text-[var(--color-text-muted)]">days to race</div>
           </div>
-          <div className="rounded-lg bg-[var(--color-bg)] p-2">
+          <div className="bg-[var(--color-bg)] p-2">
             <div className="text-lg font-bold">{blk.volumeMultiplier}x</div>
             <div className="text-[var(--color-text-muted)]">volume</div>
           </div>
-          <div className="rounded-lg bg-[var(--color-bg)] p-2">
+          <div className="bg-[var(--color-bg)] p-2">
             <div className="text-lg font-bold">{blk.intensityMultiplier}x</div>
             <div className="text-[var(--color-text-muted)]">intensity</div>
           </div>
@@ -183,7 +199,7 @@ export default async function HyroxPage() {
       </div>
 
       {/* ─── TODAY'S SESSION CARD ─── */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Today&rsquo;s Session
         </h3>
@@ -203,7 +219,7 @@ export default async function HyroxPage() {
             {rec.prescription}
           </p>
 
-          <div className="rounded-lg bg-[var(--color-bg)] p-3 text-xs text-[var(--color-text-muted)]">
+          <div className="bg-[var(--color-bg)] p-3 text-xs text-[var(--color-text-muted)]">
             <span className="font-medium">Rationale:</span> {rec.rationale}
           </div>
 
@@ -212,7 +228,7 @@ export default async function HyroxPage() {
               {rec.warnings.map((w, i) => (
                 <div
                   key={i}
-                  className="rounded-lg bg-red-500/10 p-2 text-xs text-red-400"
+                  className="bg-red-500/10 p-2 text-xs text-red-400"
                 >
                   {w}
                 </div>
@@ -220,12 +236,12 @@ export default async function HyroxPage() {
             </div>
           )}
 
-          <button
-            disabled
-            className="mt-2 w-full rounded-lg bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-400 opacity-50 cursor-not-allowed"
-          >
-            Start this session (Phase 2)
-          </button>
+          <StartHyroxSessionButton
+            sessionType={rec.sessionType}
+            prescriptionNotes={rec.prescription}
+            rationale={rec.rationale}
+            initiallyLogged={!!sessionLoggedToday}
+          />
         </div>
       </div>
 

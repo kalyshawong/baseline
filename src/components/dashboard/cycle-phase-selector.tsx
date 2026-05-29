@@ -66,7 +66,7 @@ export function CyclePhaseSelector({
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
       <h2 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Cycle Phase
       </h2>
@@ -76,7 +76,7 @@ export function CyclePhaseSelector({
             key={phase.id}
             onClick={() => handleSelect(phase.id)}
             disabled={isPending}
-            className={`relative rounded-xl border px-3 py-3 text-center text-xs font-medium transition-all ${
+            className={`relative border px-3 py-3 text-center text-xs font-medium transition-all ${
               selected === phase.id
                 ? `${phase.color}/15 border-current shadow-sm`
                 : "border-[var(--color-border)] bg-[var(--color-surface-2)] hover:border-[var(--color-text-muted)]/30"
@@ -109,7 +109,7 @@ export function CyclePhaseSelector({
         <p className="mt-2 text-xs text-red-400">{error}</p>
       )}
       {activePhase && (
-        <div className="mt-4 rounded-lg bg-[var(--color-surface-2)] p-3 text-xs leading-relaxed text-[var(--color-text-muted)]">
+        <div className="mt-4 bg-[var(--color-surface-2)] p-3 text-xs leading-relaxed text-[var(--color-text-muted)]">
           <span className="font-medium text-[var(--color-text)]">
             Training note:
           </span>{" "}

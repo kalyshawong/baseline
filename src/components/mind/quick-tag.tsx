@@ -101,12 +101,12 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Quick Tag
       </h2>
       {flash && (
-        <div className="mb-3 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
+        <div className="mb-3 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
           Tagged: {flash}
         </div>
       )}
@@ -119,7 +119,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
               setActiveCategory(next);
               if (next) setTagTime(currentTimeString()); // reset time to now on open
             }}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+            className={`border px-3 py-1.5 text-xs font-medium transition-all ${
               activeCategory === p.category
                 ? categoryColors[p.category]
                 : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-text-muted)]/50"
@@ -131,7 +131,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
       </div>
 
       {activeCategory && (
-        <div className="mt-4 space-y-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
+        <div className="mt-4 space-y-3 border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
           {/* Specific tags for the selected category */}
           <div>
             <p className="mb-2 text-xs font-medium text-[var(--color-text-muted)]">
@@ -145,7 +145,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
                     key={tag}
                     onClick={() => handleTag(activeCategory, tag)}
                     disabled={isPending}
-                    className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs transition-colors hover:bg-white/10 disabled:opacity-50"
+                    className="border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-white/10 disabled:opacity-50"
                   >
                     {tag}
                   </button>
@@ -161,7 +161,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
               value={tagTime}
               onChange={(e) => setTagTime(e.target.value)}
               disabled={timeUnknown}
-              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-xs [color-scheme:dark] disabled:opacity-40"
+              className="border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-xs [color-scheme:dark] disabled:opacity-40"
             />
             <button
               type="button"
@@ -188,7 +188,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
             value={tagNotes}
             onChange={(e) => setTagNotes(e.target.value)}
             placeholder="Notes (duration, amount, context...)"
-            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+            className="w-full border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
           />
         </div>
       )}
@@ -201,7 +201,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
             value={customTag}
             onChange={(e) => setCustomTag(e.target.value)}
             placeholder="Custom tag (e.g. cold shower, creatine, sauna)"
-            className="min-w-0 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+            className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
           />
           {!timeUnknown && (
             <>
@@ -210,12 +210,12 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
                 value={tagTime}
                 onChange={(e) => setTagTime(e.target.value)}
                 aria-label="Tag time"
-                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-2 text-xs [color-scheme:dark]"
+                className="border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-2 text-xs [color-scheme:dark]"
               />
               <button
                 type="button"
                 onClick={() => setTagTime(currentTimeString())}
-                className="rounded-lg border border-[var(--color-border)] px-2 py-2 text-xs text-[var(--color-text-muted)] hover:text-white"
+                className="border border-[var(--color-border)] px-2 py-2 text-xs text-[var(--color-text-muted)] hover:text-white"
               >
                 Now
               </button>
@@ -224,7 +224,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
           <button
             type="submit"
             disabled={isPending || !customTag.trim()}
-            className="rounded-lg bg-white/10 px-3 py-2 text-xs font-medium transition-colors hover:bg-white/20 disabled:opacity-30"
+            className="bg-white/10 px-3 py-2 text-xs font-medium transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-white/20 disabled:opacity-30"
           >
             Tag
           </button>

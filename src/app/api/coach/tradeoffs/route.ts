@@ -12,14 +12,13 @@ export async function GET() {
   try {
     const localToday = getLocalDay();
 
-    const [goals, score, phaseLog, recentSleep, nutrition, activity, profile, weight, running] =
+    const { resolveCyclePhase } = await import("@/lib/cycle-phase");
+    const [goals, score, cycle, recentSleep, nutrition, activity, profile, weight, running] =
       await Promise.all([
         prisma.goal.findMany({ where: { status: "active" } }),
         getScoreForDate(localToday),
-        prisma.cyclePhaseLog.findFirst({
-          where: { day: { lte: localToday } },
-          orderBy: { day: "desc" },
-        }),
+        // Staleness-guarded — phase: null when last log is too old.
+        resolveCyclePhase(localToday),
         prisma.dailySleep.findMany({
           where: { day: { lte: localToday } },
           orderBy: { day: "desc" },
@@ -66,7 +65,7 @@ export async function GET() {
     const tradeoffs = detectTradeoffs(goals, {
       energyAvailability: computedEA,
       readinessScore: score?.overall ?? null,
-      cyclePhase: phaseLog?.phase ?? null,
+      cyclePhase: cycle.phase,
       hrvCv: computedHrvCv,
       weeklyRunningKm: running?.walkingRunningDistance
         ? running.walkingRunningDistance / 1000

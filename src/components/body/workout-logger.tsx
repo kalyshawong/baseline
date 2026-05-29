@@ -47,6 +47,7 @@ export function WorkoutLogger({
   previousByExercise,
   templateExercises,
   activeGoals,
+  isBackfill,
 }: {
   sessionId: string;
   exercises: Exercise[];
@@ -54,6 +55,7 @@ export function WorkoutLogger({
   previousByExercise: Record<string, PreviousSessionSet[]>;
   templateExercises?: { name: string; targetSets: number; targetReps: number }[];
   activeGoals?: ActiveGoal[];
+  isBackfill?: boolean;
 }) {
   const router = useRouter();
   const [sets, setSets] = useState<LoggedSet[]>(initialSets);
@@ -194,8 +196,10 @@ export function WorkoutLogger({
             isPR: newSet.isPR,
           },
         ]);
-        setTimerSeconds(0);
-        setTimerRunning(true);
+        if (!isBackfill) {
+          setTimerSeconds(0);
+          setTimerRunning(true);
+        }
         setRpe(null);
       } catch {
         setError("Failed to log set — check connection");
@@ -256,9 +260,9 @@ export function WorkoutLogger({
 
   return (
     <div className="space-y-6">
-      {/* Rest Timer */}
-      {timerRunning && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      {/* Rest Timer (hidden for backfill sessions) */}
+      {!isBackfill && timerRunning && (
+        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-[var(--color-text-muted)]">Rest timer</p>
@@ -271,7 +275,7 @@ export function WorkoutLogger({
                 setTimerRunning(false);
                 setTimerSeconds(0);
               }}
-              className="rounded-lg bg-white/10 px-3 py-1.5 text-sm transition-colors hover:bg-white/20"
+              className="bg-white/10 px-3 py-1.5 text-sm transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-white/20"
             >
               Stop
             </button>
@@ -280,7 +284,7 @@ export function WorkoutLogger({
       )}
 
       {/* Exercise Selection */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Exercise
         </h2>
@@ -289,7 +293,7 @@ export function WorkoutLogger({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search exercises..."
-          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
+          className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
         />
         {templateExercises && templateExercises.length > 0 && !search && (
           <div className="mt-3">
@@ -303,7 +307,7 @@ export function WorkoutLogger({
                   <button
                     key={i}
                     onClick={() => setSelectedExerciseId(ex.id)}
-                    className={`rounded-lg border px-3 py-1.5 text-xs transition-all ${
+                    className={`border px-3 py-1.5 text-xs transition-all ${
                       selectedExerciseId === ex.id
                         ? "border-white/30 bg-white/10 text-white"
                         : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-text-muted)]/50"
@@ -325,7 +329,7 @@ export function WorkoutLogger({
                   setSelectedExerciseId(ex.id);
                   setSearch("");
                 }}
-                className="block w-full rounded-lg bg-[var(--color-surface-2)] px-3 py-2 text-left text-xs hover:bg-white/10"
+                className="block w-full bg-[var(--color-surface-2)] px-3 py-2 text-left text-xs hover:bg-white/10"
               >
                 <span className="font-medium">{ex.name}</span>
                 <span className="ml-2 text-[var(--color-text-muted)] capitalize">
@@ -339,7 +343,7 @@ export function WorkoutLogger({
 
       {/* Set Logger */}
       {selectedExercise && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <div className="mb-3 flex items-start justify-between">
             <div>
               <p className="text-lg font-bold">{selectedExercise.name}</p>
@@ -360,7 +364,7 @@ export function WorkoutLogger({
 
           {/* Previous session reference */}
           {error && (
-            <div className="mb-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            <div className="mb-3 bg-red-500/10 px-3 py-2 text-xs text-red-400">
               {error}
             </div>
           )}
@@ -368,7 +372,7 @@ export function WorkoutLogger({
           {/* RPE-based load suggestion */}
           {currentSuggestion && currentSuggestion.avgRpe != null && (
             <div
-              className={`mb-3 rounded-lg border p-3 text-xs ${
+              className={`mb-3 border p-3 text-xs ${
                 currentSuggestion.action === "increase"
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                   : currentSuggestion.action === "decrease"
@@ -391,7 +395,7 @@ export function WorkoutLogger({
           )}
 
           {previousSets.length > 0 && (
-            <div className="mb-3 rounded-lg bg-[var(--color-surface-2)] p-3">
+            <div className="mb-3 bg-[var(--color-surface-2)] p-3">
               <p className="mb-1 text-xs text-[var(--color-text-muted)]">
                 Last session (target to beat)
               </p>
@@ -417,7 +421,7 @@ export function WorkoutLogger({
                 type="number"
                 value={reps || ""}
                 onChange={(e) => setReps(parseInt(e.target.value) || 0)}
-                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-2 text-center text-sm tabular-nums"
+                className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-2 text-center text-sm tabular-nums"
               />
             </div>
             <div>
@@ -427,7 +431,7 @@ export function WorkoutLogger({
                 step="0.5"
                 value={weight || ""}
                 onChange={(e) => setWeight(parseFloat(e.target.value) || 0)}
-                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-2 text-center text-sm tabular-nums"
+                className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-2 text-center text-sm tabular-nums"
               />
             </div>
             <div>
@@ -440,14 +444,14 @@ export function WorkoutLogger({
                 value={rpe ?? ""}
                 onChange={(e) => setRpe(e.target.value ? parseFloat(e.target.value) : null)}
                 placeholder="—"
-                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-2 text-center text-sm tabular-nums"
+                className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-2 text-center text-sm tabular-nums"
               />
             </div>
             <div className="flex items-end">
               <button
                 onClick={logSet}
                 disabled={isPending || reps <= 0}
-                className="h-[38px] w-full rounded-lg bg-white/10 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
+                className="h-[38px] w-full bg-white/10 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
               >
                 Log
               </button>
@@ -458,7 +462,7 @@ export function WorkoutLogger({
 
       {/* Logged Sets Summary */}
       {sets.length > 0 && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
               Session Log
@@ -522,7 +526,7 @@ export function WorkoutLogger({
       {/* Finish / Goal Tagging */}
       {workoutFinished && activeGoals && activeGoals.length > 0 ? (
         <div className="space-y-3">
-          <div className="rounded-xl bg-emerald-500/10 py-3 text-center text-sm font-semibold text-emerald-400">
+          <div className="bg-emerald-500/10 py-3 text-center text-sm font-semibold text-emerald-400">
             Workout complete
           </div>
           <GoalTagger
@@ -542,7 +546,7 @@ export function WorkoutLogger({
         <button
           onClick={finishWorkout}
           disabled={isPending || sets.length === 0}
-          className="w-full rounded-xl bg-emerald-500/20 py-3 text-sm font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/30 disabled:opacity-30"
+          className="w-full bg-emerald-500/20 py-3 text-sm font-semibold text-emerald-400 transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-emerald-500/30 disabled:opacity-30"
         >
           Finish Workout
         </button>

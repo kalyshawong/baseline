@@ -86,7 +86,7 @@ export function TrendsCharts() {
   return (
     <div className="space-y-6">
       {/* Volume Load Trend */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
@@ -173,7 +173,7 @@ export function TrendsCharts() {
 
       {/* e1RM Trend */}
       {e1rmTrend.length > 0 && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <div className="mb-3">
             <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
               Estimated 1RM Trend
@@ -187,7 +187,7 @@ export function TrendsCharts() {
               <button
                 key={s.exercise}
                 onClick={() => setSelectedExercise(s.exercise)}
-                className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition-all ${
+                className={`border px-2 py-1 text-[10px] font-medium transition-all ${
                   selectedExercise === s.exercise
                     ? "border-white/30 bg-white/10 text-white"
                     : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-text-muted)]/50"

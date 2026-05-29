@@ -57,7 +57,7 @@ export function WeightGoalSettings({ profile }: { profile: Profile | null }) {
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
@@ -95,7 +95,7 @@ export function WeightGoalSettings({ profile }: { profile: Profile | null }) {
                 <button
                   key={g}
                   onClick={() => setGoal(g)}
-                  className={`rounded-lg border py-2 text-xs font-medium capitalize transition-all ${
+                  className={`border py-2 text-xs font-medium capitalize transition-all ${
                     goal === g
                       ? "border-white/30 bg-white/10 text-white"
                       : "border-[var(--color-border)] text-[var(--color-text-muted)]"
@@ -116,7 +116,7 @@ export function WeightGoalSettings({ profile }: { profile: Profile | null }) {
               step="0.1"
               value={targetWeight}
               onChange={(e) => setTargetWeight(e.target.value)}
-              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+              className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
             />
           </div>
 
@@ -127,7 +127,7 @@ export function WeightGoalSettings({ profile }: { profile: Profile | null }) {
             <select
               value={activityLevel}
               onChange={(e) => setActivityLevel(e.target.value)}
-              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+              className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
             >
               <option value="sedentary">{activityLabel("sedentary")}</option>
               <option value="light">{activityLabel("light")}</option>
@@ -147,19 +147,19 @@ export function WeightGoalSettings({ profile }: { profile: Profile | null }) {
                 value={heightCm}
                 onChange={(e) => setHeightCm(e.target.value)}
                 placeholder="Height (cm)"
-                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+                className="border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
               />
               <input
                 type="number"
                 value={age}
                 onChange={(e) => setAge(e.target.value)}
                 placeholder="Age"
-                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+                className="border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
               />
               <select
                 value={sex}
                 onChange={(e) => setSex(e.target.value)}
-                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs"
+                className="border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs"
               >
                 <option value="female">Female</option>
                 <option value="male">Male</option>
@@ -170,7 +170,7 @@ export function WeightGoalSettings({ profile }: { profile: Profile | null }) {
           <button
             onClick={save}
             disabled={isPending}
-            className="w-full rounded-xl bg-white/10 py-2 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
+            className="w-full bg-white/10 py-2 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
           >
             {isPending ? "Saving..." : "Save"}
           </button>

@@ -39,7 +39,7 @@ export function TdeeCard({
   const lowEA = energyAvailability != null && energyAvailability < 30;
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Energy & Nutrition
@@ -91,7 +91,7 @@ export function TdeeCard({
 
         {/* Calorie flag */}
         {flag && flag.status !== "on_target" && (
-          <div className={`rounded-lg border p-3 text-xs ${flagStyles[flag.status]}`}>
+          <div className={`border p-3 text-xs ${flagStyles[flag.status]}`}>
             {flag.message}
           </div>
         )}
@@ -101,7 +101,7 @@ export function TdeeCard({
 
         {/* EA warning */}
         {lowEA && (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+          <div className="border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
             <p className="font-semibold">Low energy availability</p>
             <p className="mt-1 leading-relaxed">
               EA: {energyAvailability?.toFixed(1)} kcal/kg FFM. Below 30 impairs recovery

@@ -41,7 +41,7 @@ export function TodayContext({ data }: { data: TodayData }) {
   const phase = data.cyclePhase ? phaseInfo[data.cyclePhase] : null;
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Today&apos;s Context
       </h2>

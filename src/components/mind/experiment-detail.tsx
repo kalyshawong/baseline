@@ -108,7 +108,7 @@ export function ExperimentDetail({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-xl font-bold">{experiment.title}</h2>
@@ -142,14 +142,14 @@ export function ExperimentDetail({
 
       {/* Daily Log */}
       {(experiment.status === "draft" || experiment.status === "active") && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
           <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
             Log Today
           </h3>
           <div className="flex gap-3">
             <button
               onClick={() => setLogType(true)}
-              className={`flex-1 rounded-xl border py-3 text-sm font-medium transition-all ${
+              className={`flex-1 border py-3 text-sm font-medium transition-all ${
                 logType
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                   : "border-[var(--color-border)] text-[var(--color-text-muted)]"
@@ -159,7 +159,7 @@ export function ExperimentDetail({
             </button>
             <button
               onClick={() => setLogType(false)}
-              className={`flex-1 rounded-xl border py-3 text-sm font-medium transition-all ${
+              className={`flex-1 border py-3 text-sm font-medium transition-all ${
                 !logType
                   ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
                   : "border-[var(--color-border)] text-[var(--color-text-muted)]"
@@ -173,12 +173,12 @@ export function ExperimentDetail({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Optional notes..."
-            className="mt-3 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
+            className="mt-3 w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
           />
           <button
             onClick={logDay}
             disabled={isPending}
-            className="mt-3 w-full rounded-xl bg-white/10 py-2.5 text-sm font-medium transition-colors hover:bg-white/20 disabled:opacity-50"
+            className="mt-3 w-full bg-white/10 py-2.5 text-sm font-medium transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-white/20 disabled:opacity-50"
           >
             {isPending ? "Logging..." : "Log Day"}
           </button>
@@ -186,7 +186,7 @@ export function ExperimentDetail({
       )}
 
       {/* Progress & Actions */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
         <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Progress
         </h3>
@@ -211,7 +211,7 @@ export function ExperimentDetail({
             <button
               onClick={analyze}
               disabled={isPending}
-              className="flex-1 rounded-xl bg-purple-500/20 py-2.5 text-sm font-medium text-purple-400 transition-colors hover:bg-purple-500/30 disabled:opacity-50"
+              className="flex-1 bg-purple-500/20 py-2.5 text-sm font-medium text-purple-400 transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-purple-500/30 disabled:opacity-50"
             >
               {isPending ? "Analyzing..." : "Run Analysis"}
             </button>
@@ -220,7 +220,7 @@ export function ExperimentDetail({
             <button
               onClick={endExperiment}
               disabled={isPending}
-              className="flex-1 rounded-xl bg-white/10 py-2.5 text-sm font-medium transition-colors hover:bg-white/20 disabled:opacity-50"
+              className="flex-1 bg-white/10 py-2.5 text-sm font-medium transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-white/20 disabled:opacity-50"
             >
               End Experiment
             </button>
@@ -230,7 +230,7 @@ export function ExperimentDetail({
 
       {/* Analysis Results */}
       {(result || analyzeError) && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
           <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
             Analysis Results
           </h3>
@@ -239,7 +239,7 @@ export function ExperimentDetail({
           ) : result ? (
             <div>
               <div
-                className={`rounded-xl p-4 text-sm ${
+                className={`p-4 text-sm ${
                   result.significance === "significant"
                     ? "bg-emerald-500/10 text-emerald-400"
                     : result.significance === "suggestive"
@@ -250,19 +250,19 @@ export function ExperimentDetail({
                 {result.insight}
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
-                <div className="rounded-lg bg-[var(--color-surface-2)] p-3 text-center">
+                <div className="bg-[var(--color-surface-2)] p-3 text-center">
                   <p className="font-mono text-lg font-bold">{result.treatmentMean}</p>
                   <p className="text-[var(--color-text-muted)]">Treatment mean</p>
                 </div>
-                <div className="rounded-lg bg-[var(--color-surface-2)] p-3 text-center">
+                <div className="bg-[var(--color-surface-2)] p-3 text-center">
                   <p className="font-mono text-lg font-bold">{result.controlMean}</p>
                   <p className="text-[var(--color-text-muted)]">Control mean</p>
                 </div>
-                <div className="rounded-lg bg-[var(--color-surface-2)] p-3 text-center">
+                <div className="bg-[var(--color-surface-2)] p-3 text-center">
                   <p className="font-mono text-lg font-bold">{result.pValue}</p>
                   <p className="text-[var(--color-text-muted)]">p-value</p>
                 </div>
-                <div className="rounded-lg bg-[var(--color-surface-2)] p-3 text-center">
+                <div className="bg-[var(--color-surface-2)] p-3 text-center">
                   <p className="font-mono text-lg font-bold">{result.cohensD}</p>
                   <p className="text-[var(--color-text-muted)]">Cohen&apos;s d</p>
                 </div>
@@ -279,7 +279,7 @@ export function ExperimentDetail({
 
       {/* Log History */}
       {experiment.logs.length > 0 && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
           <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
             Log History
           </h3>
@@ -287,7 +287,7 @@ export function ExperimentDetail({
             {experiment.logs.slice(0, 14).map((log) => (
               <div
                 key={log.id}
-                className="flex items-center gap-3 rounded-lg bg-[var(--color-surface-2)] px-3 py-2 text-sm"
+                className="flex items-center gap-3 bg-[var(--color-surface-2)] px-3 py-2 text-sm"
               >
                 <span
                   className={`h-2 w-2 rounded-full ${

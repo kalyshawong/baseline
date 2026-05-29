@@ -100,6 +100,11 @@ export default async function WorkoutPage({
     orderBy: { deadline: "asc" },
   });
 
+  // Detect backfill: session date is before today (UTC day comparison)
+  const sessionDay = session.date.toISOString().split("T")[0];
+  const todayDay = new Date().toISOString().split("T")[0];
+  const isBackfill = sessionDay < todayDay;
+
   const initialSets = session.sets.map((s) => ({
     id: s.id,
     exerciseId: s.exerciseId,
@@ -134,6 +139,7 @@ export default async function WorkoutPage({
         previousByExercise={previousByExercise}
         templateExercises={templateExercises}
         activeGoals={activeGoals}
+        isBackfill={isBackfill}
       />
     </div>
   );

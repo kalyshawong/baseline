@@ -76,7 +76,7 @@ export function NutritionLog({ entries }: { entries: Entry[] }) {
   );
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <h2 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Today&apos;s Food Log
       </h2>
@@ -122,7 +122,7 @@ export function NutritionLog({ entries }: { entries: Entry[] }) {
                 {sortedByTime.map((entry) => (
                   <div
                     key={entry.id}
-                    className="group flex items-center gap-3 rounded-lg bg-[var(--color-surface-2)] px-3 py-2 text-xs"
+                    className="group flex items-center gap-3 bg-[var(--color-surface-2)] px-3 py-2 text-xs"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{entry.description}</p>

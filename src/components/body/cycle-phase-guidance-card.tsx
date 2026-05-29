@@ -10,7 +10,7 @@ const phaseColors: Record<string, { bg: string; border: string; text: string }> 
 export function CyclePhaseGuidanceCard({ guidance }: { guidance: CyclePhaseGuidance }) {
   const style = phaseColors[guidance.phase];
   return (
-    <div className={`rounded-2xl border ${style.border} ${style.bg} p-5`}>
+    <div className={`border ${style.border} ${style.bg} p-5`}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
@@ -33,7 +33,7 @@ export function CyclePhaseGuidanceCard({ guidance }: { guidance: CyclePhaseGuida
         </p>
       )}
       {guidance.aclWarning && (
-        <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300 leading-relaxed">
+        <div className="mt-3 border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300 leading-relaxed">
           <p className="font-semibold text-red-400">Joint awareness (Hewett 2007, Wojtys 2002)</p>
           <p className="mt-1">
             ACL injury risk is 3-6x higher during ovulation. 72.5% of ACL injuries in non-OC users occur in the preovulatory/ovulatory window.

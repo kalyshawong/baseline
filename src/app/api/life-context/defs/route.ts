@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { label, category, emoji, color } = body;
+    const { label, category, emoji, color, groupKey } = body;
 
     if (!label || typeof label !== "string" || !label.trim()) {
       return NextResponse.json({ error: "label is required" }, { status: 400 });
@@ -50,6 +50,9 @@ export async function POST(request: NextRequest) {
         category: cat,
         emoji: typeof emoji === "string" && emoji.length > 0 ? emoji.slice(0, 4) : null,
         color: typeof color === "string" && color.length > 0 ? color : null,
+        groupKey: typeof groupKey === "string" && groupKey.trim().length > 0
+          ? groupKey.trim().slice(0, 40)
+          : null,
       },
     });
 
@@ -63,7 +66,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, label, emoji, color, category } = body;
+    const { id, label, emoji, color, category, groupKey } = body;
 
     if (!id || typeof id !== "string") {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
@@ -94,6 +97,14 @@ export async function PATCH(request: NextRequest) {
 
     if (color !== undefined) {
       data.color = typeof color === "string" && color.length > 0 ? color : null;
+    }
+
+    if (groupKey !== undefined) {
+      // Empty string or null both clear the group; non-empty strings get trimmed
+      // and length-capped to keep the column tidy.
+      data.groupKey = typeof groupKey === "string" && groupKey.trim().length > 0
+        ? groupKey.trim().slice(0, 40)
+        : null;
     }
 
     if (Object.keys(data).length === 0) {

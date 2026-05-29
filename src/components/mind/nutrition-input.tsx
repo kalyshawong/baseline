@@ -87,7 +87,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Log Food
       </h2>
@@ -99,7 +99,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
               key={mt.id}
               type="button"
               onClick={() => setMealType(mt.id)}
-              className={`rounded-lg border py-2 text-xs font-medium transition-all ${
+              className={`border py-2 text-xs font-medium transition-all ${
                 mealType === mt.id
                   ? "border-white/30 bg-white/10 text-white"
                   : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-text-muted)]/50"
@@ -136,7 +136,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
             value={time}
             onChange={(e) => setTime(e.target.value)}
             disabled={timeUnknown}
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-1.5 text-xs [color-scheme:dark] disabled:opacity-40"
+            className="border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-1.5 text-xs [color-scheme:dark] disabled:opacity-40"
           />
           <label className="ml-auto flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] cursor-pointer select-none">
             <input
@@ -155,12 +155,12 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
           onChange={(e) => setText(e.target.value)}
           placeholder="3 eggs, 200g ground beef, 1 cup rice, 1 avocado"
           rows={2}
-          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50 resize-none"
+          className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50 resize-none"
         />
         <button
           type="submit"
           disabled={isPending || !text.trim()}
-          className="mt-2 w-full rounded-xl bg-white/10 py-2.5 text-sm font-medium transition-colors hover:bg-white/20 disabled:opacity-30"
+          className="mt-2 w-full bg-white/10 py-2.5 text-sm font-medium transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-white/20 disabled:opacity-30"
         >
           {isPending ? "Estimating macros..." : "Log Meal"}
         </button>
@@ -173,7 +173,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
           {results.map((r, i) => (
             <div
               key={i}
-              className="flex items-center justify-between rounded-lg bg-[var(--color-surface-2)] px-3 py-2 text-xs"
+              className="flex items-center justify-between bg-[var(--color-surface-2)] px-3 py-2 text-xs"
             >
               <div className="min-w-0">
                 <p className="truncate font-medium">{r.description}</p>

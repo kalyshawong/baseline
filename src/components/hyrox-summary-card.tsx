@@ -58,7 +58,7 @@ export function HyroxSummaryCard() {
   return (
     <Link
       href="/body/hyrox"
-      className="block rounded-xl border border-amber-500/30 bg-[var(--color-surface)] p-4 transition-colors hover:border-amber-500/50"
+      className="block border border-amber-500/30 bg-[var(--color-surface)] p-4 transition duration-150 ease-out-strong active:scale-[0.97] hover:border-amber-500/50"
     >
       <div className="flex items-center justify-between">
         <div className="space-y-1">

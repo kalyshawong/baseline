@@ -9,6 +9,10 @@ export interface LifeContextDef {
   category: string;
   emoji: string | null;
   color: string | null;
+  // Optional free-form key that marks this def as mutually exclusive with
+  // others sharing the same key. Drives the insights pipeline's control-set
+  // exclusion + display dedupe; see prisma/schema.prisma for the rationale.
+  groupKey: string | null;
   archived: boolean;
 }
 
@@ -91,11 +95,13 @@ function classesFor(color: string | null, on: boolean): string {
 function ManageRow({
   def,
   isPending,
+  groupSuggestions,
   onSaved,
   onArchived,
 }: {
   def: LifeContextDef;
   isPending: boolean;
+  groupSuggestions: string[];
   onSaved: () => void;
   onArchived: () => void;
 }) {
@@ -103,6 +109,7 @@ function ManageRow({
   const [emoji, setEmoji] = useState(def.emoji ?? "");
   const [category, setCategory] = useState(def.category);
   const [color, setColor] = useState(def.color ?? "neutral");
+  const [groupKey, setGroupKey] = useState(def.groupKey ?? "");
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +118,8 @@ function ManageRow({
     label.trim() !== def.label ||
     (emoji.trim() || null) !== (def.emoji ?? null) ||
     category !== def.category ||
-    color !== (def.color ?? "neutral");
+    color !== (def.color ?? "neutral") ||
+    (groupKey.trim() || null) !== (def.groupKey ?? null);
 
   async function save() {
     setSaving(true);
@@ -126,6 +134,7 @@ function ManageRow({
           emoji: emoji.trim() || "",
           category,
           color: color === "neutral" ? "" : color,
+          groupKey: groupKey.trim(),
         }),
       });
       if (!res.ok) {
@@ -164,7 +173,7 @@ function ManageRow({
   }
 
   return (
-    <div className="space-y-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+    <div className="space-y-2 border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="text"
@@ -172,20 +181,20 @@ function ManageRow({
           onChange={(e) => setEmoji(e.target.value)}
           placeholder="🌙"
           maxLength={4}
-          className="w-12 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-center text-sm"
+          className="w-12 border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-center text-sm"
           aria-label={`Emoji for ${def.label}`}
         />
         <input
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          className="min-w-0 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs"
+          className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs"
           aria-label={`Label for ${def.label}`}
         />
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-xs [color-scheme:dark]"
+          className="border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-xs [color-scheme:dark]"
           aria-label={`Category for ${def.label}`}
         >
           {VALID_CATEGORIES.map((c) => (
@@ -224,7 +233,7 @@ function ManageRow({
             type="button"
             onClick={archive}
             disabled={isPending || archiving}
-            className="rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-30"
+            className="px-2 py-1 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-30"
           >
             {archiving ? "..." : "Archive"}
           </button>
@@ -232,11 +241,37 @@ function ManageRow({
             type="button"
             onClick={save}
             disabled={isPending || saving || !dirty || !label.trim()}
-            className="rounded-lg bg-white/10 px-3 py-1 text-xs font-medium hover:bg-white/20 disabled:opacity-30"
+            className="bg-white/10 px-3 py-1 text-xs font-medium hover:bg-white/20 disabled:opacity-30"
           >
             {saving ? "..." : "Save"}
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label
+          htmlFor={`grp-${def.id}`}
+          className="text-xs text-[var(--color-text-muted)]"
+          title="Defs sharing a group are treated as mutually exclusive in insights (e.g. 'slept alone' and 'shared bed (with partner)' both in 'sleep-context')."
+        >
+          Group:
+        </label>
+        <input
+          id={`grp-${def.id}`}
+          type="text"
+          value={groupKey}
+          onChange={(e) => setGroupKey(e.target.value)}
+          list={`grp-suggestions-${def.id}`}
+          placeholder="optional — e.g. sleep-context"
+          maxLength={40}
+          className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs placeholder:text-[var(--color-text-muted)]/50"
+          aria-label={`Group for ${def.label}`}
+        />
+        <datalist id={`grp-suggestions-${def.id}`}>
+          {groupSuggestions.map((g) => (
+            <option key={g} value={g} />
+          ))}
+        </datalist>
       </div>
 
       {error && (
@@ -266,6 +301,13 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
   const [newEmoji, setNewEmoji] = useState("");
   const [newCategory, setNewCategory] = useState<string>("custom");
   const [newColor, setNewColor] = useState<string>("violet");
+  const [newGroupKey, setNewGroupKey] = useState<string>("");
+
+  // Pull every existing group off the current defs so create + manage forms
+  // can auto-complete instead of forcing the user to remember exact spellings.
+  const groupSuggestions = Array.from(
+    new Set(defs.map((d) => d.groupKey).filter((g): g is string => !!g))
+  ).sort();
 
   function toggle(def: LifeContextDef) {
     const wasOn = activeIds.has(def.id);
@@ -311,6 +353,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
             category: newCategory,
             emoji: newEmoji.trim() || undefined,
             color: newColor,
+            groupKey: newGroupKey.trim() || undefined,
           }),
         });
         if (!res.ok) {
@@ -320,6 +363,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
         }
         setNewLabel("");
         setNewEmoji("");
+        setNewGroupKey("");
         setDefining(false);
         router.refresh();
       } catch (e) {
@@ -339,7 +383,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Today&apos;s Context
@@ -365,7 +409,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
       </div>
 
       {error && (
-        <div className="mb-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+        <div className="mb-3 bg-red-500/10 px-3 py-2 text-xs text-red-400">
           {error}
         </div>
       )}
@@ -386,7 +430,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
                 type="button"
                 onClick={() => toggle(def)}
                 disabled={isPending}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-60 ${classesFor(
+                className={`border px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-60 ${classesFor(
                   def.color,
                   on
                 )}`}
@@ -408,6 +452,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
               key={def.id}
               def={def}
               isPending={isPending}
+              groupSuggestions={groupSuggestions}
               onSaved={handleManageSaved}
               onArchived={handleManageArchived}
             />
@@ -419,7 +464,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
       {defining && (
         <form
           onSubmit={submitNewDef}
-          className="mt-4 space-y-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3"
+          className="mt-4 space-y-3 border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3"
         >
           <div className="flex flex-wrap gap-2">
             <input
@@ -428,7 +473,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
               onChange={(e) => setNewEmoji(e.target.value)}
               placeholder="🌙"
               maxLength={4}
-              className="w-14 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-2 text-center text-sm"
+              className="w-14 border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-2 text-center text-sm"
               aria-label="Emoji"
             />
             <input
@@ -436,7 +481,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               placeholder="Flag label (e.g. with partner, sick, exam day)"
-              className="min-w-0 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+              className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
               autoFocus
             />
           </div>
@@ -446,7 +491,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
             <select
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value)}
-              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-xs [color-scheme:dark]"
+              className="border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-xs [color-scheme:dark]"
             >
               {VALID_CATEGORIES.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -471,11 +516,36 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
             </div>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <label
+              htmlFor="new-group-key"
+              className="text-xs text-[var(--color-text-muted)]"
+              title="Optional. Defs sharing a group are treated as mutually exclusive in insights (e.g. 'slept alone' and 'shared bed (with partner)' both in 'sleep-context')."
+            >
+              Group:
+            </label>
+            <input
+              id="new-group-key"
+              type="text"
+              value={newGroupKey}
+              onChange={(e) => setNewGroupKey(e.target.value)}
+              list="new-group-suggestions"
+              placeholder="optional — e.g. sleep-context"
+              maxLength={40}
+              className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs placeholder:text-[var(--color-text-muted)]/50"
+            />
+            <datalist id="new-group-suggestions">
+              {groupSuggestions.map((g) => (
+                <option key={g} value={g} />
+              ))}
+            </datalist>
+          </div>
+
           <div className="flex justify-end">
             <button
               type="submit"
               disabled={isPending || !newLabel.trim()}
-              className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20 disabled:opacity-30"
+              className="bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20 disabled:opacity-30"
             >
               Create flag
             </button>

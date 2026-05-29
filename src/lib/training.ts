@@ -323,3 +323,180 @@ export const compoundContributions: Record<string, string[]> = {
   "Seated Cable Row": ["back", "biceps"],
   "Inverted Row": ["back", "biceps"],
 };
+
+// --- Training Call: integrated training verdict ---
+// Combines readinessTier + cyclePhase + HRV CV (overreaching) + fatigue score
+// + acute stress into a single recommendation. This is the synthesis that
+// the dashboard hero and the body page both rely on, so they never disagree.
+//
+// Why this exists: `readinessTier(score)` only knows the overall Baseline
+// Score. `cyclePhaseGuidance(phase)` and `computeFatigueScore(...)` return
+// independent advice. Without an integrator, the user becomes the integrator —
+// and contradictions (e.g. "Go Hard" + "menstrual: reduce volume 20%" +
+// "fatigue: monitor markers") slip through.
+
+export type TrainingVerdict = "Push" | "Standard" | "Easy" | "Recover";
+
+export interface TrainingCallInput {
+  baselineScore: number | null;
+  cyclePhase: string | null; // "menstrual" | "follicular" | "ovulation" | "luteal" | null
+  hrvCv: number | null;
+  fatigueScore: number; // 0-8 from computeFatigueScore
+  stressSummary: string | null; // dayStress.daySummary
+}
+
+export interface TrainingCall {
+  tier: ReadinessTier["tier"]; // final tier after downgrades
+  baseTier: ReadinessTier["tier"]; // unmodified tier from baseline score alone
+  verdict: TrainingVerdict;
+  color: "green" | "yellow" | "red";
+  whyLine: string;
+  actionLine: string;
+  downgrades: string[]; // human-readable factors that pushed the tier down
+}
+
+const TIER_ORDER: ReadinessTier["tier"][] = [
+  "go_hard",
+  "standard",
+  "moderate",
+  "light",
+  "recovery",
+];
+
+/** Volume/intensity modifiers per tier — single source of truth so
+ *  ReadinessTierCard can display the correct mods for the FINAL
+ *  (post-downgrade) tier without having to re-derive them from a
+ *  sentinel score. */
+export const TIER_MODS: Record<
+  ReadinessTier["tier"],
+  { volumeMod: number; intensityMod: number; label: string }
+> = {
+  go_hard: { volumeMod: 1.0, intensityMod: 1.0, label: "Go Hard" },
+  standard: { volumeMod: 1.0, intensityMod: 1.0, label: "Standard" },
+  moderate: { volumeMod: 0.8, intensityMod: 0.95, label: "Moderate" },
+  light: { volumeMod: 0.55, intensityMod: 0.85, label: "Light" },
+  recovery: { volumeMod: 0, intensityMod: 0, label: "Recovery" },
+};
+
+function downOne(tier: ReadinessTier["tier"]): ReadinessTier["tier"] {
+  const idx = TIER_ORDER.indexOf(tier);
+  if (idx < 0 || idx === TIER_ORDER.length - 1) return tier;
+  return TIER_ORDER[idx + 1];
+}
+
+function capAt(
+  tier: ReadinessTier["tier"],
+  ceiling: ReadinessTier["tier"]
+): ReadinessTier["tier"] {
+  const tierIdx = TIER_ORDER.indexOf(tier);
+  const ceilIdx = TIER_ORDER.indexOf(ceiling);
+  return tierIdx < ceilIdx ? ceiling : tier;
+}
+
+const VERDICT_BY_TIER: Record<ReadinessTier["tier"], TrainingVerdict> = {
+  go_hard: "Push",
+  standard: "Standard",
+  moderate: "Easy",
+  light: "Easy",
+  recovery: "Recover",
+};
+
+const COLOR_BY_TIER: Record<ReadinessTier["tier"], "green" | "yellow" | "red"> = {
+  go_hard: "green",
+  standard: "yellow",
+  moderate: "yellow",
+  light: "yellow",
+  recovery: "red",
+};
+
+const ACTION_BY_TIER: Record<ReadinessTier["tier"], string> = {
+  go_hard: "Intervals or threshold work — push it.",
+  standard: "Hit the program. Z2 cardio or moderate strength fine.",
+  moderate: "Cut volume ~20%. Skip the heaviest sets.",
+  light: "Technique or mobility only. Light day.",
+  recovery: "Walk, stretch, sleep. No training today.",
+};
+
+function buildWhyLine(
+  baseTier: ReadinessTier["tier"],
+  finalTier: ReadinessTier["tier"],
+  baselineScore: number,
+  downgrades: string[]
+): string {
+  if (downgrades.length === 0) {
+    if (baseTier === "go_hard") return `Baseline ${baselineScore}. All signals aligned.`;
+    if (baseTier === "standard") return `Baseline ${baselineScore}. Solid but not stellar.`;
+    if (baseTier === "moderate")
+      return `Baseline ${baselineScore}. Recovery still rebuilding.`;
+    if (baseTier === "light")
+      return `Baseline ${baselineScore}. Body's not ready for load.`;
+    return `Baseline ${baselineScore}. Recovery mode.`;
+  }
+  // With downgrades: lead with the score, then the reason(s)
+  const reasons = downgrades.slice(0, 2).join("; ");
+  if (baseTier === finalTier) {
+    return `Baseline ${baselineScore} but ${reasons}.`;
+  }
+  return `Baseline ${baselineScore} — ${reasons}.`;
+}
+
+export function computeTrainingCall(input: TrainingCallInput): TrainingCall | null {
+  const { baselineScore, cyclePhase, hrvCv, fatigueScore, stressSummary } = input;
+  if (baselineScore == null) return null;
+
+  const base = readinessTier(baselineScore);
+  const baseTier = base.tier;
+  let tier = baseTier;
+  const downgrades: string[] = [];
+
+  // Menstrual phase: cap at standard. The training note in the cycle phase
+  // banner already says "reduce volume 20-30%", so menstrual + go_hard is
+  // contradictory output.
+  if (cyclePhase === "menstrual") {
+    const capped = capAt(tier, "standard");
+    if (capped !== tier) {
+      tier = capped;
+      downgrades.push("menstrual phase");
+    }
+  }
+
+  // HRV CV elevated (Flatt & Esco 2016 overreaching marker, >10%)
+  if (hrvCv != null && hrvCv > 10) {
+    const next = downOne(tier);
+    if (next !== tier) {
+      tier = next;
+      downgrades.push(`HRV unstable (CV ${Math.round(hrvCv)}%)`);
+    }
+  }
+
+  // Fatigue (Pritchard 2024 / Cadegiani 2019 markers, 0-8 score)
+  if (fatigueScore >= 5) {
+    tier = downOne(downOne(tier));
+    downgrades.push("fatigue elevated");
+  } else if (fatigueScore >= 3) {
+    const next = downOne(tier);
+    if (next !== tier) {
+      tier = next;
+      downgrades.push("fatigue elevated");
+    }
+  }
+
+  // Acute stress: cap at standard
+  if (stressSummary === "stressful") {
+    const capped = capAt(tier, "standard");
+    if (capped !== tier) {
+      tier = capped;
+      downgrades.push("stressful day");
+    }
+  }
+
+  return {
+    tier,
+    baseTier,
+    verdict: VERDICT_BY_TIER[tier],
+    color: COLOR_BY_TIER[tier],
+    whyLine: buildWhyLine(baseTier, tier, baselineScore, downgrades),
+    actionLine: ACTION_BY_TIER[tier],
+    downgrades,
+  };
+}

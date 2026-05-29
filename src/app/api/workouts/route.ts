@@ -31,23 +31,34 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { templateName, date } = body;
 
-    const sessionDate = date
+    const isBackfill = !!date;
+    const sessionDate = isBackfill
       ? new Date(date + "T00:00:00.000Z")
       : getLocalDay();
 
-    // Snapshot readiness + cycle phase at session start
-    const score = await getScoreForDate(sessionDate);
-    const cyclePhaseLog = await prisma.cyclePhaseLog.findFirst({
-      where: { day: { lte: sessionDate } },
-      orderBy: { day: "desc" },
-    });
+    // For backfilled sessions, anchor startedAt at noon on the chosen date
+    // so it doesn't look like a workout that happened just now.
+    const startedAt = isBackfill
+      ? new Date(date + "T12:00:00.000Z")
+      : new Date();
+
+    // Snapshot readiness + cycle phase at session start (uses historical date for backfill).
+    // Cycle phase is staleness-guarded — if the most recent log on or
+    // before `sessionDate` is older than its phase's max-days cap, we
+    // record null instead of the stale phase. Prevents the bug where
+    // backfilled WorkoutSessions inherit a month-old cycle phase.
+    const { resolveCyclePhase } = await import("@/lib/cycle-phase");
+    const [score, cycle] = await Promise.all([
+      getScoreForDate(sessionDate),
+      resolveCyclePhase(sessionDate),
+    ]);
 
     const session = await prisma.workoutSession.create({
       data: {
         date: sessionDate,
-        startedAt: new Date(),
+        startedAt,
         readinessScore: score?.overall ?? null,
-        cyclePhase: cyclePhaseLog?.phase ?? null,
+        cyclePhase: cycle.phase,
         templateName: templateName ?? null,
       },
     });

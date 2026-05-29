@@ -69,15 +69,15 @@ export function WeightInput({
     : null;
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Log Weight
         </h2>
-        <div className="flex rounded-lg border border-[var(--color-border)]">
+        <div className="flex border border-[var(--color-border)]">
           <button
             onClick={() => setUnit("lb")}
-            className={`rounded-l-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+            className={`rounded-l-lg px-2.5 py-1 text-xs font-medium transition duration-150 ease-out-strong active:scale-[0.97] ${
               unit === "lb" ? "bg-white/10 text-white" : "text-[var(--color-text-muted)]"
             }`}
           >
@@ -85,7 +85,7 @@ export function WeightInput({
           </button>
           <button
             onClick={() => setUnit("kg")}
-            className={`rounded-r-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+            className={`rounded-r-lg px-2.5 py-1 text-xs font-medium transition duration-150 ease-out-strong active:scale-[0.97] ${
               unit === "kg" ? "bg-white/10 text-white" : "text-[var(--color-text-muted)]"
             }`}
           >
@@ -108,7 +108,7 @@ export function WeightInput({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={`Weight (${unit})`}
-            className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
+            className="flex-1 border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -118,7 +118,7 @@ export function WeightInput({
             value={bodyFat}
             onChange={(e) => setBodyFat(e.target.value)}
             placeholder="Body fat % (optional)"
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+            className="border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
           />
           <input
             type="number"
@@ -126,14 +126,14 @@ export function WeightInput({
             value={muscleMass}
             onChange={(e) => setMuscleMass(e.target.value)}
             placeholder={`Muscle mass ${unit} (optional)`}
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+            className="border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
           />
         </div>
         {error && <p className="text-xs text-red-400">{error}</p>}
         <button
           type="submit"
           disabled={isPending || !value}
-          className="w-full rounded-xl bg-white/10 py-2 text-sm font-medium transition-colors hover:bg-white/20 disabled:opacity-30"
+          className="w-full bg-white/10 py-2 text-sm font-medium transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-white/20 disabled:opacity-30"
         >
           {isPending ? "Saving..." : "Log Weight"}
         </button>

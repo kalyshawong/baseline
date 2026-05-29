@@ -83,7 +83,7 @@ export function TagTimeline({ tags }: { tags: TagItem[] }) {
         {tags.map((t) => (
           <div
             key={t.id}
-            className="group flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5"
+            className="group flex items-center gap-3 border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5"
           >
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColors[t.category] ?? categoryColors.custom}`}
