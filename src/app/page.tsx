@@ -209,11 +209,10 @@ export default async function Dashboard({
     // DB not connected yet — render empty states.
   }
 
-  // Today's call — integrated training verdict (baseline score + cycle
-  // phase + HRV CV + fatigue + acute stress). Only computed when viewing
-  // today's date; past dates are for reviewing data, not making decisions.
+  // Training call — computed for every viewed date so the dashboard
+  // always shows the hero band (past dates show what the call *was*).
   const isToday = isSameLocalDay(viewDate, getLocalDay());
-  const todayCall = isToday ? await getTrainingCallForDate(viewDate) : null;
+  const todayCall = await getTrainingCallForDate(viewDate);
 
   // Pull the active Hyrox plan + today's session recommendation. Renders
   // nothing if no active plan exists, so non-Hyrox users see no change.
@@ -307,10 +306,8 @@ export default async function Dashboard({
 
       <div className="mx-auto max-w-[1320px] px-9 pt-6 pb-16">
 
-      {/* Hero — the morning call. Renders only on today (past dates are
-       * for data review on /body, not for decision-making). */}
-      {isToday && (
-        <TodayCallHero
+      {/* Hero — the day's training call */}
+      <TodayCallHero
           call={todayCall}
           isConnected={isConnected}
           evidence={[
@@ -336,22 +333,14 @@ export default async function Dashboard({
                   {
                     label: "Sleep",
                     value: formatDuration(daySleep.totalSleepDuration),
-                    icon: <SleepRing score={daySleep.score ?? null} />,
+                    unit: "h:m",
                   },
                 ]
               : daySleep?.score != null
-                ? [
-                    {
-                      label: "Sleep",
-                      value: daySleep.score,
-                      unit: "score",
-                      icon: <SleepRing score={daySleep.score} />,
-                    },
-                  ]
+                ? [{ label: "Sleep", value: daySleep.score, unit: "score" }]
                 : []),
           ]}
         />
-      )}
 
       {/* Hyrox countdown — renders only when an active Hyrox plan
        * exists. For a Hyrox athlete this is the most actionable card
@@ -364,8 +353,50 @@ export default async function Dashboard({
        * entry fallback) → calorie balance. Each is its own card-level
        * concept so they don't fight each other for visual weight. */}
       <div className="grid gap-[14px]">
-        {/* Sleep — insomnia-priority layout. Renders nothing when
-         * there's no sleep data for the day. */}
+        {/* Triple row: Activity / Cycle / Calories */}
+        <div className="grid grid-cols-[1.4fr_1fr_1.2fr] gap-[14px]">
+          <ActivityCard
+            activity={
+              dayActivity
+                ? {
+                    totalCalories: dayActivity.totalCalories,
+                    activeCalories: dayActivity.activeCalories,
+                    steps: dayActivity.steps,
+                    highActivityTime: dayActivity.highActivityTime,
+                    mediumActivityTime: dayActivity.mediumActivityTime,
+                  }
+                : null
+            }
+            lastHkSync={
+              lastHkSync
+                ? {
+                    syncedAt: lastHkSync.syncedAt.toISOString(),
+                    status: lastHkSync.status,
+                  }
+                : null
+            }
+            lastOuraSync={lastSync?.syncDate ?? null}
+            ambientSessions={ambientWorkouts.map((w) => ({
+              id: w.id,
+              name: w.name,
+              durationSeconds: w.durationSeconds,
+              activeCalories: w.activeCalories,
+            }))}
+          />
+          <CycleCard
+            phase={cyclePhase}
+            dayNumber={cycleDayNumber}
+            temperatureDeviationC={dayReadiness?.temperatureDeviation ?? null}
+          />
+          <CalorieBalanceCard
+            caloriesIn={nutritionCalories}
+            caloriesOut={dayActivity?.totalCalories ?? null}
+            goal={profile?.goal ?? null}
+            goalCals={null}
+          />
+        </div>
+
+        {/* Sleep */}
         <SleepCard
           daySleep={
             daySleep
@@ -422,7 +453,7 @@ export default async function Dashboard({
                 <p className="mt-2 text-sm text-[var(--color-text-muted)]">
                   No training workout — just ambient activity.
                 </p>
-                <ul className="mt-2 space-y-1">
+                <div className="mt-3">
                   {ambientWorkouts.map((w) => {
                     const startLabel = w.startedAt.toLocaleTimeString("en-US", {
                       hour: "numeric",
@@ -449,18 +480,21 @@ export default async function Dashboard({
                       (b): b is string => b !== null,
                     );
                     return (
-                      <li
+                      <div
                         key={w.id}
-                        className="text-sm text-[var(--color-text)]"
+                        className="grid grid-cols-[80px_1fr] items-center gap-5 border-b border-[var(--color-border)] py-3"
                       >
-                        <span className="text-[var(--color-text-muted)]">
+                        <span className="text-[13px] font-bold tracking-[0.03em] text-[var(--color-faint)]">
                           {startLabel}
-                        </span>{" "}
-                        · {w.name} · {detailBits.join(" · ")}
-                      </li>
+                        </span>
+                        <span className="text-sm text-[var(--color-text-muted)]">
+                          <b className="font-bold uppercase tracking-[0.04em] text-[13px] text-[var(--color-text)]">{w.name}</b>
+                          {" · "}{detailBits.join(" · ")}
+                        </span>
+                      </div>
                     );
                   })}
-                </ul>
+                </div>
               </>
             ) : (
               lastHkSync && (
@@ -473,48 +507,6 @@ export default async function Dashboard({
           </div>
         )}
 
-        {/* Triple row: Activity / Cycle / Calories */}
-        <div className="grid grid-cols-[1.4fr_1fr_1.2fr] gap-[14px]">
-          <ActivityCard
-            activity={
-              dayActivity
-                ? {
-                    totalCalories: dayActivity.totalCalories,
-                    activeCalories: dayActivity.activeCalories,
-                    steps: dayActivity.steps,
-                    highActivityTime: dayActivity.highActivityTime,
-                    mediumActivityTime: dayActivity.mediumActivityTime,
-                  }
-                : null
-            }
-            lastHkSync={
-              lastHkSync
-                ? {
-                    syncedAt: lastHkSync.syncedAt.toISOString(),
-                    status: lastHkSync.status,
-                  }
-                : null
-            }
-            lastOuraSync={lastSync?.syncDate ?? null}
-            ambientSessions={ambientWorkouts.map((w) => ({
-              id: w.id,
-              name: w.name,
-              durationSeconds: w.durationSeconds,
-              activeCalories: w.activeCalories,
-            }))}
-          />
-          <CycleCard
-            phase={cyclePhase}
-            dayNumber={cycleDayNumber}
-            temperatureDeviationC={dayReadiness?.temperatureDeviation ?? null}
-          />
-          <CalorieBalanceCard
-            caloriesIn={nutritionCalories}
-            caloriesOut={dayActivity?.totalCalories ?? null}
-            goal={profile?.goal ?? null}
-            goalCals={null}
-          />
-        </div>
       </div>
 
       {/* Do — three deep-link CTAs (mid-day use mode). */}

@@ -102,36 +102,32 @@ export function ActivityCard({ activity, lastHkSync, lastOuraSync, ambientSessio
 
       {/* Oura daily totals */}
       {hasOuraData ? (
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-4">
           <div>
-            <p className="ov">Total burn</p>
-            <p className="disp num text-[42px] leading-[0.85]">
+            <div className="ov">Total Burn</div>
+            <div className="disp num text-[42px] leading-[0.85]">
               {activity.totalCalories ?? "—"}
-              {activity.totalCalories != null && (
-                <span className="ml-1 text-xs font-normal text-[var(--color-text-muted)]">cal</span>
-              )}
-            </p>
+              <small className="ml-1 font-sans text-[13px] font-semibold text-[var(--color-faint)]"> cal</small>
+            </div>
           </div>
           <div>
-            <p className="ov">Active</p>
-            <p className="disp num text-[42px] leading-[0.85]">
+            <div className="ov">Active</div>
+            <div className="disp num text-[42px] leading-[0.85]">
               {activity.activeCalories ?? "—"}
-              {activity.activeCalories != null && (
-                <span className="ml-1 text-xs font-normal text-[var(--color-text-muted)]">cal</span>
-              )}
-            </p>
+              <small className="ml-1 font-sans text-[13px] font-semibold text-[var(--color-faint)]"> cal</small>
+            </div>
           </div>
           <div>
-            <p className="ov">Steps</p>
-            <p className="disp num text-[42px] leading-[0.85]">
+            <div className="ov">Steps</div>
+            <div className="disp num text-[42px] leading-[0.85]">
               {activity.steps != null ? activity.steps.toLocaleString() : "—"}
-            </p>
+            </div>
           </div>
           <div>
-            <p className="ov">Active time</p>
-            <p className="disp num text-[42px] leading-[0.85]">
+            <div className="ov">Active Time</div>
+            <div className="disp num text-[42px] leading-[0.85]">
               {formatMinutes(activeTime)}
-            </p>
+            </div>
           </div>
         </div>
       ) : (
