@@ -6,34 +6,41 @@ interface ActivityData {
   mediumActivityTime: number | null;
 }
 
-interface WorkoutData {
-  name: string;
-  durationSeconds: number;
-  activeCalories: number | null;
-  avgHeartRate: number | null;
-  maxHeartRate: number | null;
-}
-
 interface SyncData {
   syncedAt: string;
   status: string;
 }
 
+/** Lightweight summary of ambient activities (walks, stands, etc.)
+ *  that shouldn't earn their own WorkoutCard. Each entry stays
+ *  individually addressable but we render them as one rolled-up
+ *  line, not three repeated cards. */
+interface AmbientSession {
+  id: string;
+  name: string;
+  durationSeconds: number;
+  activeCalories: number | null;
+}
+
 interface ActivityCardProps {
   activity: ActivityData | null;
-  workout: WorkoutData | null;
   lastHkSync: SyncData | null;
   lastOuraSync: Date | null;
+  /** Walks / breathing / other low-intensity sessions for the day.
+   *  Rendered as one summary line, not individual cards. */
+  ambientSessions?: AmbientSession[];
 }
+
+/**
+ * Ambient daily activity totals from Oura — total burn, active calories,
+ * steps, active time. The specific workout (Apple Watch / HealthKit) used
+ * to live nested inside this card; it now lives in WorkoutCard so each
+ * concept has its own card-level treatment. ActivityCard is the
+ * "what your body did across the whole day" card.
+ */
 
 function formatMinutes(seconds: number | null): string {
   if (seconds == null) return "—";
-  const m = Math.round(seconds / 60);
-  if (m < 60) return `${m}m`;
-  return `${Math.floor(m / 60)}h ${m % 60}m`;
-}
-
-function formatWorkoutDuration(seconds: number): string {
   const m = Math.round(seconds / 60);
   if (m < 60) return `${m}m`;
   return `${Math.floor(m / 60)}h ${m % 60}m`;
@@ -48,8 +55,8 @@ function formatTime(date: Date | string): string {
 }
 
 const statusDot: Record<string, string> = {
-  success: "bg-emerald-400",
-  partial: "bg-yellow-400",
+  success: "bg-[var(--color-green)]",
+  partial: "bg-[var(--color-yellow)]",
   failed: "bg-red-400",
 };
 
@@ -59,7 +66,7 @@ function mostRecentTimestamp(
 ): { time: string; dotClass: string } | null {
   const candidates: { date: Date; dotClass: string }[] = [];
   if (lastOuraSync) {
-    candidates.push({ date: lastOuraSync, dotClass: "bg-emerald-400" });
+    candidates.push({ date: lastOuraSync, dotClass: "bg-[var(--color-green)]" });
   }
   if (lastHkSync) {
     candidates.push({
@@ -72,7 +79,7 @@ function mostRecentTimestamp(
   return { time: formatTime(candidates[0].date), dotClass: candidates[0].dotClass };
 }
 
-export function ActivityCard({ activity, workout, lastHkSync, lastOuraSync }: ActivityCardProps) {
+export function ActivityCard({ activity, lastHkSync, lastOuraSync, ambientSessions = [] }: ActivityCardProps) {
   const ts = mostRecentTimestamp(lastOuraSync, lastHkSync);
 
   const hasOuraData = !!activity;
@@ -81,12 +88,10 @@ export function ActivityCard({ activity, workout, lastHkSync, lastOuraSync }: Ac
     : null;
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="panel p-5">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-          Activity
-        </h2>
+        <h2 className="ov">Activity</h2>
         {ts && (
           <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
             <span className={`h-1.5 w-1.5 rounded-full ${ts.dotClass}`} />
@@ -99,8 +104,8 @@ export function ActivityCard({ activity, workout, lastHkSync, lastOuraSync }: Ac
       {hasOuraData ? (
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
-            <p className="text-xs text-[var(--color-text-muted)]">Total burn</p>
-            <p className="text-lg font-bold tabular-nums">
+            <p className="ov">Total burn</p>
+            <p className="disp num text-[42px] leading-[0.85]">
               {activity.totalCalories ?? "—"}
               {activity.totalCalories != null && (
                 <span className="ml-1 text-xs font-normal text-[var(--color-text-muted)]">cal</span>
@@ -108,8 +113,8 @@ export function ActivityCard({ activity, workout, lastHkSync, lastOuraSync }: Ac
             </p>
           </div>
           <div>
-            <p className="text-xs text-[var(--color-text-muted)]">Active</p>
-            <p className="text-lg font-bold tabular-nums">
+            <p className="ov">Active</p>
+            <p className="disp num text-[42px] leading-[0.85]">
               {activity.activeCalories ?? "—"}
               {activity.activeCalories != null && (
                 <span className="ml-1 text-xs font-normal text-[var(--color-text-muted)]">cal</span>
@@ -117,14 +122,14 @@ export function ActivityCard({ activity, workout, lastHkSync, lastOuraSync }: Ac
             </p>
           </div>
           <div>
-            <p className="text-xs text-[var(--color-text-muted)]">Steps</p>
-            <p className="text-lg font-bold tabular-nums">
+            <p className="ov">Steps</p>
+            <p className="disp num text-[42px] leading-[0.85]">
               {activity.steps != null ? activity.steps.toLocaleString() : "—"}
             </p>
           </div>
           <div>
-            <p className="text-xs text-[var(--color-text-muted)]">Active time</p>
-            <p className="text-lg font-bold tabular-nums">
+            <p className="ov">Active time</p>
+            <p className="disp num text-[42px] leading-[0.85]">
               {formatMinutes(activeTime)}
             </p>
           </div>
@@ -135,28 +140,46 @@ export function ActivityCard({ activity, workout, lastHkSync, lastOuraSync }: Ac
         </p>
       )}
 
-      {/* Apple Watch workout */}
-      {workout ? (
-        <div className="mt-3 border-t border-[var(--color-border)] pt-3">
-          <p className="text-sm font-semibold">{workout.name}</p>
-          <div className="mt-1 flex flex-wrap gap-3 text-xs text-[var(--color-text-muted)]">
-            <span>{formatWorkoutDuration(workout.durationSeconds)}</span>
-            {workout.activeCalories != null && (
-              <span>{Math.round(workout.activeCalories)} cal</span>
-            )}
-            {workout.avgHeartRate != null && (
-              <span>
-                avg {workout.avgHeartRate} bpm
-                {workout.maxHeartRate != null && ` (max ${workout.maxHeartRate})`}
-              </span>
-            )}
-          </div>
-        </div>
-      ) : lastHkSync ? (
-        <p className="mt-3 text-xs text-[var(--color-text-muted)]">
-          No Apple Watch workout today.
+      {/* Ambient sessions — walks etc. that aren't real training. One
+       * summary line: "Walks: 3 sessions · 1h 33m · 178 cal." Each
+       * individual session is still in HealthKitWorkout if the user
+       * wants to query it directly via /coach. */}
+      {ambientSessions.length > 0 && (
+        <p className="text-xs font-semibold text-[var(--color-faint)] mt-4 pt-3 border-t border-[var(--color-border)] tracking-[0.03em] uppercase">
+          {summarizeAmbient(ambientSessions)}
         </p>
-      ) : null}
+      )}
     </div>
   );
+}
+
+function summarizeAmbient(sessions: AmbientSession[]): string {
+  // Group by name (e.g. all "walking" together). For a single-name
+  // case the label is just the name; mixed names get "Activity"
+  // as a generic header.
+  const totalSec = sessions.reduce((sum, s) => sum + s.durationSeconds, 0);
+  const totalCal = sessions.reduce(
+    (sum, s) => sum + (s.activeCalories ?? 0),
+    0,
+  );
+  const uniqueNames = Array.from(
+    new Set(sessions.map((s) => s.name.toLowerCase())),
+  );
+  // Smarter pluralizer than naive +"s" so "walking" → "Walks", not
+  // "Walkings." For each known ambient name, map to its plural noun.
+  const PLURAL_LABELS: Record<string, string> = {
+    walking: "Walks",
+    walk: "Walks",
+    stand: "Stands",
+    breathing: "Breathing sessions",
+    meditation: "Meditations",
+  };
+  const label =
+    uniqueNames.length === 1
+      ? PLURAL_LABELS[uniqueNames[0]] ??
+        uniqueNames[0].charAt(0).toUpperCase() + uniqueNames[0].slice(1) + "s"
+      : "Activity";
+  const durStr = formatMinutes(totalSec);
+  const calStr = totalCal > 0 ? ` · ${Math.round(totalCal)} cal` : "";
+  return `${label}: ${sessions.length} ${sessions.length === 1 ? "session" : "sessions"} · ${durStr}${calStr}`;
 }

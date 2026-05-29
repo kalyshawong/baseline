@@ -3,12 +3,14 @@
 import { useRouter, useSearchParams } from "next/navigation";
 
 function formatDisplayDate(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00"); // noon to avoid timezone shift
-  return d.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
+  const d = new Date(dateStr + "T12:00:00");
+  return d
+    .toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    })
+    .toUpperCase();
 }
 
 function todayStr(): string {
@@ -38,36 +40,35 @@ export function DateNav({ basePath }: { basePath: string }) {
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-4">
       <button
         onClick={() => navigate(shiftDate(currentDate, -1))}
-        className="rounded-lg bg-white/10 px-2.5 py-1.5 text-sm transition-colors hover:bg-white/20"
+        className="angled-clip-sm flex h-8 w-8 flex-none items-center justify-center bg-[var(--color-surface-2)] text-[var(--color-text-muted)] transition duration-150 ease-out-strong hover:bg-[var(--color-border)] hover:text-[var(--color-text)]"
         aria-label="Previous day"
       >
-        &larr;
+        <span className="text-[15px]">&lsaquo;</span>
       </button>
       <div className="text-center">
-        <p className="text-sm text-[var(--color-text-muted)]">
+        <span className="disp text-[22px] tracking-[0.03em]">
           {formatDisplayDate(currentDate)}
-        </p>
+        </span>
         {!isToday && (
           <button
             onClick={() => navigate(todayStr())}
-            className="text-xs text-[var(--color-text-muted)] underline hover:text-white"
+            className="linklike ml-4"
           >
-            Back to today
+            Today
           </button>
         )}
       </div>
       <button
         onClick={() => navigate(shiftDate(currentDate, 1))}
         disabled={isToday}
-        className="rounded-lg bg-white/10 px-2.5 py-1.5 text-sm transition-colors hover:bg-white/20 disabled:opacity-20"
+        className="angled-clip-sm flex h-8 w-8 flex-none items-center justify-center bg-[var(--color-surface-2)] text-[var(--color-text-muted)] transition duration-150 ease-out-strong hover:bg-[var(--color-border)] hover:text-[var(--color-text)] disabled:opacity-20"
         aria-label="Next day"
       >
-        &rarr;
+        <span className="text-[15px]">&rsaquo;</span>
       </button>
     </div>
   );
 }
-

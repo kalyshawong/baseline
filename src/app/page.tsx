@@ -7,10 +7,17 @@ import { TonightSection } from "@/components/dashboard/tonight-section";
 import { SleepRing } from "@/components/dashboard/sleep-ring";
 import { ActivityCard } from "@/components/dashboard/activity-card";
 import { CalorieBalanceCard } from "@/components/dashboard/calorie-balance-card";
+import { CycleCard } from "@/components/dashboard/cycle-card";
+import { SleepCard } from "@/components/dashboard/sleep-card";
+import { WorkoutCard } from "@/components/dashboard/workout-card";
+import { ManualWorkoutEntry } from "@/components/dashboard/manual-workout-entry";
+import { HyroxCountdownCard } from "@/components/dashboard/hyrox-countdown-card";
+import { getHyroxToday } from "@/lib/hyrox-today";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { DateNav } from "@/components/date-nav";
 import { getDateFromParams, getDateStrFromParams, getLocalDay, getLocalDayBounds } from "@/lib/date-utils";
 import { getTrainingCallForDate } from "@/lib/training-call";
+import { getDownsampledHrForWorkout, type HrChartPoint } from "@/lib/workout-notes";
 
 /**
  * Dashboard structure (2026-05-27, post-brainstorm convergence):
@@ -85,12 +92,14 @@ export default async function Dashboard({
   let isConnected = false;
   let nutritionEntryCount = 0;
   let nutritionCalories: number | null = null;
-  let todayHkWorkout: Awaited<ReturnType<typeof prisma.healthKitWorkout.findFirst>> = null;
+  let todayHkWorkouts: Awaited<ReturnType<typeof prisma.healthKitWorkout.findMany>> = [];
   let lastHkSync: Awaited<ReturnType<typeof prisma.healthKitSync.findFirst>> = null;
   let dayActivity: Awaited<ReturnType<typeof prisma.dailyActivity.findUnique>> = null;
   let profile: Awaited<ReturnType<typeof prisma.userProfile.findUnique>> = null;
   let sleepTimeRec: Awaited<ReturnType<typeof prisma.sleepTimeRecommendation.findFirst>> = null;
   let weightLoggedToday = false;
+  let cyclePhase: string | null = null;
+  let cycleDayNumber: number | null = null;
 
   try {
     const token = await prisma.ouraToken.findFirst();
@@ -114,6 +123,7 @@ export default async function Dashboard({
       dayActivityResult,
       lastHkSyncResult,
       profileResult,
+      cycleResult,
     ] = await Promise.all([
       getScoreForDate(viewDate),
       prisma.dailyReadiness.findUnique({ where: { day: viewDate } }),
@@ -136,7 +146,11 @@ export default async function Dashboard({
             orderBy: { day: "desc" },
           });
         }),
-      prisma.healthKitWorkout.findFirst({
+      // All workouts for the viewed day, most-recent-first. The dashboard
+      // renders one WorkoutCard per workout — supports back-to-back
+      // morning-lift + evening-run patterns that are common for hybrid
+      // athletes.
+      prisma.healthKitWorkout.findMany({
         where: { startedAt: { gte: viewDayStart, lt: viewDayEnd } },
         orderBy: { startedAt: "desc" },
       }),
@@ -144,6 +158,27 @@ export default async function Dashboard({
       prisma.dailyActivity.findUnique({ where: { day: viewDate } }),
       prisma.healthKitSync.findFirst({ orderBy: { syncedAt: "desc" } }),
       prisma.userProfile.findUnique({ where: { id: 1 } }),
+      // Cycle phase + period day for the viewed date.
+      //
+      // Both go through helpers in src/lib/cycle-phase.ts:
+      // - resolveCyclePhase applies a phase-aware staleness cap so a
+      //   month-old menstrual log doesn't render as "currently
+      //   menstruating" (2026-05-28 audit).
+      // - getCurrentPeriodDay walks back through consecutive menstrual
+      //   entries to find the *start* of the current period instead
+      //   of using the most recent log, which always returned "Day 1"
+      //   no matter how many days into bleeding the user actually was
+      //   (also 2026-05-28).
+      (async () => {
+        const { resolveCyclePhase, getCurrentPeriodDay } = await import(
+          "@/lib/cycle-phase"
+        );
+        const [resolved, periodDay] = await Promise.all([
+          resolveCyclePhase(viewDate),
+          getCurrentPeriodDay(viewDate),
+        ]);
+        return { resolved, periodDay };
+      })(),
     ]);
 
     score = scoreResult;
@@ -153,11 +188,23 @@ export default async function Dashboard({
     nutritionEntryCount = nutritionLog?.entries.length ?? 0;
     nutritionCalories = nutritionLog?.calories ?? null;
     sleepTimeRec = sleepTimeRecResult;
-    todayHkWorkout = todayHkWorkoutResult;
+    todayHkWorkouts = todayHkWorkoutResult;
     weightLoggedToday = !!todayWeightLog;
     dayActivity = dayActivityResult;
     lastHkSync = lastHkSyncResult;
     profile = profileResult;
+    if (cycleResult) {
+      // cycleResult.resolved.phase is null when the most recent log
+      // is past its staleness cap (see resolveCyclePhase). Treat that
+      // as "no current phase" rather than echoing a stale value.
+      cyclePhase = cycleResult.resolved.phase;
+      // Period day = days into the current consecutive menstrual
+      // streak. Only meaningful when the resolved phase is menstrual.
+      cycleDayNumber =
+        cycleResult.resolved.phase === "menstrual"
+          ? cycleResult.periodDay
+          : null;
+    }
   } catch {
     // DB not connected yet — render empty states.
   }
@@ -168,6 +215,37 @@ export default async function Dashboard({
   const isToday = isSameLocalDay(viewDate, getLocalDay());
   const todayCall = isToday ? await getTrainingCallForDate(viewDate) : null;
 
+  // Pull the active Hyrox plan + today's session recommendation. Renders
+  // nothing if no active plan exists, so non-Hyrox users see no change.
+  const hyroxToday = isToday ? await getHyroxToday(viewDate) : null;
+
+  // Split "real training" from "ambient activity." Walks, breathing,
+  // stands etc. shouldn't claim a full WorkoutCard with notes + a
+  // Discuss-with-coach button — they roll up into the ActivityCard
+  // as a one-line summary. Training workouts (HIIT, lifts, runs,
+  // Hyrox, cycling, etc.) keep their full treatment.
+  const AMBIENT_NAME_RE = /^(walking|walk|stand|breathing|meditation)$/i;
+  const ambientWorkouts = todayHkWorkouts.filter((w) =>
+    AMBIENT_NAME_RE.test(w.name),
+  );
+  const trainingWorkouts = todayHkWorkouts.filter(
+    (w) => !AMBIENT_NAME_RE.test(w.name),
+  );
+
+  // Downsampled HR curves only for the training workouts — ambient
+  // sessions don't render a chart so we skip those queries.
+  const hrChartsByWorkoutId: Record<string, HrChartPoint[]> = {};
+  if (trainingWorkouts.length > 0) {
+    const chartResults = await Promise.all(
+      trainingWorkouts.map((w) =>
+        getDownsampledHrForWorkout(w.startedAt, w.endedAt),
+      ),
+    );
+    trainingWorkouts.forEach((w, i) => {
+      hrChartsByWorkoutId[w.id] = chartResults[i];
+    });
+  }
+
   // Format the optional bedtime recommendation for the Tonight section.
   // optimalBedtimeStart is seconds from midnight (negative = before midnight).
   const sleepTargetTime =
@@ -175,32 +253,49 @@ export default async function Dashboard({
       ? formatSecondsFromMidnight(sleepTimeRec.optimalBedtimeStart)
       : null;
 
-  const workoutSummary =
-    todayHkWorkout != null
-      ? formatWorkoutSummary(todayHkWorkout.name, todayHkWorkout.durationSeconds)
-      : null;
+  // Tonight section's "captured today" line. With multiple workouts:
+  //   1 → "Hyrox HIIT (76 min)"
+  //   2 → "Hyrox HIIT (76 min) + Run (32 min)"
+  //   3+ → "3 workouts (134 min total)"
+  // Keeps the line short when the day is heavy, descriptive when it's not.
+  function buildWorkoutSummary(): string | null {
+    if (todayHkWorkouts.length === 0) return null;
+    if (todayHkWorkouts.length === 1) {
+      const w = todayHkWorkouts[0];
+      return formatWorkoutSummary(w.name, w.durationSeconds);
+    }
+    if (todayHkWorkouts.length === 2) {
+      return todayHkWorkouts
+        .map((w) => formatWorkoutSummary(w.name, w.durationSeconds))
+        .join(" + ");
+    }
+    const totalSec = todayHkWorkouts.reduce(
+      (sum, w) => sum + w.durationSeconds,
+      0,
+    );
+    const totalMin = Math.round(totalSec / 60);
+    return `${todayHkWorkouts.length} workouts (${totalMin} min total)`;
+  }
+  const workoutSummary = buildWorkoutSummary();
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+    <main>
+      {/* Date / sync strip */}
+      <div className="flex items-center justify-between border-b-2 border-[var(--color-border)] bg-[var(--color-surface)] px-9 py-3.5">
         <Suspense>
           <DateNav basePath="/" />
         </Suspense>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {isConnected ? (
             <SyncButton />
           ) : (
-            <a
-              href="/api/auth/oura"
-              className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium transition duration-150 ease-out-strong hover:bg-white/20 active:scale-[0.97]"
-            >
+            <a href="/api/auth/oura" className="btn">
               Connect Oura
             </a>
           )}
           {lastSync && (
-            <span className="text-xs text-[var(--color-text-muted)]">
-              Last sync:{" "}
+            <span className="ov">
+              Last sync{" "}
               {lastSync.syncDate.toLocaleTimeString("en-US", {
                 hour: "numeric",
                 minute: "2-digit",
@@ -209,6 +304,8 @@ export default async function Dashboard({
           )}
         </div>
       </div>
+
+      <div className="mx-auto max-w-[1320px] px-9 pt-6 pb-16">
 
       {/* Hero — the morning call. Renders only on today (past dates are
        * for data review on /body, not for decision-making). */}
@@ -256,52 +353,168 @@ export default async function Dashboard({
         />
       )}
 
-      {/* Today's tally — activity (Oura + Apple Watch) and calorie
-       * in/out. These two specifically fill in throughout the day as
-       * you log/sync, which is why they earn a place on the dashboard
-       * (other display cards were stripped). goalCals is null here —
-       * the full TDEE math lives on /body where it has the room. */}
-      <div className="mb-8 space-y-3">
-        <ActivityCard
-          activity={
-            dayActivity
+      {/* Hyrox countdown — renders only when an active Hyrox plan
+       * exists. For a Hyrox athlete this is the most actionable card
+       * on the dashboard during the final 14 days. */}
+      {hyroxToday && (
+        <HyroxCountdownCard today={hyroxToday} />
+      )}
+
+      {/* Today's tally: ambient activity → specific workout (or manual
+       * entry fallback) → calorie balance. Each is its own card-level
+       * concept so they don't fight each other for visual weight. */}
+      <div className="grid gap-[14px]">
+        {/* Sleep — insomnia-priority layout. Renders nothing when
+         * there's no sleep data for the day. */}
+        <SleepCard
+          daySleep={
+            daySleep
               ? {
-                  totalCalories: dayActivity.totalCalories,
-                  activeCalories: dayActivity.activeCalories,
-                  steps: dayActivity.steps,
-                  highActivityTime: dayActivity.highActivityTime,
-                  mediumActivityTime: dayActivity.mediumActivityTime,
+                  score: daySleep.score,
+                  totalSleepDuration: daySleep.totalSleepDuration,
+                  remSleepDuration: daySleep.remSleepDuration,
+                  deepSleepDuration: daySleep.deepSleepDuration,
+                  lightSleepDuration: daySleep.lightSleepDuration,
+                  sleepEfficiency: daySleep.sleepEfficiency,
+                  latency: daySleep.latency,
+                  averageHrv: daySleep.averageHrv,
+                  lowestHeartRate: daySleep.lowestHeartRate,
                 }
               : null
           }
-          workout={
-            todayHkWorkout
-              ? {
-                  id: todayHkWorkout.id,
-                  name: todayHkWorkout.name,
-                  durationSeconds: todayHkWorkout.durationSeconds,
-                  activeCalories: todayHkWorkout.activeCalories,
-                  avgHeartRate: todayHkWorkout.avgHeartRate,
-                  maxHeartRate: todayHkWorkout.maxHeartRate,
-                }
-              : null
-          }
-          lastHkSync={
-            lastHkSync
-              ? {
-                  syncedAt: lastHkSync.syncedAt.toISOString(),
-                  status: lastHkSync.status,
-                }
-              : null
-          }
-          lastOuraSync={lastSync?.syncDate ?? null}
         />
-        <CalorieBalanceCard
-          caloriesIn={nutritionCalories}
-          caloriesOut={dayActivity?.totalCalories ?? null}
-          goal={profile?.goal ?? null}
-          goalCals={null}
-        />
+
+        {/* Workout slot — one WorkoutCard per synced workout (most
+         * recent first), with each card carrying its own Notes editor
+         * and "Discuss with coach →" button scoped to that workout.
+         * When no workouts exist, the ManualWorkoutEntry fallback lets
+         * the athlete log a session without waiting for HAE/Strava. */}
+        {trainingWorkouts.length > 0 ? (
+          trainingWorkouts.map((w) => (
+            <WorkoutCard
+              key={w.id}
+              workout={{
+                id: w.id,
+                name: w.name,
+                startedAt: w.startedAt.toISOString(),
+                endedAt: w.endedAt.toISOString(),
+                durationSeconds: w.durationSeconds,
+                activeCalories: w.activeCalories,
+                avgHeartRate: w.avgHeartRate,
+                maxHeartRate: w.maxHeartRate,
+                minHeartRate: w.minHeartRate,
+              }}
+              hrChart={hrChartsByWorkoutId[w.id] ?? []}
+            />
+          ))
+        ) : (
+          <div className="panel">
+            <span className="ov">Workout</span>
+            {ambientWorkouts.length > 0 ? (
+              // Walks (and other ambient sessions) still get listed
+              // here even when no training workout was logged. They're
+              // not displayed as full WorkoutCards because they don't
+              // earn the notes/discuss-with-coach affordances, but
+              // saying "no Apple Watch workout synced today" when the
+              // watch did sync three walks is wrong — the user pushed
+              // back on that 2026-05-28. List them compactly.
+              <>
+                <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+                  No training workout — just ambient activity.
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {ambientWorkouts.map((w) => {
+                    const startLabel = w.startedAt.toLocaleTimeString("en-US", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    });
+                    const minutes = Math.round(w.durationSeconds / 60);
+                    const durLabel =
+                      minutes < 60
+                        ? `${minutes}m`
+                        : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+                    const distLabel =
+                      w.distance != null && w.distance > 0
+                        ? w.distance >= 1000 && w.distanceUnit === "m"
+                          ? `${(w.distance / 1000).toFixed(2)} km`
+                          : w.distanceUnit === "km"
+                            ? `${w.distance.toFixed(2)} km`
+                            : `${Math.round(w.distance)} ${w.distanceUnit}`
+                        : null;
+                    const calLabel =
+                      w.activeCalories != null
+                        ? `${Math.round(w.activeCalories)} cal`
+                        : null;
+                    const detailBits = [durLabel, distLabel, calLabel].filter(
+                      (b): b is string => b !== null,
+                    );
+                    return (
+                      <li
+                        key={w.id}
+                        className="text-sm text-[var(--color-text)]"
+                      >
+                        <span className="text-[var(--color-text-muted)]">
+                          {startLabel}
+                        </span>{" "}
+                        · {w.name} · {detailBits.join(" · ")}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            ) : (
+              lastHkSync && (
+                <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+                  No Apple Watch workout synced today yet.
+                </p>
+              )
+            )}
+            <ManualWorkoutEntry />
+          </div>
+        )}
+
+        {/* Triple row: Activity / Cycle / Calories */}
+        <div className="grid grid-cols-[1.4fr_1fr_1.2fr] gap-[14px]">
+          <ActivityCard
+            activity={
+              dayActivity
+                ? {
+                    totalCalories: dayActivity.totalCalories,
+                    activeCalories: dayActivity.activeCalories,
+                    steps: dayActivity.steps,
+                    highActivityTime: dayActivity.highActivityTime,
+                    mediumActivityTime: dayActivity.mediumActivityTime,
+                  }
+                : null
+            }
+            lastHkSync={
+              lastHkSync
+                ? {
+                    syncedAt: lastHkSync.syncedAt.toISOString(),
+                    status: lastHkSync.status,
+                  }
+                : null
+            }
+            lastOuraSync={lastSync?.syncDate ?? null}
+            ambientSessions={ambientWorkouts.map((w) => ({
+              id: w.id,
+              name: w.name,
+              durationSeconds: w.durationSeconds,
+              activeCalories: w.activeCalories,
+            }))}
+          />
+          <CycleCard
+            phase={cyclePhase}
+            dayNumber={cycleDayNumber}
+            temperatureDeviationC={dayReadiness?.temperatureDeviation ?? null}
+          />
+          <CalorieBalanceCard
+            caloriesIn={nutritionCalories}
+            caloriesOut={dayActivity?.totalCalories ?? null}
+            goal={profile?.goal ?? null}
+            goalCals={null}
+          />
+        </div>
       </div>
 
       {/* Do — three deep-link CTAs (mid-day use mode). */}
@@ -315,6 +528,7 @@ export default async function Dashboard({
         mealCount={nutritionEntryCount}
         weightLoggedToday={weightLoggedToday}
       />
+      </div>
     </main>
   );
 }

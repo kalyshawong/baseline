@@ -1,15 +1,14 @@
 interface Props {
   caloriesIn: number | null;
-  caloriesOut: number | null; // total calories burned (incl BMR) from Oura
+  caloriesOut: number | null;
   goal: string | null;
-  goalCals: number | null; // target intake for the goal
+  goalCals: number | null;
 }
 
 function classifyBalance(
   net: number,
   goal: string
 ): { status: "green" | "yellow" | "red"; message: string } {
-  // net = in - out. Positive = surplus, negative = deficit.
   if (goal === "lose") {
     if (net > 100) return { status: "red", message: "Surplus — goal is cut" };
     if (net > -200) return { status: "yellow", message: "Slight deficit" };
@@ -22,7 +21,6 @@ function classifyBalance(
     if (net < 500) return { status: "green", message: "In target surplus range" };
     return { status: "yellow", message: "Large surplus" };
   }
-  // maintain
   if (Math.abs(net) < 200) return { status: "green", message: "Balanced" };
   return {
     status: "yellow",
@@ -30,67 +28,48 @@ function classifyBalance(
   };
 }
 
-const statusStyles: Record<string, string> = {
-  green: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
-  yellow: "border-yellow-500/30 bg-yellow-500/10 text-yellow-400",
-  red: "border-red-500/30 bg-red-500/10 text-red-400",
+const barClass: Record<string, string> = {
+  green: "bg-[var(--color-green)]",
+  yellow: "bg-[var(--color-yellow)]",
+  red: "bg-[var(--color-red)]",
 };
 
-export function CalorieBalanceCard({ caloriesIn, caloriesOut, goal, goalCals }: Props) {
-  if (caloriesOut == null) {
-    return null;
-  }
+export function CalorieBalanceCard({ caloriesIn, caloriesOut, goal }: Props) {
+  if (caloriesOut == null) return null;
 
   const cIn = caloriesIn ?? 0;
   const net = cIn - caloriesOut;
   const classification = classifyBalance(net, goal ?? "maintain");
-  const style = statusStyles[classification.status];
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-      <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        Calorie Balance
-      </h2>
+    <div className="panel">
+      <div className="ov mb-4">Calories</div>
 
-      <div className="grid grid-cols-3 gap-3 text-center">
-        <div>
-          <p className="text-xs text-[var(--color-text-muted)]">In</p>
-          <p className="text-xl font-bold tabular-nums text-emerald-400">
+      <div className="grid grid-cols-3 gap-2.5">
+        <div className="bg-[var(--color-surface-2)] p-3 text-center">
+          <div className="ov">In</div>
+          <div className="disp num text-[40px] leading-[0.9] text-[var(--color-green)]">
             {Math.round(cIn)}
-          </p>
-          <p className="text-[10px] text-[var(--color-text-muted)]">nutrition</p>
+          </div>
         </div>
-        <div>
-          <p className="text-xs text-[var(--color-text-muted)]">Out</p>
-          <p className="text-xl font-bold tabular-nums text-amber-400">
+        <div className="bg-[var(--color-surface-2)] p-3 text-center">
+          <div className="ov">Out</div>
+          <div className="disp num text-[40px] leading-[0.9] text-[var(--color-yellow)]">
             {Math.round(caloriesOut)}
-          </p>
-          <p className="text-[10px] text-[var(--color-text-muted)]">Oura total</p>
+          </div>
         </div>
-        <div>
-          <p className="text-xs text-[var(--color-text-muted)]">Net</p>
-          <p
-            className={`text-xl font-bold tabular-nums ${
-              net > 0 ? "text-emerald-400" : net < 0 ? "text-amber-400" : "text-white"
-            }`}
-          >
-            {net > 0 ? "+" : ""}
-            {Math.round(net)}
-          </p>
-          <p className="text-[10px] text-[var(--color-text-muted)]">
-            {net > 0 ? "surplus" : net < 0 ? "deficit" : "balanced"}
-          </p>
+        <div className="bg-[var(--color-surface-2)] p-3 text-center">
+          <div className="ov">Net</div>
+          <div className={`disp num text-[40px] leading-[0.9] ${
+            net > 0 ? "text-[var(--color-green)]" : net < 0 ? "text-[var(--color-yellow)]" : "text-[var(--color-text)]"
+          }`}>
+            {net > 0 ? "+" : ""}{Math.round(net)}
+          </div>
         </div>
       </div>
 
-      <div className={`mt-3 rounded-lg border p-2.5 text-center text-xs ${style}`}>
+      <div className={`mt-3 ${barClass[classification.status]} py-2.5 text-center text-xs font-extrabold uppercase tracking-[0.08em] text-[var(--color-bg)] angled-clip`}>
         {classification.message}
-        {goal && (
-          <span className="ml-1 opacity-60">
-            (goal: {goal}
-            {goalCals && `, target ${goalCals} in`})
-          </span>
-        )}
       </div>
     </div>
   );

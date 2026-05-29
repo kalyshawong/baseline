@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ChatInterface } from "@/components/coach/chat-interface";
+import { buildWorkoutDiscussionStarter } from "@/lib/workout-discussion";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,19 @@ export default async function CoachPage({
 }) {
   const params = await searchParams;
   const sessionId = typeof params.session === "string" ? params.session : null;
+
+  // Deep-link from WorkoutCard's "Discuss with coach →" button. When
+  // both params are present, we build a draft message pre-loaded with
+  // the workout's full context and seed the chat input with it. The
+  // user can edit before sending — we never auto-send.
+  const workoutId =
+    typeof params.workout === "string" ? params.workout : null;
+  const workoutSource =
+    typeof params.source === "string" ? params.source : "healthkit";
+  const workoutStarter =
+    workoutId && !sessionId
+      ? await buildWorkoutDiscussionStarter(workoutSource, workoutId)
+      : null;
 
   const [sessions, currentSession, activeGoals] = await Promise.all([
     prisma.chatSession.findMany({
@@ -29,11 +43,11 @@ export default async function CoachPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
+    <div className="mx-auto max-w-[1000px] px-9 py-6">
       <div className="mb-4">
         <h1 className="text-xl font-bold tracking-tight">Baseline Coach</h1>
         <p className="text-sm text-[var(--color-text-muted)]">
-          Science-backed advice grounded in your real data
+          Science-backed coaching with full access to your biometric, training, nutrition, cycle, and goal data.
         </p>
       </div>
 
@@ -54,6 +68,7 @@ export default async function CoachPage({
           isPrimary: g.isPrimary,
           deadline: g.deadline?.toISOString() ?? null,
         }))}
+        initialInput={workoutStarter}
       />
     </div>
   );

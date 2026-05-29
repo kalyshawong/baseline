@@ -15,9 +15,6 @@ export function SyncButton() {
         const res = await fetch("/api/sync", { method: "POST" });
         const data = await res.json();
         if (data.success) {
-          // No success label — the "Last sync: 7:46pm" timestamp on the
-          // dashboard already conveys success, and listing each endpoint's
-          // record count next to the button was noisy.
           router.refresh();
         } else {
           setResult(`Error: ${data.error}`);
@@ -29,16 +26,16 @@ export function SyncButton() {
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-4">
       <button
         onClick={handleSync}
         disabled={isPending}
-        className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium transition-colors hover:bg-white/20 disabled:opacity-50"
+        className="btn disabled:opacity-50"
       >
-        {isPending ? "Syncing..." : "Sync Now"}
+        {isPending ? "Syncing…" : "⟳ Sync Now"}
       </button>
       {result && (
-        <span className="text-xs text-red-400">{result}</span>
+        <span className="text-xs text-[var(--color-red)]">{result}</span>
       )}
     </div>
   );

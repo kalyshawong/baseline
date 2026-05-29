@@ -1,19 +1,300 @@
 @import "tailwindcss";
 
+/* ============================================================
+   BASELINE — Athletic design system (Gold · Glow-Depth)
+   ============================================================ */
+
 :root {
-  --color-green: #22c55e;
-  --color-yellow: #eab308;
-  --color-red: #ef4444;
-  --color-bg: #0a0a0a;
-  --color-surface: #141414;
-  --color-surface-2: #1e1e1e;
-  --color-border: #262626;
-  --color-text: #fafafa;
-  --color-text-muted: #a3a3a3;
+  /* surfaces — warm dark (oklch) */
+  --color-bg: oklch(0.142 0.010 70);
+  --color-surface: oklch(0.195 0.010 70);
+  --color-surface-2: oklch(0.228 0.010 70);
+  --color-border: oklch(0.30 0.010 70);
+
+  /* ink */
+  --color-text: oklch(0.97 0.003 264);
+  --color-text-muted: oklch(0.66 0.012 264);
+  --color-faint: oklch(0.50 0.012 264);
+
+  /* brand accent */
+  --color-gold: oklch(0.82 0.155 88);
+
+  /* semantic status */
+  --color-green: oklch(0.82 0.17 150);
+  --color-yellow: oklch(0.83 0.16 80);
+  --color-red: oklch(0.66 0.21 25);
+  --color-blue: oklch(0.74 0.13 232);
+
+  /* goal type colors */
+  --t-race: var(--color-yellow);
+  --t-strength: oklch(0.70 0.17 300);
+  --t-physique: oklch(0.73 0.19 350);
+  --t-cognitive: oklch(0.74 0.13 250);
+  --t-weight: oklch(0.78 0.15 158);
+  --t-health: oklch(0.80 0.10 195);
+  --t-custom: var(--color-text-muted);
+
+  /* typography */
+  --font-disp: var(--font-disp, "Bebas Neue"), Impact, sans-serif;
+  --font-sans: var(--font-sans, "Archivo"), system-ui, sans-serif;
+
+  /* animation vocabulary — strong custom curves per Emil Kowalski */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@theme {
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 body {
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- display font ---------- */
+.disp {
+  font-family: var(--font-disp);
+  letter-spacing: 0.01em;
+}
+
+/* ---------- section label / overline ---------- */
+.ov {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+  white-space: nowrap;
+}
+
+/* ---------- tabular numerals ---------- */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- panel (glow-depth card) ---------- */
+.panel {
+  background: var(--color-surface);
+  background-image: linear-gradient(160deg, oklch(1 0 0 / 0.032), transparent 42%);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.05),
+    0 12px 30px -16px #000;
+  padding: 24px 28px;
+}
+
+/* ---------- angled clip-path ---------- */
+.angled-clip {
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+.angled-clip-sm {
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+
+/* ---------- accent glow ---------- */
+.accent-glow {
+  box-shadow: 0 0 24px -6px var(--color-gold);
+}
+
+/* ---------- status pills ---------- */
+.pill {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  white-space: nowrap;
+}
+.pill-g { background: var(--color-green); color: var(--color-bg); }
+.pill-a { background: var(--color-yellow); color: var(--color-bg); }
+.pill-r { background: var(--color-red); color: var(--color-text); }
+.pill-muted { background: var(--color-surface-2); color: var(--color-text-muted); }
+
+/* ---------- tag chips ---------- */
+.tagchip {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  padding: 9px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+.tagchip:hover { color: var(--color-text); border-color: var(--color-faint); }
+.tagchip.on {
+  color: var(--color-bg);
+  background: var(--color-gold);
+  border-color: var(--color-gold);
+  box-shadow: 0 0 20px -8px var(--color-gold);
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--color-gold);
+  color: var(--color-bg);
+  border: none;
+  padding: 12px 20px;
+  cursor: pointer;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  box-shadow: 0 0 24px -8px var(--color-gold);
+}
+.btn:hover { filter: brightness(1.06); }
+.btn-ghost {
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  box-shadow: none;
+}
+.btn-ghost:hover { color: var(--color-text); }
+
+/* ---------- form fields ---------- */
+.field {
+  width: 100%;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  padding: 12px 14px;
+  outline: none;
+}
+.field::placeholder { color: var(--color-faint); }
+.field:focus { border-color: var(--color-gold); }
+
+/* ---------- segmented control ---------- */
+.seg-opt {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+  background: var(--color-surface-2);
+  border: 1px solid transparent;
+  padding: 14px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.seg-opt:hover { color: var(--color-text); }
+.seg-opt.on {
+  color: var(--color-bg);
+  background: var(--color-gold);
+  box-shadow: 0 0 22px -8px var(--color-gold);
+}
+
+/* ---------- empty state ---------- */
+.empty-state {
+  border: 1px dashed var(--color-border);
+  background: transparent;
+  padding: 30px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* ---------- insight card ---------- */
+.insight-card {
+  position: relative;
+  background: var(--color-surface);
+  background-image: linear-gradient(160deg, oklch(1 0 0 / 0.03), transparent 42%);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.05),
+    0 12px 30px -16px #000;
+  border-left: 4px solid var(--color-border);
+  padding: 22px 26px;
+}
+.insight-card-g {
+  border-left-color: var(--color-green);
+  background-image: linear-gradient(160deg, color-mix(in oklch, var(--color-green), transparent 88%), transparent 55%);
+}
+.insight-card-a {
+  border-left-color: var(--color-yellow);
+  background-image: linear-gradient(160deg, color-mix(in oklch, var(--color-yellow), transparent 88%), transparent 55%);
+}
+.insight-card-muted {
+  border-left-color: var(--color-faint);
+}
+
+/* ---------- link-like ---------- */
+.linklike {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+}
+.linklike:hover { color: var(--color-gold); }
+
+/* ============================================================
+   Animations (preserved from previous system)
+   ============================================================ */
+
+/* Stagger entrance for dashboard cards */
+.card-enter {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity 280ms var(--ease-out-strong),
+    transform 280ms var(--ease-out-strong);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.card-enter:nth-child(1)  { transition-delay: 0ms; }
+.card-enter:nth-child(2)  { transition-delay: 40ms; }
+.card-enter:nth-child(3)  { transition-delay: 80ms; }
+.card-enter:nth-child(4)  { transition-delay: 120ms; }
+.card-enter:nth-child(5)  { transition-delay: 160ms; }
+.card-enter:nth-child(6)  { transition-delay: 200ms; }
+.card-enter:nth-child(7)  { transition-delay: 240ms; }
+.card-enter:nth-child(n+8) { transition-delay: 280ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card-enter {
+    transition: opacity 200ms ease;
+
+    @starting-style {
+      transform: none;
+    }
+  }
+  .card-enter:nth-child(n) { transition-delay: 0ms; }
+}
+
+/* Typewriter caret for morning verdict */
+@keyframes baseline-caret-blink {
+  50% { opacity: 0; }
+}
+.baseline-caret {
+  display: inline-block;
+  width: 0.45ch;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: -0.12em;
+  background: currentColor;
+  animation: baseline-caret-blink 720ms steps(2) infinite;
 }
