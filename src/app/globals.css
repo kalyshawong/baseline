@@ -34,9 +34,6 @@
   --t-health: oklch(0.80 0.10 195);
   --t-custom: var(--color-text-muted);
 
-  /* typography */
-  --font-disp: var(--font-disp, "Bebas Neue"), Impact, sans-serif;
-  --font-sans: var(--font-sans, "Archivo"), system-ui, sans-serif;
 
   /* animation vocabulary — strong custom curves per Emil Kowalski */
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
@@ -53,13 +50,13 @@
 body {
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: var(--font-sans);
+  font-family: var(--font-sans, "Archivo", system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
 }
 
 /* ---------- display font ---------- */
 .disp {
-  font-family: var(--font-disp);
+  font-family: var(--font-disp, "Bebas Neue", Impact, sans-serif);
   letter-spacing: 0.01em;
 }
 
@@ -144,7 +141,7 @@ body {
 
 /* ---------- buttons ---------- */
 .btn {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans, "Archivo", system-ui, sans-serif);
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.08em;
@@ -171,7 +168,7 @@ body {
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   color: var(--color-text);
-  font-family: var(--font-sans);
+  font-family: var(--font-sans, "Archivo", system-ui, sans-serif);
   font-size: 14px;
   padding: 12px 14px;
   outline: none;
@@ -181,7 +178,7 @@ body {
 
 /* ---------- segmented control ---------- */
 .seg-opt {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans, "Archivo", system-ui, sans-serif);
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.02em;

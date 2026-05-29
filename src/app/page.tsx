@@ -216,7 +216,7 @@ export default async function Dashboard({
 
   // Pull the active Hyrox plan + today's session recommendation. Renders
   // nothing if no active plan exists, so non-Hyrox users see no change.
-  const hyroxToday = isToday ? await getHyroxToday(viewDate) : null;
+  const hyroxToday = await getHyroxToday(viewDate);
 
   // Split "real training" from "ambient activity." Walks, breathing,
   // stands etc. shouldn't claim a full WorkoutCard with notes + a
