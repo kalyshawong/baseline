@@ -48,9 +48,6 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
     setError(null);
     setResults(null);
 
-    // Build timestamp from the viewed date + chosen time. When timeUnknown,
-    // anchor at 00:00 local so the day bucket is correct without inventing
-    // a specific meal time.
     const baseDate = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
     const [h, m] = timeUnknown ? [0, 0] : time.split(":").map(Number);
     const eatenAt = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), h, m);
@@ -87,41 +84,31 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
   }
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-      <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        Log Food
-      </h2>
+    <div className="panel">
+      <p className="ov mb-3" style={{ color: "var(--color-gold)" }}>Log Food</p>
       <form onSubmit={handleSubmit}>
         {/* Meal type selector */}
-        <div className="mb-3 grid grid-cols-4 gap-2">
+        <div className="mb-3 grid grid-cols-4 gap-px" style={{ background: "var(--color-border)" }}>
           {mealTypes.map((mt) => (
             <button
               key={mt.id}
               type="button"
               onClick={() => setMealType(mt.id)}
-              className={`border py-2 text-xs font-medium transition-all ${
-                mealType === mt.id
-                  ? "border-white/30 bg-white/10 text-white"
-                  : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-text-muted)]/50"
-              }`}
+              className={`seg-opt ${mealType === mt.id ? "on" : ""}`}
             >
               {mt.label}
             </button>
           ))}
         </div>
 
-        {/* Meal source selector — visually lighter than meal type */}
+        {/* Meal source selector */}
         <div className="mb-3 grid grid-cols-4 gap-1.5">
           {mealSources.map((ms) => (
             <button
               key={ms.id}
               type="button"
               onClick={() => setSource(ms.id)}
-              className={`rounded-md py-1 text-[11px] transition-all ${
-                source === ms.id
-                  ? "bg-white/8 text-[var(--color-text-muted)] ring-1 ring-white/20"
-                  : "text-[var(--color-text-muted)]/50 hover:text-[var(--color-text-muted)]"
-              }`}
+              className={`seg-opt !text-[11px] !py-1.5 ${source === ms.id ? "on" : ""}`}
             >
               {ms.label}
             </button>
@@ -136,7 +123,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
             value={time}
             onChange={(e) => setTime(e.target.value)}
             disabled={timeUnknown}
-            className="border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-1.5 text-xs [color-scheme:dark] disabled:opacity-40"
+            className="field !w-auto !py-1.5 !px-2 !text-xs [color-scheme:dark] disabled:opacity-40"
           />
           <label className="ml-auto flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] cursor-pointer select-none">
             <input
@@ -145,7 +132,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
               onChange={(e) => setTimeUnknown(e.target.checked)}
               className="accent-[var(--color-text-muted)]"
             />
-            Forgot time — sometime today
+            Forgot time
           </label>
         </div>
 
@@ -155,12 +142,12 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
           onChange={(e) => setText(e.target.value)}
           placeholder="3 eggs, 200g ground beef, 1 cup rice, 1 avocado"
           rows={2}
-          className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)]/50 resize-none"
+          className="field resize-none"
         />
         <button
           type="submit"
           disabled={isPending || !text.trim()}
-          className="mt-2 w-full bg-white/10 py-2.5 text-sm font-medium transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-white/20 disabled:opacity-30"
+          className="btn mt-3 w-full disabled:opacity-30"
         >
           {isPending ? "Estimating macros..." : "Log Meal"}
         </button>

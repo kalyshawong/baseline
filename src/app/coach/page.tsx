@@ -43,12 +43,29 @@ export default async function CoachPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-[1000px] px-9 py-6">
-      <div className="mb-4">
-        <h1 className="text-xl font-bold tracking-tight">Baseline Coach</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          Science-backed coaching with full access to your biometric, training, nutrition, cycle, and goal data.
+    <div className="mx-auto max-w-[1000px] px-9 py-10">
+      {/* Header */}
+      <div className="mb-6 text-center">
+        <h1 className="disp text-[46px] leading-none">BASELINE COACH</h1>
+        <p className="mt-1.5 text-sm text-[var(--color-text-muted)]">
+          Science-backed coaching with full access to your data.
         </p>
+      </div>
+
+      {/* Action row */}
+      <div className="mb-5 flex items-center justify-center gap-3">
+        <a href="/coach" className="btn">+ New Chat</a>
+        <a
+          href="/coach?view=history"
+          className="flex items-center gap-2 border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-[13px] font-semibold tracking-wide text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-gold)] hover:text-[var(--color-text)]"
+        >
+          History
+          {sessions.length > 0 && (
+            <span className="min-w-[20px] bg-[var(--color-gold)] px-1.5 py-0.5 text-center text-[11px] font-bold text-[var(--color-bg)]">
+              {sessions.length}
+            </span>
+          )}
+        </a>
       </div>
 
       <ChatInterface

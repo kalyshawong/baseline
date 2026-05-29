@@ -41,43 +41,70 @@ export function TodayContext({ data }: { data: TodayData }) {
   const phase = data.cyclePhase ? phaseInfo[data.cyclePhase] : null;
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-      <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        Today&apos;s Context
-      </h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div>
-          <p className="text-xs text-[var(--color-text-muted)]">Readiness</p>
-          <p className="text-lg font-bold tabular-nums">{data.readinessScore ?? "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-[var(--color-text-muted)]">Sleep</p>
-          <p className="text-lg font-bold tabular-nums">{formatDuration(data.totalSleep)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-[var(--color-text-muted)]">HRV</p>
-          <p className="text-lg font-bold tabular-nums">
-            {data.averageHrv ?? "—"}
-            {data.averageHrv != null && <span className="text-xs font-normal text-[var(--color-text-muted)]"> ms</span>}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-[var(--color-text-muted)]">Stress</p>
-          <p className="text-lg font-bold tabular-nums">
-            {data.stressSummary
-              ? data.stressSummary.charAt(0).toUpperCase() + data.stressSummary.slice(1)
-              : "—"}
-          </p>
-        </div>
+    <div
+      className="grid gap-px"
+      style={{
+        gridTemplateColumns: "1fr 1fr 1fr 1fr 2.6fr",
+        background: "var(--color-border)",
+      }}
+    >
+      {/* Readiness */}
+      <div className="bg-[var(--color-surface)] px-5 py-4">
+        <p className="ov mb-1">Readiness</p>
+        <p className="disp num text-[34px] leading-none">
+          {data.readinessScore ?? "—"}
+        </p>
       </div>
-      {phase && (
-        <div className="mt-3 flex items-center gap-2">
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${phase.color}`}>
-            {phase.label}
-          </span>
-          <span className="text-xs text-[var(--color-text-muted)]">{phase.note}</span>
-        </div>
-      )}
+
+      {/* Sleep */}
+      <div className="bg-[var(--color-surface)] px-5 py-4">
+        <p className="ov mb-1">Sleep</p>
+        <p className="disp num text-[34px] leading-none">
+          {data.sleepScore ?? "—"}
+        </p>
+        {data.totalSleep != null && (
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+            {formatDuration(data.totalSleep)}
+          </p>
+        )}
+      </div>
+
+      {/* HRV */}
+      <div className="bg-[var(--color-surface)] px-5 py-4">
+        <p className="ov mb-1">HRV</p>
+        <p className="disp num text-[34px] leading-none">
+          {data.averageHrv != null ? Math.round(data.averageHrv) : "—"}
+          {data.averageHrv != null && (
+            <span className="text-[16px] text-[var(--color-text-muted)]"> ms</span>
+          )}
+        </p>
+      </div>
+
+      {/* Stress */}
+      <div className="bg-[var(--color-surface)] px-5 py-4">
+        <p className="ov mb-1">Stress</p>
+        <p className="disp num text-[34px] leading-none">
+          {data.stressSummary
+            ? data.stressSummary.charAt(0).toUpperCase() + data.stressSummary.slice(1)
+            : "—"}
+        </p>
+      </div>
+
+      {/* Menstrual phase note */}
+      <div className="flex items-center gap-3 bg-[var(--color-surface)] px-5 py-4">
+        {phase ? (
+          <>
+            <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${phase.color}`}>
+              {phase.label}
+            </span>
+            <span className="text-xs leading-snug text-[var(--color-text-muted)]">
+              {phase.note}
+            </span>
+          </>
+        ) : (
+          <span className="text-xs text-[var(--color-faint)]">No cycle data</span>
+        )}
+      </div>
     </div>
   );
 }

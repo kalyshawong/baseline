@@ -1,22 +1,34 @@
+"use client";
+
+import { useState } from "react";
 import type { Insight, InsightMetric } from "@/lib/insights";
 
-const sigStyles: Record<string, string> = {
-  significant: "border-emerald-500/30 bg-emerald-500/5",
-  suggestive: "border-yellow-500/30 bg-yellow-500/5",
-  watching: "border-[var(--color-border)] bg-[var(--color-surface)]",
+const tierToCard: Record<string, string> = {
+  significant: "insight-card insight-card-g",
+  suggestive: "insight-card insight-card-a",
+  watching: "insight-card insight-card-muted",
 };
 
-const sigBadge: Record<string, string> = {
-  significant: "bg-emerald-500/20 text-emerald-400",
-  suggestive: "bg-yellow-500/20 text-yellow-400",
-  watching: "bg-neutral-500/20 text-neutral-400",
+const tierToPill: Record<string, string> = {
+  significant: "pill pill-g",
+  suggestive: "pill pill-a",
+  watching: "pill pill-muted",
 };
 
-const sigLabel: Record<string, string> = {
-  significant: "Strong signal",
-  suggestive: "Suggestive trend",
+const tierLabel: Record<string, string> = {
+  significant: "Strong",
+  suggestive: "Trend",
   watching: "Watching",
 };
+
+type Filter = "all" | "significant" | "suggestive" | "watching";
+
+const filters: { id: Filter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "significant", label: "Strong" },
+  { id: "suggestive", label: "Trends" },
+  { id: "watching", label: "Watching" },
+];
 
 function formatMetricValue(value: number, metric: string): string {
   if (metric === "deepSleepDuration" || metric === "totalSleepDuration" || metric === "remSleepDuration") {
@@ -31,17 +43,17 @@ function formatMetricValue(value: number, metric: string): string {
 
 function MetricLine({ m }: { m: InsightMetric }) {
   return (
-    <span>
+    <span className="text-sm">
       {m.metricLabel}{" "}
-      <span className="font-mono font-semibold">
+      <span className="disp num text-[22px] leading-none">
         {formatMetricValue(m.taggedMean, m.metric)}
       </span>
       {" "}vs{" "}
-      <span className="font-mono font-semibold">
+      <span className="disp num text-[22px] leading-none">
         {formatMetricValue(m.untaggedMean, m.metric)}
       </span>
       {" "}
-      <span className="text-[var(--color-text-muted)]">
+      <span className="text-[var(--color-text-muted)] text-xs">
         ({m.percentDiff}%, p={m.pValue})
       </span>
     </span>
@@ -49,64 +61,128 @@ function MetricLine({ m }: { m: InsightMetric }) {
 }
 
 export function InsightsFeed({ insights }: { insights: Insight[] }) {
+  const [activeFilter, setActiveFilter] = useState<Filter>("all");
+  const [showArchived, setShowArchived] = useState(false);
+
+  const filtered =
+    activeFilter === "all"
+      ? insights
+      : insights.filter((i) => i.significance === activeFilter);
+
   if (insights.length === 0) {
     return (
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center">
-        <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-          Insights
-        </h2>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          Keep tagging activities — insights will appear once patterns emerge
-          (5+ tags of the same type needed).
-        </p>
+      <div>
+        <div className="empty-state">
+          <p className="text-sm">
+            Keep tagging activities — insights will appear once patterns emerge
+            (5+ tags of the same type needed).
+          </p>
+        </div>
       </div>
     );
   }
 
+  // Pick the top finding for the featured slot
+  const featured = filtered[0];
+  const rest = filtered.slice(1);
+
   return (
     <div>
-      <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        Insights
-      </h2>
-      <div className="space-y-3">
-        {insights.map((insight) => (
-          <div
-            key={`${insight.tag}-${insight.direction}`}
-            className={`border p-5 ${sigStyles[insight.significance]}`}
+      {/* Filter bar */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        {filters.map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setActiveFilter(f.id)}
+            className={`tagchip ${activeFilter === f.id ? "on" : ""}`}
           >
-            {/* Finding header */}
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-sm">
-                Days with <span className="font-semibold">&ldquo;{insight.tag}&rdquo;</span>:{" "}
-                {insight.direction} —
-              </p>
-              <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${sigBadge[insight.significance]}`}>
-                {sigLabel[insight.significance]}
-              </span>
-            </div>
-
-            {/* Metric lines */}
-            <ul className="mt-1.5 space-y-0.5 text-sm">
-              {insight.metrics.map((m) => (
-                <li key={m.metric}>
-                  <MetricLine m={m} />
-                </li>
-              ))}
-            </ul>
-
-            {/* Sample size + what we compared against */}
-            <div className="mt-2 text-xs text-[var(--color-text-muted)]">
-              n={insight.taggedN} tagged vs n={insight.untaggedN}{" "}
-              <span className="italic">{insight.controlLabel}</span>
-            </div>
-
-            {/* Recommendation */}
-            <p className="mt-3 text-xs leading-relaxed text-[var(--color-text-muted)]">
-              {insight.recommendation}
-            </p>
-          </div>
+            {f.label}
+          </button>
         ))}
       </div>
+
+      {filtered.length === 0 && (
+        <p className="text-sm text-[var(--color-text-muted)] py-6 text-center">
+          No insights match this filter yet.
+        </p>
+      )}
+
+      {/* Featured top finding */}
+      {featured && (
+        <div className={`${tierToCard[featured.significance]} mb-4`}>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm font-medium">
+              Days with <span className="font-semibold">&ldquo;{featured.tag}&rdquo;</span>:{" "}
+              {featured.direction}
+            </p>
+            <span className={tierToPill[featured.significance]}>
+              {tierLabel[featured.significance]}
+            </span>
+          </div>
+          <ul className="mt-2 space-y-1">
+            {featured.metrics.map((m) => (
+              <li key={m.metric}>
+                <MetricLine m={m} />
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2 text-xs text-[var(--color-text-muted)]">
+            n={featured.taggedN} tagged vs n={featured.untaggedN}{" "}
+            <span className="italic">{featured.controlLabel}</span>
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-[var(--color-text-muted)]">
+            {featured.recommendation}
+          </p>
+        </div>
+      )}
+
+      {/* 2-column grid of remaining cards */}
+      {rest.length > 0 && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {rest.map((insight) => (
+            <div
+              key={`${insight.tag}-${insight.direction}`}
+              className={tierToCard[insight.significance]}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-medium">
+                  <span className="font-semibold">&ldquo;{insight.tag}&rdquo;</span>:{" "}
+                  {insight.direction}
+                </p>
+                <span className={tierToPill[insight.significance]}>
+                  {tierLabel[insight.significance]}
+                </span>
+              </div>
+              <ul className="mt-1.5 space-y-0.5">
+                {insight.metrics.map((m) => (
+                  <li key={m.metric}>
+                    <MetricLine m={m} />
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 text-xs text-[var(--color-text-muted)]">
+                n={insight.taggedN} vs n={insight.untaggedN}{" "}
+                <span className="italic">{insight.controlLabel}</span>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-muted)]">
+                {insight.recommendation}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Show archived link */}
+      <div className="mt-4 text-center">
+        <button
+          type="button"
+          onClick={() => setShowArchived((v) => !v)}
+          className="linklike"
+        >
+          {showArchived ? "Hide archived" : "Show archived"}
+        </button>
+      </div>
+
       <p className="mt-3 text-center text-xs text-[var(--color-text-muted)]">
         Correlations are personal observations, not medical advice. Limited sample sizes
         mean these should be treated as hypotheses.

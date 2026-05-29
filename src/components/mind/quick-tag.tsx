@@ -14,17 +14,6 @@ const presets = [
   { category: "study", tags: ["deep work", "reading", "lecture", "practice"] },
 ];
 
-const categoryColors: Record<string, string> = {
-  music: "bg-violet-500/20 text-violet-400 border-violet-500/30",
-  breathing: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
-  caffeine: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  alcohol: "bg-rose-500/20 text-rose-400 border-rose-500/30",
-  meditation: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
-  exercise: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  social: "bg-pink-500/20 text-pink-400 border-pink-500/30",
-  study: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-};
-
 function currentTimeString(): string {
   const now = new Date();
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -48,12 +37,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
   }
 
   function buildTimestamp(): string {
-    // Base date = viewed date (if any) or today local
     const base = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
-    // When time is unknown we anchor at 00:00 local of the day so downstream
-    // analyses that only key off the date (e.g. insights.ts) still bucket it
-    // correctly, and the UI can render "sometime today" from the metadata flag
-    // instead of showing a fake time of day.
     const [h, m] = timeUnknown ? [0, 0] : tagTime.split(":").map(Number);
     const ts = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m);
     return ts.toISOString();
@@ -101,15 +85,16 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
   }
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-      <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        Quick Tag
-      </h2>
+    <div className="panel">
+      <p className="ov mb-3" style={{ color: "var(--color-gold)" }}>Quick Tag</p>
+
       {flash && (
         <div className="mb-3 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
           Tagged: {flash}
         </div>
       )}
+
+      {/* Category chips */}
       <div className="flex flex-wrap gap-2">
         {presets.map((p) => (
           <button
@@ -117,13 +102,9 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
             onClick={() => {
               const next = activeCategory === p.category ? null : p.category;
               setActiveCategory(next);
-              if (next) setTagTime(currentTimeString()); // reset time to now on open
+              if (next) setTagTime(currentTimeString());
             }}
-            className={`border px-3 py-1.5 text-xs font-medium transition-all ${
-              activeCategory === p.category
-                ? categoryColors[p.category]
-                : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-text-muted)]/50"
-            }`}
+            className={`tagchip ${activeCategory === p.category ? "on" : ""}`}
           >
             {p.category}
           </button>
@@ -132,11 +113,9 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
 
       {activeCategory && (
         <div className="mt-4 space-y-3 border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
-          {/* Specific tags for the selected category */}
+          {/* Specific tags */}
           <div>
-            <p className="mb-2 text-xs font-medium text-[var(--color-text-muted)]">
-              Select specific tag
-            </p>
+            <p className="ov mb-2">Select specific tag</p>
             <div className="flex flex-wrap gap-2">
               {presets
                 .find((p) => p.category === activeCategory)
@@ -145,7 +124,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
                     key={tag}
                     onClick={() => handleTag(activeCategory, tag)}
                     disabled={isPending}
-                    className="border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-white/10 disabled:opacity-50"
+                    className="tagchip disabled:opacity-50"
                   >
                     {tag}
                   </button>
@@ -161,13 +140,13 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
               value={tagTime}
               onChange={(e) => setTagTime(e.target.value)}
               disabled={timeUnknown}
-              className="border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-xs [color-scheme:dark] disabled:opacity-40"
+              className="field !w-auto !py-1.5 !px-2 !text-xs [color-scheme:dark] disabled:opacity-40"
             />
             <button
               type="button"
               onClick={() => setTagTime(currentTimeString())}
               disabled={timeUnknown}
-              className="text-xs text-[var(--color-text-muted)] underline hover:text-white disabled:opacity-40 disabled:no-underline"
+              className="linklike disabled:opacity-40"
             >
               Now
             </button>
@@ -178,7 +157,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
                 onChange={(e) => setTimeUnknown(e.target.checked)}
                 className="accent-[var(--color-text-muted)]"
               />
-              Sometime today — don&apos;t remember time
+              Sometime today
             </label>
           </div>
 
@@ -188,7 +167,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
             value={tagNotes}
             onChange={(e) => setTagNotes(e.target.value)}
             placeholder="Notes (duration, amount, context...)"
-            className="w-full border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+            className="field !text-xs"
           />
         </div>
       )}
@@ -201,7 +180,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
             value={customTag}
             onChange={(e) => setCustomTag(e.target.value)}
             placeholder="Custom tag (e.g. cold shower, creatine, sauna)"
-            className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+            className="field min-w-0 flex-1 !text-xs"
           />
           {!timeUnknown && (
             <>
@@ -210,12 +189,12 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
                 value={tagTime}
                 onChange={(e) => setTagTime(e.target.value)}
                 aria-label="Tag time"
-                className="border border-[var(--color-border)] bg-[var(--color-surface-2)] px-2 py-2 text-xs [color-scheme:dark]"
+                className="field !w-auto !py-2 !px-2 !text-xs [color-scheme:dark]"
               />
               <button
                 type="button"
                 onClick={() => setTagTime(currentTimeString())}
-                className="border border-[var(--color-border)] px-2 py-2 text-xs text-[var(--color-text-muted)] hover:text-white"
+                className="linklike self-center"
               >
                 Now
               </button>
@@ -224,7 +203,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
           <button
             type="submit"
             disabled={isPending || !customTag.trim()}
-            className="bg-white/10 px-3 py-2 text-xs font-medium transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-white/20 disabled:opacity-30"
+            className="btn disabled:opacity-30"
           >
             Tag
           </button>

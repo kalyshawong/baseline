@@ -10,9 +10,9 @@ export default async function GoalsPage() {
 
   return (
     <div className="mx-auto max-w-[1320px] px-9 py-6">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold tracking-tight">Goals</h1>
-        <p className="text-sm text-[var(--color-text-muted)]">
+      <div className="mb-10">
+        <h1 className="disp text-[46px] leading-none tracking-tight">GOALS</h1>
+        <p className="mt-1 text-sm text-[var(--color-faint)]">
           Races, exams, body composition targets — feeds into coach context
         </p>
       </div>

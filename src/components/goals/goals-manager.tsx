@@ -18,38 +18,19 @@ interface Goal {
 }
 
 const goalTypes = [
-  { id: "race", label: "Race", color: "bg-amber-500/20 text-amber-400",
-    subtypes: ["hyrox", "marathon", "half_marathon", "5k", "10k", "triathlon", "custom"] },
-  { id: "strength", label: "Strength", color: "bg-purple-500/20 text-purple-400",
-    subtypes: ["powerlifting_meet", "bodybuilding", "general_strength", "custom"] },
-  { id: "physique", label: "Physique", color: "bg-pink-500/20 text-pink-400",
-    subtypes: ["bodybuilding", "recomp", "custom"] },
-  { id: "cognitive", label: "Cognitive", color: "bg-blue-500/20 text-blue-400",
-    subtypes: ["cfa", "finals", "certification", "custom"] },
-  { id: "weight", label: "Weight", color: "bg-emerald-500/20 text-emerald-400",
-    subtypes: ["cut", "bulk", "recomp", "maintain"] },
-  { id: "health", label: "Health", color: "bg-teal-500/20 text-teal-400",
-    subtypes: ["sleep_optimization", "hrv_baseline", "stress_management", "custom"] },
-  { id: "custom", label: "Custom", color: "bg-neutral-500/20 text-neutral-400",
-    subtypes: [] },
+  { id: "race", label: "Race", subtypes: ["hyrox", "marathon", "half_marathon", "5k", "10k", "triathlon", "custom"] },
+  { id: "strength", label: "Strength", subtypes: ["powerlifting_meet", "bodybuilding", "general_strength", "custom"] },
+  { id: "physique", label: "Physique", subtypes: ["bodybuilding", "recomp", "custom"] },
+  { id: "cognitive", label: "Cognitive", subtypes: ["cfa", "finals", "certification", "custom"] },
+  { id: "weight", label: "Weight", subtypes: ["cut", "bulk", "recomp", "maintain"] },
+  { id: "health", label: "Health", subtypes: ["sleep_optimization", "hrv_baseline", "stress_management", "custom"] },
+  { id: "custom", label: "Custom", subtypes: [] },
 ];
 
-function typeColor(type: string): string {
-  return goalTypes.find((t) => t.id === type)?.color ?? goalTypes[6].color;
-}
-
-const typeHexColors: Record<string, string> = {
-  race: "#f59e0b",
-  strength: "#a855f7",
-  physique: "#ec4899",
-  cognitive: "#3b82f6",
-  weight: "#10b981",
-  health: "#14b8a6",
-  custom: "#a3a3a3",
-};
-
-function typeHexColor(type: string): string {
-  return typeHexColors[type] ?? "#a3a3a3";
+/** CSS variable for goal type color */
+function typeVar(type: string): string {
+  const valid = ["race", "strength", "physique", "cognitive", "weight", "health", "custom"];
+  return `var(--t-${valid.includes(type) ? type : "custom"})`;
 }
 
 function subtypeLabel(subtype: string): string {
@@ -64,6 +45,32 @@ function daysUntil(deadline: string | null): string | null {
   if (diff === 0) return "Today";
   if (diff === 1) return "Tomorrow";
   return `${diff} days`;
+}
+
+/** Type badge with angled clip and semi-transparent color */
+function TypeBadge({ type }: { type: string }) {
+  const label = goalTypes.find((t) => t.id === type)?.label ?? type;
+  return (
+    <span
+      className="angled-clip px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em]"
+      style={{
+        background: `color-mix(in oklch, ${typeVar(type)}, transparent 80%)`,
+        color: typeVar(type),
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** Section overline with line-after */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      <span className="ov shrink-0">{children}</span>
+      <span className="h-px flex-1 bg-[var(--color-border)]" />
+    </div>
+  );
 }
 
 export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
@@ -230,387 +237,488 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
     return 0;
   });
 
-  return (
-    <div className="space-y-6">
-      {error && (
-        <div className="bg-red-500/10 px-3 py-2 text-xs text-red-400">
-          {error}
+  const primaryGoal = sortedActive.find((g) => g.isPrimary);
+  const nonPrimaryActive = sortedActive.filter((g) => !g.isPrimary);
+
+  /* ---- shared form fields renderer ---- */
+  function renderFormFields(
+    fields: { title: string; type: string; subtype: string | null; target: string; deadline: string; notes: string },
+    setField: (key: string, value: string | null) => void,
+    subtypes: string[],
+  ) {
+    return (
+      <>
+        <input
+          type="text"
+          value={fields.title}
+          onChange={(e) => setField("title", e.target.value)}
+          placeholder="Goal title (e.g. Finish Hyrox under 90 min, Pass CFA Level I)"
+          className="field w-full"
+        />
+
+        {/* Type selector chips */}
+        <div>
+          <p className="ov mb-2">Type</p>
+          <div className="flex flex-wrap gap-1.5">
+            {goalTypes.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setField("type", t.id);
+                  setField("subtype", null);
+                }}
+                className={`angled-clip-sm px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
+                  fields.type === t.id
+                    ? "text-white"
+                    : "text-[var(--color-faint)] hover:text-[var(--color-text-muted)]"
+                }`}
+                style={
+                  fields.type === t.id
+                    ? {
+                        background: `color-mix(in oklch, ${typeVar(t.id)}, transparent 70%)`,
+                        color: typeVar(t.id),
+                      }
+                    : { background: "var(--color-surface-2)" }
+                }
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
 
-      {/* Add button / form */}
-      {!showForm ? (
-        <button
-          onClick={() => setShowForm(true)}
-          className="w-full border border-dashed border-[var(--color-border)] py-3 text-sm font-medium text-[var(--color-text-muted)] transition duration-150 ease-out-strong active:scale-[0.97] hover:border-white/30 hover:text-white"
-        >
-          + New Goal
-        </button>
-      ) : (
-        <form
-          onSubmit={createGoal}
-          className="space-y-3 border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
-        >
-          <h3 className="text-sm font-semibold">New Goal</h3>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Goal title (e.g. Finish Hyrox under 90 min, Pass CFA Level I)"
-            className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
-          />
-
-          {/* Type selector */}
+        {/* Subtype selector */}
+        {subtypes.length > 0 && (
           <div>
-            <p className="mb-1.5 text-xs text-[var(--color-text-muted)]">Type</p>
+            <p className="ov mb-2">Focus</p>
             <div className="flex flex-wrap gap-1.5">
-              {goalTypes.map((t) => (
+              {subtypes.map((st) => (
                 <button
-                  key={t.id}
+                  key={st}
                   type="button"
-                  onClick={() => {
-                    setType(t.id);
-                    setSubtype(null);
-                  }}
-                  className={`border px-3 py-1.5 text-xs font-medium transition-all ${
-                    type === t.id
+                  onClick={() => setField("subtype", fields.subtype === st ? null : st)}
+                  className={`border px-2.5 py-1 text-[11px] font-medium transition-all ${
+                    fields.subtype === st
                       ? "border-white/30 bg-white/10 text-white"
                       : "border-[var(--color-border)] text-[var(--color-text-muted)]"
                   }`}
                 >
-                  {t.label}
+                  {subtypeLabel(st)}
                 </button>
               ))}
             </div>
           </div>
+        )}
 
-          {/* Subtype selector (conditional) */}
-          {currentSubtypes.length > 0 && (
-            <div>
-              <p className="mb-1.5 text-xs text-[var(--color-text-muted)]">Focus</p>
-              <div className="flex flex-wrap gap-1.5">
-                {currentSubtypes.map((st) => (
-                  <button
-                    key={st}
-                    type="button"
-                    onClick={() => setSubtype(subtype === st ? null : st)}
-                    className={`border px-2.5 py-1 text-[11px] font-medium transition-all ${
-                      subtype === st
-                        ? "border-white/30 bg-white/10 text-white"
-                        : "border-[var(--color-border)] text-[var(--color-text-muted)]"
-                    }`}
-                  >
-                    {subtypeLabel(st)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+        <input
+          type="text"
+          value={fields.target}
+          onChange={(e) => setField("target", e.target.value)}
+          placeholder="Target (optional, e.g. sub-60 min, 140 lb, score > 70%)"
+          className="field w-full"
+        />
+        <input
+          type="date"
+          value={fields.deadline}
+          onChange={(e) => setField("deadline", e.target.value)}
+          className="field w-full [color-scheme:dark]"
+        />
+        <textarea
+          value={fields.notes}
+          onChange={(e) => setField("notes", e.target.value)}
+          placeholder="Notes (optional)"
+          rows={2}
+          className="field w-full resize-none"
+        />
+      </>
+    );
+  }
 
-          <input
-            type="text"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            placeholder="Target (optional, e.g. sub-60 min, 140 lb, score > 70%)"
-            className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
-          />
-          <input
-            type="date"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm [color-scheme:dark]"
-          />
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Notes (optional)"
-            rows={2}
-            className="w-full resize-none border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
-          />
-
-          {/* Primary focus toggle */}
-          <label className="flex items-center gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => setMakePrimary(!makePrimary)}
-              className={`flex h-5 w-5 items-center justify-center rounded border transition-all ${
-                makePrimary
-                  ? "border-amber-400 bg-amber-500/20 text-amber-400"
-                  : "border-[var(--color-border)] text-transparent"
-              }`}
-            >
-              ★
-            </button>
-            <span className="text-[var(--color-text-muted)]">
-              Set as primary focus — coach will lead with this goal
-            </span>
-          </label>
-
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={isPending || !title.trim()}
-              className="flex-1 bg-white/10 py-2 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="bg-[var(--color-surface-2)] px-4 py-2 text-sm text-[var(--color-text-muted)]"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+  return (
+    <div className="space-y-10">
+      {error && (
+        <div className="bg-red-500/10 px-4 py-2.5 text-xs font-medium text-red-400">
+          {error}
+        </div>
       )}
 
-      {/* Active goals */}
+      {/* ──── PRIMARY FOCUS HERO ──── */}
+      {primaryGoal && editingId !== primaryGoal.id && (
+        <>
+          <SectionLabel>Primary Focus</SectionLabel>
+          <div
+            id={`goal-${primaryGoal.id}`}
+            className="group panel grid grid-cols-[auto_1fr] items-center gap-7 border-l-[6px]"
+            style={{
+              borderColor: "var(--color-gold)",
+              background: "linear-gradient(135deg, color-mix(in oklch, var(--color-gold), transparent 86%), transparent 55%)",
+              boxShadow: "0 0 60px -24px var(--color-gold)",
+            }}
+          >
+            {/* Ring */}
+            {primaryGoal.deadline ? (
+              <CountdownRing deadline={primaryGoal.deadline} size={120} color="var(--color-gold)" />
+            ) : (
+              <div className="flex h-[120px] w-[120px] items-center justify-center">
+                <span className="disp text-[36px] text-[var(--color-gold)]">--</span>
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="min-w-0">
+              {/* Badges */}
+              <div className="mb-2 flex items-center gap-2">
+                <span
+                  className="angled-clip px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em]"
+                  style={{ background: "color-mix(in oklch, var(--color-gold), transparent 70%)", color: "var(--color-gold)" }}
+                >
+                  &#9733; Primary
+                </span>
+                <TypeBadge type={primaryGoal.type} />
+                {primaryGoal.subtype && (
+                  <span className="text-[11px] text-[var(--color-faint)]">
+                    {subtypeLabel(primaryGoal.subtype)}
+                  </span>
+                )}
+              </div>
+
+              {/* Title */}
+              <h2 className="disp text-[52px] leading-[0.95] tracking-tight">
+                {primaryGoal.title}
+              </h2>
+
+              {/* Target + deadline */}
+              <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-[var(--color-text-muted)]">
+                {primaryGoal.target && <span>Target: {primaryGoal.target}</span>}
+                {primaryGoal.deadline && (
+                  <span>
+                    {new Date(primaryGoal.deadline).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                    <span className="ml-1.5 font-mono text-xs opacity-60">
+                      ({daysUntil(primaryGoal.deadline)})
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              {primaryGoal.notes && (
+                <p className="mt-2 text-xs text-[var(--color-faint)]">{primaryGoal.notes}</p>
+              )}
+
+              {/* Actions */}
+              <div className="mt-3 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                <button
+                  onClick={() => {
+                    const el = document.getElementById(`goal-${primaryGoal.id}`);
+                    if (el) {
+                      el.classList.add("ring-2", "ring-emerald-400/60");
+                      setTimeout(() => updateGoal(primaryGoal.id, { status: "completed" }), 600);
+                    } else {
+                      updateGoal(primaryGoal.id, { status: "completed" });
+                    }
+                  }}
+                  className="px-2 py-1 text-xs text-emerald-400 hover:bg-emerald-500/20"
+                >
+                  Done
+                </button>
+                <button
+                  onClick={() => updateGoal(primaryGoal.id, { status: "archived" })}
+                  className="px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]"
+                >
+                  Archive
+                </button>
+                <button
+                  onClick={() => startEdit(primaryGoal)}
+                  className="px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => updateGoal(primaryGoal.id, { isPrimary: false })}
+                  className="px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white"
+                >
+                  Unstar
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm("Delete this goal permanently?")) deleteGoal(primaryGoal.id);
+                  }}
+                  className="px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-red-500/20 hover:text-red-400"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ──── ACTIVE GOALS BOARD ──── */}
       <div>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-          Active Goals ({active.length})
-        </h2>
-        {sortedActive.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-muted)]">
-            No active goals. Create one to see it in your coach context.
-          </p>
+        <SectionLabel>Active Goals &middot; {active.length}</SectionLabel>
+
+        {/* Inline edit for primary goal (if editing) */}
+        {primaryGoal && editingId === primaryGoal.id && (
+          <div className="panel mb-4 space-y-3">
+            <h3 className="ov">Edit Goal</h3>
+            {renderFormFields(
+              {
+                title: editFields.title ?? "",
+                type: editFields.type ?? "race",
+                subtype: editFields.subtype ?? null,
+                target: editFields.target ?? "",
+                deadline: editFields.deadline ?? "",
+                notes: editFields.notes ?? "",
+              },
+              (key, value) => setEditFields({ ...editFields, [key]: value }),
+              editSubtypes,
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={saveEdit}
+                disabled={isPending || !editFields.title?.trim()}
+                className="btn flex-1 py-2 text-sm"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => { setEditingId(null); setEditFields({}); }}
+                className="btn-ghost px-4 py-2 text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {sortedActive.length === 0 && !showForm ? (
+          <div className="empty-state py-12 text-center">
+            <p className="disp text-[28px] text-[var(--color-faint)]">No active goals</p>
+            <p className="mt-1 text-sm text-[var(--color-faint)]">
+              Create one to see it in your coach context.
+            </p>
+          </div>
         ) : (
-          <div className="space-y-3">
-            {sortedActive.map((g) => {
+          <div className="grid grid-cols-3 gap-[14px]">
+            {/* Non-primary active goal tiles */}
+            {nonPrimaryActive.map((g) => {
               const days = daysUntil(g.deadline);
-              return (
+              return editingId === g.id ? (
+                /* Inline edit tile */
+                <div key={g.id} className="panel col-span-3 space-y-3">
+                  <h3 className="ov">Edit Goal</h3>
+                  {renderFormFields(
+                    {
+                      title: editFields.title ?? "",
+                      type: editFields.type ?? "race",
+                      subtype: editFields.subtype ?? null,
+                      target: editFields.target ?? "",
+                      deadline: editFields.deadline ?? "",
+                      notes: editFields.notes ?? "",
+                    },
+                    (key, value) => setEditFields({ ...editFields, [key]: value }),
+                    editSubtypes,
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveEdit}
+                      disabled={isPending || !editFields.title?.trim()}
+                      className="btn flex-1 py-2 text-sm"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => { setEditingId(null); setEditFields({}); }}
+                      className="btn-ghost px-4 py-2 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Display tile */
                 <div
                   key={g.id}
                   id={`goal-${g.id}`}
-                  className={`group border bg-[var(--color-surface)] p-5 transition-all ${
-                    g.isPrimary
-                      ? "border-amber-500/40"
-                      : "border-[var(--color-border)]"
-                  }`}
+                  className="group panel flex flex-col items-center border-t-4 text-center"
+                  style={{ borderColor: typeVar(g.type) }}
                 >
-                  {editingId === g.id ? (
-                    /* Inline edit form */
-                    <div className="space-y-3">
-                      <input
-                        type="text"
-                        value={editFields.title ?? ""}
-                        onChange={(e) => setEditFields({ ...editFields, title: e.target.value })}
-                        placeholder="Goal title"
-                        className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
-                      />
+                  {/* Star toggle */}
+                  <button
+                    onClick={() => updateGoal(g.id, { isPrimary: true })}
+                    className="self-end text-sm text-[var(--color-faint)]/30 transition hover:text-amber-400/60"
+                    title="Set as primary focus"
+                  >
+                    &#9733;
+                  </button>
 
-                      {/* Type selector */}
-                      <div>
-                        <p className="mb-1.5 text-xs text-[var(--color-text-muted)]">Type</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {goalTypes.map((t) => (
-                            <button
-                              key={t.id}
-                              type="button"
-                              onClick={() => setEditFields({ ...editFields, type: t.id, subtype: null })}
-                              className={`border px-3 py-1.5 text-xs font-medium transition-all ${
-                                editFields.type === t.id
-                                  ? "border-white/30 bg-white/10 text-white"
-                                  : "border-[var(--color-border)] text-[var(--color-text-muted)]"
-                              }`}
-                            >
-                              {t.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Subtype selector (conditional) */}
-                      {editSubtypes.length > 0 && (
-                        <div>
-                          <p className="mb-1.5 text-xs text-[var(--color-text-muted)]">Focus</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {editSubtypes.map((st) => (
-                              <button
-                                key={st}
-                                type="button"
-                                onClick={() =>
-                                  setEditFields({
-                                    ...editFields,
-                                    subtype: editFields.subtype === st ? null : st,
-                                  })
-                                }
-                                className={`border px-2.5 py-1 text-[11px] font-medium transition-all ${
-                                  editFields.subtype === st
-                                    ? "border-white/30 bg-white/10 text-white"
-                                    : "border-[var(--color-border)] text-[var(--color-text-muted)]"
-                                }`}
-                              >
-                                {subtypeLabel(st)}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <input
-                        type="text"
-                        value={editFields.target ?? ""}
-                        onChange={(e) => setEditFields({ ...editFields, target: e.target.value })}
-                        placeholder="Target (optional)"
-                        className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
-                      />
-                      <input
-                        type="date"
-                        value={editFields.deadline ?? ""}
-                        onChange={(e) => setEditFields({ ...editFields, deadline: e.target.value })}
-                        className="w-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm [color-scheme:dark]"
-                      />
-                      <textarea
-                        value={editFields.notes ?? ""}
-                        onChange={(e) => setEditFields({ ...editFields, notes: e.target.value })}
-                        placeholder="Notes (optional)"
-                        rows={2}
-                        className="w-full resize-none border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2 text-sm"
-                      />
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={saveEdit}
-                          disabled={isPending || !editFields.title?.trim()}
-                          className="flex-1 bg-white/10 py-2 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => { setEditingId(null); setEditFields({}); }}
-                          className="bg-[var(--color-surface-2)] px-4 py-2 text-sm text-[var(--color-text-muted)]"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
+                  {/* Countdown ring */}
+                  {g.deadline ? (
+                    <CountdownRing deadline={g.deadline} size={72} color={typeVar(g.type)} />
                   ) : (
-                    /* Display mode */
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          {/* Primary star toggle */}
-                          <button
-                            onClick={() => updateGoal(g.id, { isPrimary: !g.isPrimary })}
-                            className={`text-sm transition duration-150 ease-out-strong active:scale-[0.97] ${
-                              g.isPrimary
-                                ? "text-amber-400"
-                                : "text-[var(--color-text-muted)]/30 hover:text-amber-400/60"
-                            }`}
-                            title={g.isPrimary ? "Remove primary focus" : "Set as primary focus"}
-                          >
-                            ★
-                          </button>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${typeColor(g.type)}`}
-                          >
-                            {g.type}
-                          </span>
-                          {g.subtype && (
-                            <span className="text-[10px] text-[var(--color-text-muted)]">
-                              {subtypeLabel(g.subtype)}
-                            </span>
-                          )}
-                          {g.isPrimary && (
-                            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-400">
-                              Primary
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1 font-semibold">{g.title}</p>
-                        {g.target && (
-                          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                            Target: {g.target}
-                          </p>
-                        )}
-                        {g.deadline && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <CountdownRing
-                              deadline={g.deadline}
-                              size={40}
-                              color={typeHexColor(g.type)}
-                            />
-                            <div className="text-xs text-[var(--color-text-muted)]">
-                              {new Date(g.deadline).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                              })}
-                              <span className="ml-1 font-mono">({days})</span>
-                            </div>
-                          </div>
-                        )}
-                        {g.notes && (
-                          <p className="mt-2 text-xs text-[var(--color-text-muted)]">{g.notes}</p>
-                        )}
-                      </div>
-                      <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        <button
-                          onClick={() => {
-                            const el = document.getElementById(`goal-${g.id}`);
-                            if (el) {
-                              el.classList.add("ring-2", "ring-emerald-400/60");
-                              setTimeout(() => updateGoal(g.id, { status: "completed" }), 600);
-                            } else {
-                              updateGoal(g.id, { status: "completed" });
-                            }
-                          }}
-                          className="rounded px-2 py-1 text-xs text-emerald-400 hover:bg-emerald-500/20"
-                        >
-                          Done
-                        </button>
-                        <button
-                          onClick={() => updateGoal(g.id, { status: "archived" })}
-                          className="rounded px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]"
-                        >
-                          Archive
-                        </button>
-                        <button
-                          onClick={() => startEdit(g)}
-                          className="rounded px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (confirm("Delete this goal permanently?")) deleteGoal(g.id);
-                          }}
-                          className="rounded px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-red-500/20 hover:text-red-400"
-                        >
-                          ×
-                        </button>
-                      </div>
+                    <div className="flex h-[72px] w-[72px] items-center justify-center">
+                      <span className="disp text-[22px]" style={{ color: typeVar(g.type) }}>--</span>
                     </div>
                   )}
+
+                  {/* Title */}
+                  <h3 className="disp mt-3 text-[26px] leading-[1.05]">{g.title}</h3>
+
+                  {/* Target */}
+                  {g.target && (
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">{g.target}</p>
+                  )}
+
+                  {/* Deadline */}
+                  {g.deadline && (
+                    <p className="mt-1.5 text-[11px] text-[var(--color-faint)]">
+                      {new Date(g.deadline).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                      <span className="ml-1 font-mono">({days})</span>
+                    </p>
+                  )}
+
+                  {/* Type badge */}
+                  <div className="mt-3">
+                    <TypeBadge type={g.type} />
+                  </div>
+
+                  {/* Hover actions */}
+                  <div className="mt-3 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      onClick={() => {
+                        const el = document.getElementById(`goal-${g.id}`);
+                        if (el) {
+                          el.classList.add("ring-2", "ring-emerald-400/60");
+                          setTimeout(() => updateGoal(g.id, { status: "completed" }), 600);
+                        } else {
+                          updateGoal(g.id, { status: "completed" });
+                        }
+                      }}
+                      className="px-2 py-1 text-xs text-emerald-400 hover:bg-emerald-500/20"
+                    >
+                      Done
+                    </button>
+                    <button
+                      onClick={() => updateGoal(g.id, { status: "archived" })}
+                      className="px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]"
+                    >
+                      Archive
+                    </button>
+                    <button
+                      onClick={() => startEdit(g)}
+                      className="px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm("Delete this goal permanently?")) deleteGoal(g.id);
+                      }}
+                      className="px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-red-500/20 hover:text-red-400"
+                    >
+                      &times;
+                    </button>
+                  </div>
                 </div>
               );
             })}
+
+            {/* + New Goal tile */}
+            {!showForm && (
+              <button
+                onClick={() => setShowForm(true)}
+                className="empty-state flex flex-col items-center justify-center gap-2 py-10 transition hover:border-white/30 hover:text-white"
+              >
+                <span className="disp text-[52px] leading-none text-[var(--color-faint)]">+</span>
+                <span className="ov">New Goal</span>
+              </button>
+            )}
+
+            {/* New goal form (spans full width) */}
+            {showForm && (
+              <form
+                onSubmit={createGoal}
+                className="panel col-span-3 space-y-3"
+              >
+                <h3 className="ov">New Goal</h3>
+                {renderFormFields(
+                  { title, type, subtype, target, deadline, notes },
+                  (key, value) => {
+                    if (key === "title") setTitle(value ?? "");
+                    else if (key === "type") { setType(value ?? "race"); setSubtype(null); }
+                    else if (key === "subtype") setSubtype(value);
+                    else if (key === "target") setTarget(value ?? "");
+                    else if (key === "deadline") setDeadline(value ?? "");
+                    else if (key === "notes") setNotes(value ?? "");
+                  },
+                  currentSubtypes,
+                )}
+
+                {/* Primary focus toggle */}
+                <label className="flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setMakePrimary(!makePrimary)}
+                    className={`flex h-5 w-5 items-center justify-center border transition-all ${
+                      makePrimary
+                        ? "border-amber-400 bg-amber-500/20 text-amber-400"
+                        : "border-[var(--color-border)] text-transparent"
+                    }`}
+                  >
+                    &#9733;
+                  </button>
+                  <span className="text-[var(--color-text-muted)]">
+                    Set as primary focus -- coach will lead with this goal
+                  </span>
+                </label>
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isPending || !title.trim()}
+                    className="btn flex-1 py-2 text-sm"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="btn-ghost px-4 py-2 text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         )}
       </div>
 
-      {/* Archived goals */}
+      {/* ──── ARCHIVED ──── */}
       {archived.length > 0 && (
         <div>
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-            Archived ({archived.length})
-          </h2>
-          <div className="space-y-2">
+          <SectionLabel>Archived &middot; {archived.length}</SectionLabel>
+          <div className="space-y-1">
             {archived.map((g) => (
               <div
                 key={g.id}
-                className="flex items-center justify-between border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-xs opacity-70"
+                className="flex items-center justify-between bg-[var(--color-surface)] px-4 py-2.5 text-xs opacity-70"
               >
                 <div className="flex items-center gap-2">
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${typeColor(g.type)}`}>
-                    {g.type}
-                  </span>
+                  <TypeBadge type={g.type} />
                   <span className="line-through">{g.title}</span>
                 </div>
                 <div className="flex gap-1">
                   <button
                     onClick={() => updateGoal(g.id, { status: "active" })}
-                    className="rounded px-2 py-1 text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white"
+                    className="px-2 py-1 text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white"
                   >
                     Restore
                   </button>
@@ -618,7 +726,7 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
                     onClick={() => deleteGoal(g.id)}
                     className="text-[var(--color-text-muted)] hover:text-red-400"
                   >
-                    ×
+                    &times;
                   </button>
                 </div>
               </div>
@@ -627,29 +735,25 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
         </div>
       )}
 
-      {/* Legacy completed goals */}
+      {/* ──── COMPLETED ──── */}
       {completed.length > 0 && (
         <div>
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-            Completed ({completed.length})
-          </h2>
-          <div className="space-y-2">
+          <SectionLabel>Completed &middot; {completed.length}</SectionLabel>
+          <div className="space-y-1">
             {completed.map((g) => (
               <div
                 key={g.id}
-                className="flex items-center justify-between border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-xs opacity-70"
+                className="flex items-center justify-between bg-[var(--color-surface)] px-4 py-2.5 text-xs opacity-70"
               >
                 <div className="flex items-center gap-2">
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${typeColor(g.type)}`}>
-                    {g.type}
-                  </span>
+                  <TypeBadge type={g.type} />
                   <span className="line-through">{g.title}</span>
                 </div>
                 <button
                   onClick={() => deleteGoal(g.id)}
                   className="text-[var(--color-text-muted)] hover:text-red-400"
                 >
-                  ×
+                  &times;
                 </button>
               </div>
             ))}

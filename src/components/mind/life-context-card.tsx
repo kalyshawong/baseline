@@ -9,9 +9,6 @@ export interface LifeContextDef {
   category: string;
   emoji: string | null;
   color: string | null;
-  // Optional free-form key that marks this def as mutually exclusive with
-  // others sharing the same key. Drives the insights pipeline's control-set
-  // exclusion + display dedupe; see prisma/schema.prisma for the rationale.
   groupKey: string | null;
   archived: boolean;
 }
@@ -23,11 +20,8 @@ export interface LifeContextLog {
 }
 
 interface Props {
-  /** YYYY-MM-DD string of the day this card is editing */
   dateStr: string;
-  /** All non-archived flag definitions */
   defs: LifeContextDef[];
-  /** Logs for `dateStr` only (defId list is what matters) */
   todayLogs: LifeContextLog[];
 }
 
@@ -43,7 +37,6 @@ const VALID_CATEGORIES = [
   { id: "custom", label: "Custom" },
 ] as const;
 
-// Lean on existing tag colors so the card matches the rest of /mind
 const colorToClasses: Record<string, { on: string; off: string }> = {
   rose: {
     on: "bg-rose-500/20 text-rose-300 border-rose-500/40",
@@ -179,22 +172,22 @@ function ManageRow({
           type="text"
           value={emoji}
           onChange={(e) => setEmoji(e.target.value)}
-          placeholder="🌙"
+          placeholder="emoji"
           maxLength={4}
-          className="w-12 border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-center text-sm"
+          className="field !w-12 !py-1.5 !px-2 text-center !text-sm"
           aria-label={`Emoji for ${def.label}`}
         />
         <input
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs"
+          className="field min-w-0 flex-1 !py-1.5 !text-xs"
           aria-label={`Label for ${def.label}`}
         />
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-xs [color-scheme:dark]"
+          className="field !w-auto !py-1.5 !px-2 !text-xs [color-scheme:dark]"
           aria-label={`Category for ${def.label}`}
         >
           {VALID_CATEGORIES.map((c) => (
@@ -241,7 +234,7 @@ function ManageRow({
             type="button"
             onClick={save}
             disabled={isPending || saving || !dirty || !label.trim()}
-            className="bg-white/10 px-3 py-1 text-xs font-medium hover:bg-white/20 disabled:opacity-30"
+            className="btn !py-1 !px-3 !text-xs disabled:opacity-30"
           >
             {saving ? "..." : "Save"}
           </button>
@@ -252,7 +245,7 @@ function ManageRow({
         <label
           htmlFor={`grp-${def.id}`}
           className="text-xs text-[var(--color-text-muted)]"
-          title="Defs sharing a group are treated as mutually exclusive in insights (e.g. 'slept alone' and 'shared bed (with partner)' both in 'sleep-context')."
+          title="Defs sharing a group are treated as mutually exclusive in insights."
         >
           Group:
         </label>
@@ -264,7 +257,7 @@ function ManageRow({
           list={`grp-suggestions-${def.id}`}
           placeholder="optional — e.g. sleep-context"
           maxLength={40}
-          className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs placeholder:text-[var(--color-text-muted)]/50"
+          className="field min-w-0 flex-1 !py-1.5 !text-xs"
           aria-label={`Group for ${def.label}`}
         />
         <datalist id={`grp-suggestions-${def.id}`}>
@@ -287,14 +280,11 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // Optimistic state — start from the server-provided "on" set, then mutate
-  // immediately on click so the toggle doesn't lag behind the network.
   const [activeIds, setActiveIds] = useState<Set<string>>(
     () => new Set(todayLogs.map((l) => l.defId))
   );
   const [error, setError] = useState<string | null>(null);
 
-  // Define-new-flag form state
   const [defining, setDefining] = useState(false);
   const [managing, setManaging] = useState(false);
   const [newLabel, setNewLabel] = useState("");
@@ -303,8 +293,6 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
   const [newColor, setNewColor] = useState<string>("violet");
   const [newGroupKey, setNewGroupKey] = useState<string>("");
 
-  // Pull every existing group off the current defs so create + manage forms
-  // can auto-complete instead of forcing the user to remember exact spellings.
   const groupSuggestions = Array.from(
     new Set(defs.map((d) => d.groupKey).filter((g): g is string => !!g))
   ).sort();
@@ -325,7 +313,6 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
           body: JSON.stringify({ defId: def.id, day: dateStr }),
         });
         if (!res.ok) {
-          // Revert on failure
           setActiveIds(activeIds);
           const data = await res.json().catch(() => ({}));
           setError(data.error ?? "Toggle failed");
@@ -378,22 +365,19 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
 
   function handleManageArchived() {
     router.refresh();
-    // If all defs get archived, close manage panel
     if (defs.length <= 1) setManaging(false);
   }
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="panel">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-          Today&apos;s Context
-        </h2>
+        <p className="ov" style={{ color: "var(--color-gold)" }}>Life Context</p>
         <div className="flex gap-3">
           {defs.length > 0 && (
             <button
               type="button"
               onClick={() => { setManaging((v) => !v); if (defining) setDefining(false); }}
-              className="text-xs text-[var(--color-text-muted)] underline hover:text-white"
+              className="linklike"
             >
               {managing ? "Done" : "Manage"}
             </button>
@@ -401,9 +385,9 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
           <button
             type="button"
             onClick={() => { setDefining((v) => !v); if (managing) setManaging(false); }}
-            className="text-xs text-[var(--color-text-muted)] underline hover:text-white"
+            className="linklike"
           >
-            {defining ? "Cancel" : "+ Define new"}
+            {defining ? "Cancel" : "+ New"}
           </button>
         </div>
       </div>
@@ -430,10 +414,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
                 type="button"
                 onClick={() => toggle(def)}
                 disabled={isPending}
-                className={`border px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-60 ${classesFor(
-                  def.color,
-                  on
-                )}`}
+                className={`tagchip ${on ? "on" : ""} disabled:opacity-60`}
                 title={on ? "Tap to remove for today" : "Tap to apply to today"}
               >
                 {def.emoji && <span className="mr-1">{def.emoji}</span>}
@@ -471,9 +452,9 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
               type="text"
               value={newEmoji}
               onChange={(e) => setNewEmoji(e.target.value)}
-              placeholder="🌙"
+              placeholder="emoji"
               maxLength={4}
-              className="w-14 border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-2 text-center text-sm"
+              className="field !w-14 !py-2 !px-2 text-center !text-sm"
               aria-label="Emoji"
             />
             <input
@@ -481,7 +462,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               placeholder="Flag label (e.g. with partner, sick, exam day)"
-              className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs placeholder:text-[var(--color-text-muted)]/50"
+              className="field min-w-0 flex-1 !py-2 !text-xs"
               autoFocus
             />
           </div>
@@ -491,7 +472,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
             <select
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value)}
-              className="border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-xs [color-scheme:dark]"
+              className="field !w-auto !py-1.5 !px-2 !text-xs [color-scheme:dark]"
             >
               {VALID_CATEGORIES.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -520,7 +501,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
             <label
               htmlFor="new-group-key"
               className="text-xs text-[var(--color-text-muted)]"
-              title="Optional. Defs sharing a group are treated as mutually exclusive in insights (e.g. 'slept alone' and 'shared bed (with partner)' both in 'sleep-context')."
+              title="Optional. Defs sharing a group are treated as mutually exclusive in insights."
             >
               Group:
             </label>
@@ -532,7 +513,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
               list="new-group-suggestions"
               placeholder="optional — e.g. sleep-context"
               maxLength={40}
-              className="min-w-0 flex-1 border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-xs placeholder:text-[var(--color-text-muted)]/50"
+              className="field min-w-0 flex-1 !py-1.5 !text-xs"
             />
             <datalist id="new-group-suggestions">
               {groupSuggestions.map((g) => (
@@ -545,7 +526,7 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
             <button
               type="submit"
               disabled={isPending || !newLabel.trim()}
-              className="bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20 disabled:opacity-30"
+              className="btn !py-1.5 !px-3 !text-xs disabled:opacity-30"
             >
               Create flag
             </button>

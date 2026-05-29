@@ -321,10 +321,18 @@ export default async function BodyPage() {
 
   return (
     <div className="space-y-6">
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="disp text-[46px] leading-[0.9] tracking-[0.02em]">BODY</h1>
+          <p className="mt-1 text-sm font-medium text-[var(--color-text-muted)]">Training readiness, recovery &amp; composition</p>
+        </div>
+      </div>
+
       <HyroxSummaryCard />
 
       {/* ─── SECTION 1: TRAINING READINESS ─── */}
-      <div className="space-y-3">
+      <div className="space-y-[14px]">
         {/* Integrated training call — single synthesized verdict above the
             breakdown cards. Same logic as the dashboard hero, so both pages
             give the same answer. */}
@@ -371,9 +379,9 @@ export default async function BodyPage() {
           <div
             className={`border p-5 ${
               fatigue.score >= 5
-                ? "border-red-500/30 bg-red-500/10"
+                ? "border-[var(--color-red)]/30 bg-[var(--color-red)]/10"
                 : fatigue.score >= 3
-                  ? "border-amber-500/30 bg-amber-500/10"
+                  ? "border-[var(--color-yellow)]/30 bg-[var(--color-yellow)]/10"
                   : "border-[var(--color-border)] bg-[var(--color-surface)]"
             }`}
           >
@@ -391,27 +399,27 @@ export default async function BodyPage() {
             </div>
             <div className="mt-3 space-y-1 text-xs">
               {weeksSinceDeload >= 5 && (
-                <p className="text-amber-400">
+                <p className="text-[var(--color-yellow)]">
                   {weeksSinceDeload} consecutive training weeks (deload every 5-6 per Pritchard)
                 </p>
               )}
               {hrvBelowBaseline && (
-                <p className="text-amber-400">HRV &gt;1 SD below 14-day baseline for 2+ days</p>
+                <p className="text-[var(--color-yellow)]">HRV &gt;1 SD below 14-day baseline for 2+ days</p>
               )}
               {hrvCvElevated && (
-                <p className="text-amber-400">HRV CV elevated: {cv?.toFixed(1)}% (Flatt threshold: 10%)</p>
+                <p className="text-[var(--color-yellow)]">HRV CV elevated: {cv?.toFixed(1)}% (Flatt threshold: 10%)</p>
               )}
               {recentSleep.slice(0, 3).every((s) => (s.score ?? 100) < 70) && (
-                <p className="text-amber-400">Sleep score &lt;70 for 3+ nights</p>
+                <p className="text-[var(--color-yellow)]">Sleep score &lt;70 for 3+ nights</p>
               )}
               {rhrElevated && (
-                <p className="text-amber-400">Resting HR elevated 5+ BPM above baseline for 3+ mornings</p>
+                <p className="text-[var(--color-yellow)]">Resting HR elevated 5+ BPM above baseline for 3+ mornings</p>
               )}
               {anyRpeCreep && (
-                <p className="text-red-400 font-medium">RPE creep: +1 point at same loads over recent sessions (2× weight)</p>
+                <p className="text-[var(--color-red)] font-medium">RPE creep: +1 point at same loads over recent sessions (2× weight)</p>
               )}
               {volumeApproachingMRV && (
-                <p className="text-amber-400">Volume approaching/at MRV in 1+ muscle groups</p>
+                <p className="text-[var(--color-yellow)]">Volume approaching/at MRV in 1+ muscle groups</p>
               )}
             </div>
             {fatigue.score >= 3 && (
@@ -425,6 +433,10 @@ export default async function BodyPage() {
       </div>
 
       {/* ─── SECTION 2: RUNNING & CARDIO ─── */}
+      <div className="ov flex items-center gap-3">
+        <span className="flex-none">Running &amp; Cardio</span>
+        <span className="h-px flex-1 bg-[var(--color-border)]" />
+      </div>
       <RunningMetricsCard
         metrics={todayRunning ? {
           runningSpeed: todayRunning.runningSpeed,
@@ -444,17 +456,21 @@ export default async function BodyPage() {
       />
 
       {/* ─── SECTION 3: STRENGTH TRAINING ─── */}
-      <div className="space-y-3">
+      <div className="ov flex items-center gap-3">
+        <span className="flex-none">Strength Training</span>
+        <span className="h-px flex-1 bg-[var(--color-border)]" />
+      </div>
+      <div className="space-y-[14px]">
         <div className="flex items-center gap-3">
           <Link
             href="/body/workout/new"
-            className="bg-emerald-500/20 px-5 py-2.5 text-sm font-semibold text-emerald-400 transition duration-150 ease-out-strong active:scale-[0.97] hover:bg-emerald-500/30"
+            className="btn"
           >
             + Add Workout
           </Link>
           <Link
             href="/body/workout/new?backfill=1"
-            className="text-xs text-[var(--color-text-muted)] underline hover:text-white"
+            className="linklike"
           >
             Log past workout
           </Link>
@@ -464,8 +480,8 @@ export default async function BodyPage() {
 
         {/* Personal Records */}
         {prs.length > 0 && (
-          <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-            <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+          <div className="panel">
+            <h2 className="mb-3 ov">
               Recent PRs
             </h2>
             <div className="space-y-2">
@@ -495,8 +511,8 @@ export default async function BodyPage() {
         )}
 
         {/* Recent sessions */}
-        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+        <div className="panel">
+          <h2 className="mb-3 ov">
             Recent Workouts
           </h2>
           {recentSessions.length === 0 ? (
@@ -533,11 +549,11 @@ export default async function BodyPage() {
                       </p>
                     </div>
                     {session.completedAt ? (
-                      <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-400">
+                      <span className="rounded-full bg-[var(--color-green)]/20 px-2 py-0.5 text-[10px] text-[var(--color-green)]">
                         done
                       </span>
                     ) : (
-                      <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-400">
+                      <span className="rounded-full bg-[var(--color-yellow)]/20 px-2 py-0.5 text-[10px] text-[var(--color-yellow)]">
                         active
                       </span>
                     )}
@@ -550,15 +566,16 @@ export default async function BodyPage() {
       </div>
 
       {/* ─── SECTION 4: RECOVERY ─── */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-          Recovery
-        </h2>
+      <div className="ov flex items-center gap-3">
+        <span className="flex-none">Recovery</span>
+        <span className="h-px flex-1 bg-[var(--color-border)]" />
+      </div>
+      <div className="space-y-[14px]">
 
         {/* Sleep Breakdown */}
         {todaySleep && (
-          <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-            <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+          <div className="panel">
+            <h3 className="mb-4 ov">
               Sleep Breakdown
             </h3>
             <div className="grid grid-cols-3 gap-4 text-center">
@@ -618,10 +635,11 @@ export default async function BodyPage() {
        * call. The scale auto-syncs via Withings/HealthKit so manual
        * weight entry has been removed; this section is now read-only
        * except for the goal-settings form. */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-          Composition & Energy
-        </h2>
+      <div className="ov flex items-center gap-3">
+        <span className="flex-none">Composition &amp; Energy</span>
+        <span className="h-px flex-1 bg-[var(--color-border)]" />
+      </div>
+      <div className="space-y-[14px]">
         <WeightCard
           latestWeightKg={weightKg}
           latestBodyFat={latestBodyFat}
