@@ -33,8 +33,32 @@ interface WorkoutEntry {
   };
 }
 
+/**
+ * HAE's actual cycleTracking entry shape (verified 2026-05-28 via
+ * diagnostic logging — the original Baseline spec from 2026-04 guessed
+ * a `{date, menstrualFlow}` schema that HAE never sent).
+ *
+ * HAE serializes HealthKit's Cycle Tracking category as event records:
+ *
+ *   {
+ *     "name": "Menstrual Flow" | "Contraceptive" | "Ovulation Test Result" | ...,
+ *     "value": "Light" | "Medium" | "Heavy" | "Intrauterine Device" | "Positive" | ...,
+ *     "start": "2026-05-15 00:00:00 -0400",
+ *     "end":   "2026-05-15 23:59:59 -0400"
+ *   }
+ *
+ * `start` is the load-bearing date — for daily-flow events that's the
+ * date the user logged the period on. We bucket to that date's local
+ * midnight to match NutritionLog.day's convention.
+ */
 interface CycleEntry {
-  date: string;
+  name?: string | null;
+  value?: string | null;
+  start?: string | null;
+  end?: string | null;
+  // Legacy fields retained so older payloads (or a future HAE schema
+  // revision back to the original format) still parse.
+  date?: string | null;
   menstrualFlow?: string | null;
   cervicalMucusQuality?: string | null;
   ovulationTestResult?: string | null;
@@ -442,37 +466,91 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
   return count;
 }
 
+/**
+ * Normalize HAE's value strings ("Light", "Light Flow", "light",
+ * "Positive", etc.) to lowercase + trimmed form so the equality
+ * checks below work regardless of HAE's casing choices.
+ */
+function normalizeCycleValue(v: string | null | undefined): string {
+  return (v ?? "").toLowerCase().trim();
+}
+
+/**
+ * Decide which CyclePhaseLog phase, if any, a single HAE cycleTracking
+ * entry implies. Returns null for entries that don't anchor a phase
+ * (Contraceptive, Cervical Mucus Quality, etc. — informational but
+ * not phase-defining).
+ *
+ * Menstrual flow values per HAE samples + HK docs: "Light", "Medium",
+ * "Heavy", "Unspecified", "None". Anything > "None"/"Unspecified" is
+ * a real menstrual log → menstrual phase.
+ *
+ * Ovulation test values per HK docs: "Positive", "Negative",
+ * "Indeterminate", "LH Surge". Positive / LH Surge → ovulation phase.
+ */
+function phaseForCycleEntry(entry: CycleEntry): string | null {
+  // Legacy schema fallback: `{ date, menstrualFlow }` — kept in case
+  // HAE reverts or a future iOS app sends the original shape.
+  if (entry.menstrualFlow != null) {
+    const f = normalizeCycleValue(entry.menstrualFlow);
+    if (f && f !== "none" && f !== "unspecified") return "menstrual";
+  }
+  if (entry.ovulationTestResult != null) {
+    const r = normalizeCycleValue(entry.ovulationTestResult);
+    if (r === "positive" || r === "luteinizing_hormone_surge" || r === "lh surge") {
+      return "ovulation";
+    }
+  }
+
+  // HAE event schema: `{ name, value, start, end }`.
+  const name = normalizeCycleValue(entry.name);
+  const value = normalizeCycleValue(entry.value);
+  if (name === "menstrual flow" || name === "menstruation") {
+    if (value && value !== "none" && value !== "unspecified") return "menstrual";
+  }
+  if (name === "ovulation test result" || name === "ovulation test") {
+    if (value === "positive" || value === "lh surge" || value === "luteinizing hormone surge") {
+      return "ovulation";
+    }
+  }
+  return null;
+}
+
+/**
+ * Pick the entry's local-day Date for bucketing into CyclePhaseLog.
+ * Prefers the legacy `date` field, then HAE's `start` field. Returns
+ * null when nothing parses.
+ */
+function entryDay(entry: CycleEntry): Date | null {
+  const raw = entry.date ?? entry.start ?? null;
+  if (!raw) return null;
+  // Both shapes start with a YYYY-MM-DD prefix; reuse the legacy
+  // dateStrToUTC helper to anchor at UTC midnight of that calendar
+  // day (matches the other daily tables' convention).
+  return dateStrToUTC(raw.substring(0, 10));
+}
+
 async function processCycleTracking(entries: CycleEntry[]): Promise<number> {
   let count = 0;
 
   for (const entry of entries) {
-    if (!entry.date) continue;
-    const day = dateStrToUTC(entry.date.substring(0, 10));
-    const flow = entry.menstrualFlow;
+    const phase = phaseForCycleEntry(entry);
+    if (!phase) continue; // Contraceptive / informational entries skipped here
 
-    let phase: string | null = null;
-    if (flow && flow !== "none" && flow !== "unspecified") {
-      phase = "menstrual";
-    } else if (
-      entry.ovulationTestResult === "positive" ||
-      entry.ovulationTestResult === "luteinizing_hormone_surge"
-    ) {
-      phase = "ovulation";
-    }
+    const day = entryDay(entry);
+    if (!day) continue;
 
-    if (phase) {
-      // Manual entries take priority — only write if no manual entry exists for this day
-      const existing = await prisma.cyclePhaseLog.findUnique({
+    // Manual entries take priority — only write if no manual entry exists for this day
+    const existing = await prisma.cyclePhaseLog.findUnique({
+      where: { day },
+    });
+    if (!existing || existing.source !== "manual") {
+      await prisma.cyclePhaseLog.upsert({
         where: { day },
+        update: { phase, source: "healthkit" },
+        create: { day, phase, source: "healthkit" },
       });
-      if (!existing || existing.source !== "manual") {
-        await prisma.cyclePhaseLog.upsert({
-          where: { day },
-          update: { phase, source: "healthkit" },
-          create: { day, phase, source: "healthkit" },
-        });
-        count++;
-      }
+      count++;
     }
   }
 
@@ -519,6 +597,10 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const data = body?.data ?? body; // Support both { data: { ... } } and flat
+    console.log(`[HealthKit] payload keys: ${Object.keys(data).join(", ")}`);
+    if (data.cycleTracking?.length > 0) {
+      console.log(`[HealthKit] cycleTracking sample:`, JSON.stringify(data.cycleTracking.slice(0, 3)));
+    }
     const errors: string[] = [];
 
     // Diagnostic: print one summary line so we can see at a glance exactly
@@ -565,12 +647,54 @@ export async function POST(request: NextRequest) {
 
     const status = errors.length === 0 ? "success" : errors.length === 3 ? "failed" : "partial";
 
+    // Diagnostic: dump the actual shape of the inbound payload to the
+    // details field so we can debug "what is HAE actually sending"
+    // questions without scraping stdout. Captures (a) every top-level
+    // key in `data` with its array length, and (b) the metric-name
+    // list (some HAE versions smuggle category data like menstrual
+    // flow into `metrics` instead of `cycleTracking`). Truncated to
+    // keep the details field reasonable.
+    // SAFE TO REMOVE once HAE cycle ingestion is confirmed working.
+    const topLevelShape = Object.entries(data ?? {})
+      .map(([k, v]) => {
+        if (Array.isArray(v)) return `${k}[${v.length}]`;
+        if (v == null) return `${k}=null`;
+        return `${k}=<${typeof v}>`;
+      })
+      .join(" ");
+    const metricNamesList = inboundMetrics
+      .map((m) => `${m.name}(${m.points})`)
+      .join(",")
+      .slice(0, 2000); // hard cap so details doesn't balloon
+
+    // Sample cycleTracking entries. Diagnostic finding (2026-05-28):
+    // HAE actually sends event-shape entries — `{name, value, start,
+    // end}` — NOT the `{date, menstrualFlow}` shape the original spec
+    // assumed. Capture (a) a breakdown by `name` so we know exactly
+    // which HK category types HAE is exporting, and (b) one verbatim
+    // sample for schema reference.
+    const cycleEntries = Array.isArray(data.cycleTracking)
+      ? data.cycleTracking
+      : [];
+    const cycleByName: Record<string, number> = {};
+    for (const c of cycleEntries) {
+      const k = (c as { name?: string })?.name ?? "<no_name>";
+      cycleByName[k] = (cycleByName[k] ?? 0) + 1;
+    }
+    const cycleBreakdown = Object.entries(cycleByName)
+      .map(([n, c]) => `${n}:${c}`)
+      .join(",");
+    const cycleSample =
+      cycleEntries.length > 0
+        ? JSON.stringify(cycleEntries[0]).slice(0, 600)
+        : "<empty>";
+
     await prisma.healthKitSync.create({
       data: {
         status,
         metrics: metricsCount,
         workouts: workoutsCount,
-        details: `${metricsCount} metrics, ${workoutsCount} workouts, ${cycleCount} cycle entries${errors.length > 0 ? `. Errors: ${errors.join("; ")}` : ""}`,
+        details: `${metricsCount} metrics, ${workoutsCount} workouts, ${cycleCount} cycle entries${errors.length > 0 ? `. Errors: ${errors.join("; ")}` : ""} | shape: ${topLevelShape} | cycle_breakdown: ${cycleBreakdown || "<empty>"} | cycle_sample: ${cycleSample} | metric_names: ${metricNamesList || "<none>"}`,
       },
     });
 

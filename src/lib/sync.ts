@@ -56,7 +56,7 @@ interface OuraSleepPeriod {
   rem_sleep_duration: number | null;
   deep_sleep_duration: number | null;
   light_sleep_duration: number | null;
-  sleep_efficiency: number | null;
+  efficiency: number | null;
   latency: number | null;
   average_heart_rate: number | null;
   lowest_heart_rate: number | null;
@@ -367,7 +367,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
             remSleepDuration: period.rem_sleep_duration,
             deepSleepDuration: period.deep_sleep_duration,
             lightSleepDuration: period.light_sleep_duration,
-            sleepEfficiency: period.sleep_efficiency,
+            sleepEfficiency: period.efficiency,
             latency: period.latency,
             averageHeartRate: period.average_heart_rate,
             lowestHeartRate: period.lowest_heart_rate,
