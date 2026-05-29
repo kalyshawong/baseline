@@ -304,7 +304,7 @@ export default async function Dashboard({
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1320px] px-9 pt-6 pb-16">
+      <div className="mx-auto max-w-[1320px] space-y-6 px-9 pt-6 pb-16">
 
       {/* Hero — the day's training call */}
       <TodayCallHero

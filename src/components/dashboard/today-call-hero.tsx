@@ -26,7 +26,7 @@ export function TodayCallHero({
 }) {
   if (!call) {
     return (
-      <section className="panel mb-6 px-8 py-7">
+      <section className="panel px-8 py-7">
         <p className="ov">Today&apos;s Call</p>
         <p className="mt-4 max-w-xl text-base leading-relaxed text-[var(--color-text-muted)]">
           {isConnected
@@ -48,7 +48,7 @@ export function TodayCallHero({
   );
 
   return (
-    <div className="mb-6 grid grid-cols-[1fr_320px] gap-[14px]">
+    <div className="grid grid-cols-[1fr_320px] gap-[14px]">
       {/* Left: amber gradient call band */}
       <div
         className="relative overflow-hidden border-l-[6px] border-[var(--color-yellow)] px-8 py-7"
