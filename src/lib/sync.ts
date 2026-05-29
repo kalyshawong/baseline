@@ -51,6 +51,7 @@ interface OuraSleep {
 interface OuraSleepPeriod {
   id: string;
   day: string;
+  bedtime_end: string | null;
   total_sleep_duration: number | null;
   rem_sleep_duration: number | null;
   deep_sleep_duration: number | null;
@@ -229,6 +230,11 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
 }> {
   const startDate = formatDate(daysAgo(lookbackDays));
   const endDate = formatDate(new Date());
+  // Extend sleep period query by +1 day — Oura sometimes keys the period
+  // to the next day when bedtime crosses midnight.
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const sleepEndDate = formatDate(tomorrow);
   const params = { start_date: startDate, end_date: endDate };
 
   let readinessCount = 0;
@@ -296,12 +302,26 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     );
     const periods = await ouraFetch<OuraListResponse<OuraSleepPeriod>>(
       "sleep",
-      params
+      { start_date: startDate, end_date: sleepEndDate }
     );
 
-    // Index period data by day (use the longest sleep period per day)
+    // Filter to long_sleep only BEFORE indexing — ignore naps/rest
+    // fragments that can shadow real sleep with tiny durations (e.g.
+    // 60s nap vs 9h sleep). Double-cast through `unknown` because
+    // OuraSleepPeriod's typed shape doesn't include the `type`
+    // discriminator we're peeking at.
+    const longSleepPeriods = periods.data.filter(
+      (p) => (p as unknown as Record<string, unknown>).type === "long_sleep",
+    );
+
+    // Index period data by day (use the longest sleep period per day).
+    // Oura keys periods by bedtime date, but daily_sleep scores use the
+    // wake-up date. When someone falls asleep May 27 and wakes May 28,
+    // the period is keyed to May 27 but the score is for May 28. Build
+    // a secondary index by wake-up date so we can fall back to it.
     const periodByDay = new Map<string, OuraSleepPeriod>();
-    for (const p of periods.data) {
+    const periodByWakeDay = new Map<string, OuraSleepPeriod>();
+    for (const p of longSleepPeriods) {
       const existing = periodByDay.get(p.day);
       if (
         !existing ||
@@ -309,37 +329,63 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       ) {
         periodByDay.set(p.day, p);
       }
+      // Index by wake-up date (bedtime_end)
+      if (p.bedtime_end) {
+        const wakeDay = p.bedtime_end.slice(0, 10);
+        const existingWake = periodByWakeDay.get(wakeDay);
+        if (
+          !existingWake ||
+          (p.total_sleep_duration ?? 0) > (existingWake.total_sleep_duration ?? 0)
+        ) {
+          periodByWakeDay.set(wakeDay, p);
+        }
+      }
     }
 
+    console.log(`[Sleep] daily_sleep days: ${sleep.data.map(s => s.day).join(", ")}`);
+
     for (const s of sleep.data) {
-      const period = periodByDay.get(s.day);
+      const bedtimePeriod = periodByDay.get(s.day);
+      const wakePeriod = periodByWakeDay.get(s.day);
+      // Prefer the bedtime-day match, but fall back to wake-day match
+      // if the bedtime match is missing or suspiciously short (< 5 min)
+      // while a longer wake-day match exists.
+      const period =
+        bedtimePeriod && (bedtimePeriod.total_sleep_duration ?? 0) >= 300
+          ? bedtimePeriod
+          : wakePeriod && (wakePeriod.total_sleep_duration ?? 0) > (bedtimePeriod?.total_sleep_duration ?? 0)
+            ? wakePeriod
+            : bedtimePeriod;
+
+      // Only include period fields when we actually have period data.
+      // When period is missing (Oura hasn't finished processing yet),
+      // passing undefined causes Prisma to skip on update (leaving stale
+      // data) and store nulls/defaults on create (garbage 60s records).
+      const periodFields = period
+        ? {
+            totalSleepDuration: period.total_sleep_duration,
+            remSleepDuration: period.rem_sleep_duration,
+            deepSleepDuration: period.deep_sleep_duration,
+            lightSleepDuration: period.light_sleep_duration,
+            sleepEfficiency: period.sleep_efficiency,
+            latency: period.latency,
+            averageHeartRate: period.average_heart_rate,
+            lowestHeartRate: period.lowest_heart_rate,
+            averageHrv: period.average_hrv,
+          }
+        : {};
+
       await prisma.dailySleep.upsert({
         where: { id: s.id },
         update: {
           score: s.score,
-          totalSleepDuration: period?.total_sleep_duration,
-          remSleepDuration: period?.rem_sleep_duration,
-          deepSleepDuration: period?.deep_sleep_duration,
-          lightSleepDuration: period?.light_sleep_duration,
-          sleepEfficiency: period?.sleep_efficiency,
-          latency: period?.latency,
-          averageHeartRate: period?.average_heart_rate,
-          lowestHeartRate: period?.lowest_heart_rate,
-          averageHrv: period?.average_hrv,
+          ...periodFields,
         },
         create: {
           id: s.id,
           day: new Date(s.day),
           score: s.score,
-          totalSleepDuration: period?.total_sleep_duration,
-          remSleepDuration: period?.rem_sleep_duration,
-          deepSleepDuration: period?.deep_sleep_duration,
-          lightSleepDuration: period?.light_sleep_duration,
-          sleepEfficiency: period?.sleep_efficiency,
-          latency: period?.latency,
-          averageHeartRate: period?.average_heart_rate,
-          lowestHeartRate: period?.lowest_heart_rate,
-          averageHrv: period?.average_hrv,
+          ...periodFields,
         },
       });
       sleepCount++;
