@@ -121,6 +121,85 @@ export function hrvCV(values: number[] | null | undefined): number | null {
   return (stdDev / mean) * 100;
 }
 
+// --- Personalized HRV-CV overreaching threshold ---
+//
+// Why this exists (recalibration 2026-05-29): the flat 10% CV cutoff
+// (Flatt & Esco 2016) was derived on populations with higher, more stable
+// HRV. CV is stdDev/mean, so for a low-HRV individual (mean ~20ms) ordinary
+// night-to-night variation of ±5-8ms mechanically yields a 25-40% CV. The
+// flat threshold then reads "overreaching" every single day — it's detecting
+// that her HRV set-point is *low*, not that she's overreaching. Verified
+// against her own data: 55/55 rolling 7-night windows exceeded 10%.
+//
+// Fix: judge her current short-window CV against HER OWN typical CV. We
+// characterize "her normal" as the mean + 1 SD of her rolling window-night
+// CVs over a long history, and only flag when today exceeds that. This keeps
+// the overreaching signal (a genuine spike above her baseline still fires)
+// without penalizing a naturally low, swingy HRV. Falls back to the flat
+// threshold when there isn't enough history to know her normal.
+export const FLAT_HRV_CV_THRESHOLD = 10;
+
+export interface HrvCvBaseline {
+  /** Her typical rolling-window CV, in percent. */
+  mean: number;
+  /** Night-to-night spread of that CV, in percent. */
+  sd: number;
+  /** How many rolling windows the baseline was computed from. */
+  n: number;
+}
+
+/**
+ * Characterize a person's *typical* HRV coefficient of variation from a
+ * series of nightly HRV values (any order; newest-first or oldest-first both
+ * work since we only slide a window over them). Returns the mean and SD of
+ * the rolling `window`-night CVs — i.e. "how variable is her HRV variability,
+ * normally." Null when there isn't enough history to establish a personal
+ * normal (caller should fall back to the flat threshold).
+ */
+export function rollingHrvCvBaseline(
+  values: number[] | null | undefined,
+  window = 7
+): HrvCvBaseline | null {
+  if (!Array.isArray(values)) return null;
+  const v = values.filter((x) => x != null && x > 0);
+  if (v.length < window + 3) return null;
+  const cvs: number[] = [];
+  for (let i = 0; i + window <= v.length; i++) {
+    const w = v.slice(i, i + window);
+    const m = w.reduce((a, b) => a + b, 0) / w.length;
+    if (m === 0) continue;
+    const sd = Math.sqrt(
+      w.reduce((s, x) => s + (x - m) ** 2, 0) / (w.length - 1)
+    );
+    cvs.push((sd / m) * 100);
+  }
+  if (cvs.length < 4) return null;
+  const mean = cvs.reduce((a, b) => a + b, 0) / cvs.length;
+  const sd = Math.sqrt(
+    cvs.reduce((s, x) => s + (x - mean) ** 2, 0) / (cvs.length - 1)
+  );
+  return { mean, sd, n: cvs.length };
+}
+
+/**
+ * The CV above which today's short-window CV counts as elevated *for this
+ * person*: her own rolling-CV mean + 1 SD. Falls back to the flat Flatt &
+ * Esco 10% when no personal baseline is available.
+ */
+export function hrvCvThreshold(baseline: HrvCvBaseline | null): number {
+  if (!baseline) return FLAT_HRV_CV_THRESHOLD;
+  return baseline.mean + baseline.sd;
+}
+
+/** Is the current short-window HRV CV elevated relative to her own normal? */
+export function isHrvCvElevated(
+  hrvCv: number | null,
+  baseline: HrvCvBaseline | null
+): boolean {
+  if (hrvCv == null) return false;
+  return hrvCv > hrvCvThreshold(baseline);
+}
+
 // --- Deload composite fatigue score ---
 // Research: Pritchard 2024, Cadegiani 2019
 export interface FatigueSignals {
@@ -341,6 +420,10 @@ export interface TrainingCallInput {
   baselineScore: number | null;
   cyclePhase: string | null; // "menstrual" | "follicular" | "ovulation" | "luteal" | null
   hrvCv: number | null;
+  /** Her personal CV baseline (mean+SD of rolling CVs). When provided, the
+   *  overreaching downgrade fires only when hrvCv exceeds her own normal,
+   *  not a flat 10%. Null → fall back to the flat threshold. */
+  hrvCvBaseline?: HrvCvBaseline | null;
   fatigueScore: number; // 0-8 from computeFatigueScore
   stressSummary: string | null; // dayStress.daySummary
 }
@@ -441,7 +524,7 @@ function buildWhyLine(
 }
 
 export function computeTrainingCall(input: TrainingCallInput): TrainingCall | null {
-  const { baselineScore, cyclePhase, hrvCv, fatigueScore, stressSummary } = input;
+  const { baselineScore, cyclePhase, hrvCv, hrvCvBaseline = null, fatigueScore, stressSummary } = input;
   if (baselineScore == null) return null;
 
   const base = readinessTier(baselineScore);
@@ -460,12 +543,20 @@ export function computeTrainingCall(input: TrainingCallInput): TrainingCall | nu
     }
   }
 
-  // HRV CV elevated (Flatt & Esco 2016 overreaching marker, >10%)
-  if (hrvCv != null && hrvCv > 10) {
+  // HRV CV elevated — judged against her own baseline when available
+  // (see rollingHrvCvBaseline / hrvCvThreshold for why the flat 10% Flatt &
+  // Esco cutoff is wrong for a low-HRV individual).
+  if (isHrvCvElevated(hrvCv, hrvCvBaseline) && hrvCv != null) {
     const next = downOne(tier);
     if (next !== tier) {
       tier = next;
-      downgrades.push(`HRV unstable (CV ${Math.round(hrvCv)}%)`);
+      downgrades.push(
+        hrvCvBaseline
+          ? `HRV swingy (CV ${Math.round(hrvCv)}% vs your ~${Math.round(
+              hrvCvThreshold(hrvCvBaseline)
+            )}% normal)`
+          : `HRV unstable (CV ${Math.round(hrvCv)}%)`
+      );
     }
   }
 

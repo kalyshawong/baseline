@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Insight, InsightMetric } from "@/lib/insights";
+import type { HrvCvCalibration } from "@/lib/training-call";
 
 const tierToCard: Record<string, string> = {
   significant: "insight-card insight-card-g",
@@ -60,7 +62,112 @@ function MetricLine({ m }: { m: InsightMetric }) {
   );
 }
 
-export function InsightsFeed({ insights }: { insights: Insight[] }) {
+function CalibrationCard({ c }: { c: HrvCvCalibration }) {
+  const router = useRouter();
+  const [saving, setSaving] = useState<null | "personalized" | "standard">(null);
+
+  async function choose(choice: "personalized" | "standard") {
+    setSaving(choice);
+    try {
+      await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hrvBaselineChoice: choice }),
+      });
+      router.refresh();
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  // Confirmed / denied → compact resolved state with a one-tap way to flip.
+  if (c.choice !== "pending") {
+    const personalized = c.choice === "personalized";
+    return (
+      <div className="insight-card insight-card-muted mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium">
+            {personalized
+              ? "Overtraining warning is tuned to you"
+              : "Using the standard overtraining warning"}
+          </p>
+          <button
+            type="button"
+            disabled={saving != null}
+            onClick={() => choose(personalized ? "standard" : "personalized")}
+            className="text-xs text-[var(--color-text-muted)] underline-offset-2 transition duration-150 ease-out-strong hover:text-[var(--color-text)] active:scale-[0.97] disabled:opacity-50"
+          >
+            {saving
+              ? "Saving…"
+              : personalized
+                ? "Switch to standard"
+                : "Recalibrate to me"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Pending → the finding, awaiting confirm/deny.
+  return (
+    <div className="insight-card insight-card-a mb-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium">Your HRV runs low — want me to recalibrate?</p>
+        <span className="pill pill-muted">Finding</span>
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-muted)]">
+        <span className="font-medium text-[var(--color-text)]">Finding:</span> your
+        overnight HRV averages{" "}
+        <span className="font-medium text-[var(--color-text)]">~{c.hrvMeanMs} ms</span>
+        {" "}— that&apos;s a recovery signal, and yours sits well below the typical
+        adult range (~30–60 ms). It&apos;s also naturally jumpy night to night. A
+        real pattern in your data, not a glitch.
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-muted)]">
+        Because it runs so low, the standard &ldquo;you might be
+        overtraining&rdquo; warning trips almost every night — even when you feel
+        fine. I&apos;d retune it to your own baseline, so it only speaks up when
+        your HRV is unusually jumpy{" "}
+        <span className="font-medium text-[var(--color-text)]">for you</span>.
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-muted)]">
+        Your readiness, sleep, and resting heart rate all look strong — so the
+        low number reads as just your normal, not overtraining.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--color-border)] pt-3">
+        <span className="text-xs font-medium text-[var(--color-text)]">
+          Recalibrate to your baseline?
+        </span>
+        <div className="ml-auto flex gap-2">
+          <button
+            type="button"
+            disabled={saving != null}
+            onClick={() => choose("personalized")}
+            className="border border-[var(--color-border)] bg-white/10 px-3 py-1 text-xs font-medium transition duration-150 ease-out-strong hover:bg-white/20 active:scale-[0.97] disabled:opacity-50"
+          >
+            {saving === "personalized" ? "Saving…" : "Confirm"}
+          </button>
+          <button
+            type="button"
+            disabled={saving != null}
+            onClick={() => choose("standard")}
+            className="px-3 py-1 text-xs text-[var(--color-text-muted)] transition duration-150 ease-out-strong hover:text-[var(--color-text)] active:scale-[0.97] disabled:opacity-50"
+          >
+            {saving === "standard" ? "Saving…" : "Deny · keep standard"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function InsightsFeed({
+  insights,
+  calibration,
+}: {
+  insights: Insight[];
+  calibration?: HrvCvCalibration | null;
+}) {
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
   const [showArchived, setShowArchived] = useState(false);
 
@@ -72,6 +179,7 @@ export function InsightsFeed({ insights }: { insights: Insight[] }) {
   if (insights.length === 0) {
     return (
       <div>
+        {calibration && <CalibrationCard c={calibration} />}
         <div className="empty-state">
           <p className="text-sm">
             Keep tagging activities — insights will appear once patterns emerge
@@ -88,6 +196,10 @@ export function InsightsFeed({ insights }: { insights: Insight[] }) {
 
   return (
     <div>
+      {/* HRV calibration explainer — not a correlation finding, so it sits
+          above the filterable tag insights as a standing note. */}
+      {calibration && <CalibrationCard c={calibration} />}
+
       {/* Filter bar */}
       <div className="mb-4 flex flex-wrap gap-2">
         {filters.map((f) => (

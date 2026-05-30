@@ -34,7 +34,7 @@ export function WeightTrendChart({
 }) {
   if (logs.length === 0) {
     return (
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5 text-center text-sm text-[var(--color-text-muted)]">
+      <div className="panel p-5 text-center text-sm text-[var(--color-text-muted)]">
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider">Weight Trend</h2>
         <p>No weight logs yet. Log your first entry to see the 30-day chart.</p>
       </div>
@@ -54,7 +54,7 @@ export function WeightTrendChart({
     : null;
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="panel p-5">
       <div className="mb-3">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Weight Trend (30 days)

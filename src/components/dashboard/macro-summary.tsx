@@ -28,7 +28,7 @@ export function MacroSummary({ data, compact }: { data: MacroData | null; compac
   if (!data || data.entryCount === 0) {
     if (compact) return null;
     return (
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5 text-center text-sm text-[var(--color-text-muted)]">
+      <div className="panel p-5 text-center text-sm text-[var(--color-text-muted)]">
         <p>No food logged today.</p>
       </div>
     );
@@ -39,7 +39,7 @@ export function MacroSummary({ data, compact }: { data: MacroData | null; compac
 
   if (compact) {
     return (
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="panel p-5">
         <div className="flex items-center justify-between">
           <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
             Nutrition
@@ -60,7 +60,7 @@ export function MacroSummary({ data, compact }: { data: MacroData | null; compac
   }
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="panel p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Daily Nutrition

@@ -23,7 +23,7 @@ export function NutritionCheck({ nutrition, bodyWeightKg, dailyCalorieTarget, en
   const lowEA = energyAvailability != null && energyAvailability < 30;
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="panel p-5">
       <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Nutrition Check
       </h2>

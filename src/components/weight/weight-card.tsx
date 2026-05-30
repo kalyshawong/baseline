@@ -43,7 +43,7 @@ export function WeightCard({
   const hasGoal = !!goal && goal !== "maintain" && !!targetWeightKg;
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="panel p-5">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Weight

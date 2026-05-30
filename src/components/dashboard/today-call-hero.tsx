@@ -19,10 +19,14 @@ export function TodayCallHero({
   call,
   isConnected,
   evidence,
+  flagPointer,
 }: {
   call: TrainingCall | null;
   isConnected: boolean;
   evidence?: EvidenceItem[];
+  /** Compact pointer to the Flags feed when something about today's inputs
+   *  doesn't add up. The reasoning lives in /mind; this is just the nudge. */
+  flagPointer?: { count: number; topTitle: string } | null;
 }) {
   if (!call) {
     return (
@@ -85,6 +89,23 @@ export function TodayCallHero({
         <Link href="/body" className="linklike mt-5 inline-block">
           See full training breakdown →
         </Link>
+
+        {/* Flag pointer — only when something about today's inputs is worth
+            a look. One line; the detail lives in the Flags feed on /mind. */}
+        {flagPointer && flagPointer.count > 0 && (
+          <Link
+            href="/mind"
+            className="mt-4 flex items-center gap-2 border-t border-[var(--color-border)] pt-3 text-sm text-[var(--color-yellow)] transition duration-150 ease-out-strong hover:brightness-110 active:scale-[0.99]"
+          >
+            <span aria-hidden="true">⚐</span>
+            <span className="font-medium">
+              {flagPointer.count === 1
+                ? flagPointer.topTitle
+                : `${flagPointer.count} flags — ${flagPointer.topTitle}`}
+            </span>
+            <span className="ml-auto" aria-hidden="true">→</span>
+          </Link>
+        )}
       </div>
 
       {/* Right: score stack — 3 stacked cards */}

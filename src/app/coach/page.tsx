@@ -57,7 +57,7 @@ export default async function CoachPage({
         <a href="/coach" className="btn">+ New Chat</a>
         <a
           href="/coach?view=history"
-          className="flex items-center gap-2 border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-[13px] font-semibold tracking-wide text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-gold)] hover:text-[var(--color-text)]"
+          className="flex items-center gap-2 panel px-4 py-2 text-[13px] font-semibold tracking-wide text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-gold)] hover:text-[var(--color-text)]"
         >
           History
           {sessions.length > 0 && (

@@ -39,7 +39,7 @@ export function TdeeCard({
   const lowEA = energyAvailability != null && energyAvailability < 30;
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="panel p-5">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Energy & Nutrition

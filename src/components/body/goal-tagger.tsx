@@ -69,14 +69,14 @@ export function GoalTagger({
   if (goals.length === 0) return null;
   if (saved) {
     return (
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-center text-xs text-[var(--color-text-muted)]">
+      <div className="panel p-4 text-center text-xs text-[var(--color-text-muted)]">
         Goals tagged
       </div>
     );
   }
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+    <div className="panel p-4">
       <p className="mb-3 text-sm font-medium">Which goals did this serve?</p>
       <div className="space-y-2">
         {goals.map((g) => (

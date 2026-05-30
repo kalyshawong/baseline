@@ -2,6 +2,9 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { generateInsights } from "@/lib/insights";
+import { getHrvCvCalibration } from "@/lib/training-call";
+import { getFlags } from "@/lib/flags";
+import { FlagsFeed } from "@/components/mind/flags-feed";
 import { QuickTag } from "@/components/mind/quick-tag";
 import { TagTimeline } from "@/components/mind/tag-timeline";
 import { TodayContext } from "@/components/mind/today-context";
@@ -45,6 +48,8 @@ export default async function MindPage({
     cyclePhase,
     latestEnv,
     insights,
+    hrvCalibration,
+    flags,
     nutritionLog,
     lifeContextDefs,
     lifeContextLogs,
@@ -78,6 +83,8 @@ export default async function MindPage({
       orderBy: { timestamp: "desc" },
     }),
     generateInsights(),
+    getHrvCvCalibration(viewDate),
+    getFlags(viewDate),
     prisma.nutritionLog.findUnique({
       where: { day: viewDate },
       include: { entries: { orderBy: { eatenAt: "asc" } } },
@@ -218,8 +225,21 @@ export default async function MindPage({
             <div className="h-px flex-1 bg-[var(--color-border)]" />
           </div>
 
+          {/* Flags — "what doesn't add up." Kept distinct from Insights
+              (correlations) since it's the system flagging contradictions,
+              bad data, and assumption mismatches. */}
+          <div className="mb-6">
+            <div className="mb-3 flex items-center gap-3">
+              <p className="ov shrink-0" style={{ color: "var(--color-gold)" }}>
+                Flags &middot; worth a look
+              </p>
+              <div className="h-px flex-1 bg-[var(--color-border)]" />
+            </div>
+            <FlagsFeed flags={flags} />
+          </div>
+
           {/* Insights feed with filter bar */}
-          <InsightsFeed insights={insights} />
+          <InsightsFeed insights={insights} calibration={hrvCalibration} />
 
           {/* Active Experiments */}
           <div className="mt-6">

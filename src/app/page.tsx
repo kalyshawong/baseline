@@ -16,7 +16,9 @@ import { getHyroxToday } from "@/lib/hyrox-today";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { DateNav } from "@/components/date-nav";
 import { getDateFromParams, getDateStrFromParams, getLocalDay, getLocalDayBounds } from "@/lib/date-utils";
-import { getTrainingCallForDate } from "@/lib/training-call";
+import { getTrainingCallForDate, getHrvBaselineSummary } from "@/lib/training-call";
+import { getFlags } from "@/lib/flags";
+import { BaselineCard } from "@/components/dashboard/baseline-card";
 import { getDownsampledHrForWorkout, type HrChartPoint } from "@/lib/workout-notes";
 
 /**
@@ -214,6 +216,19 @@ export default async function Dashboard({
   const isToday = isSameLocalDay(viewDate, getLocalDay());
   const todayCall = await getTrainingCallForDate(viewDate);
 
+  // Flags for the viewed day — reuse the call we just computed so getFlags
+  // doesn't recompute it. Only the count + top title surface on the hero;
+  // the full feed lives on /mind.
+  const flags = await getFlags(viewDate, { call: todayCall });
+  const flagPointer =
+    flags.length > 0
+      ? { count: flags.length, topTitle: flags[0].title }
+      : null;
+
+  // Permanent baseline reference (her HRV set-point). Independent of the
+  // viewed date — it's a standing fact, not today's data.
+  const hrvBaseline = await getHrvBaselineSummary();
+
   // Pull the active Hyrox plan + today's session recommendation. Renders
   // nothing if no active plan exists, so non-Hyrox users see no change.
   const hyroxToday = await getHyroxToday(viewDate);
@@ -310,6 +325,7 @@ export default async function Dashboard({
       <TodayCallHero
           call={todayCall}
           isConnected={isConnected}
+          flagPointer={flagPointer}
           evidence={[
             ...(score
               ? [
@@ -341,6 +357,10 @@ export default async function Dashboard({
                 : []),
           ]}
         />
+
+      {/* Permanent baseline reference — your HRV set-point, framed as your
+       * own normal rather than a population comparison. */}
+      <BaselineCard hrv={hrvBaseline} />
 
       {/* Hyrox countdown — renders only when an active Hyrox plan
        * exists. For a Hyrox athlete this is the most actionable card

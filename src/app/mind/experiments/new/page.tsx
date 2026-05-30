@@ -60,7 +60,7 @@ export default function NewExperimentPage() {
             <button
               key={i}
               onClick={() => selectTemplate(t)}
-              className="block w-full border border-[var(--color-border)] bg-[var(--color-surface)] p-5 text-left transition duration-150 ease-out-strong active:scale-[0.97] hover:border-[var(--color-text-muted)]/30"
+              className="block w-full panel p-5 text-left transition duration-150 ease-out-strong active:scale-[0.97] hover:border-[var(--color-text-muted)]/30"
             >
               <p className="font-medium">{t.title}</p>
               <p className="mt-1 text-xs text-[var(--color-text-muted)]">
@@ -95,7 +95,7 @@ export default function NewExperimentPage() {
             </div>
           )}
 
-          <div className="space-y-3 border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <div className="space-y-3 panel p-5">
             <Field
               label="Title"
               value={form.title ?? ""}

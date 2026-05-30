@@ -46,6 +46,7 @@ export function ReadinessTierCard({
   call,
   baselineScore,
   hrvCv,
+  hrvCvElevated,
 }: {
   /** The integrated training call from computeTrainingCall(). Source
    *  of truth for the verdict + final tier. When null, the card
@@ -53,10 +54,13 @@ export function ReadinessTierCard({
   call: TrainingCall | null;
   baselineScore: number | null;
   hrvCv?: number | null;
+  /** Whether the CV is elevated relative to HER baseline (personalized),
+   *  not a flat 10%. When omitted, no amber emphasis is applied. */
+  hrvCvElevated?: boolean;
 }) {
   if (!call) {
     return (
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="panel p-5">
         <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Today&apos;s Training Tier
         </p>
@@ -103,7 +107,7 @@ export function ReadinessTierCard({
           {hrvCv != null && (
             <p
               className={
-                hrvCv > 10 ? "text-amber-400 font-medium" : ""
+                hrvCvElevated ? "text-amber-400 font-medium" : ""
               }
             >
               HRV CV: {hrvCv.toFixed(1)}%

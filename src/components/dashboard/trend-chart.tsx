@@ -53,7 +53,7 @@ function CustomTooltip({
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs shadow-lg">
+    <div className="panel px-3 py-2 text-xs shadow-lg">
       <p className="font-medium">{formatDay(d.day)}</p>
       <div className="mt-1 space-y-0.5 text-[var(--color-text-muted)]">
         <p>
@@ -76,14 +76,14 @@ function CustomTooltip({
 export function TrendChart({ data }: { data: DaySnapshot[] }) {
   if (data.length === 0) {
     return (
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center text-sm text-[var(--color-text-muted)]">
+      <div className="panel p-8 text-center text-sm text-[var(--color-text-muted)]">
         No trend data available yet.
       </div>
     );
   }
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+    <div className="panel p-6">
       <h2 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         7-Day Trend
       </h2>

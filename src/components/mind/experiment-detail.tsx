@@ -108,7 +108,7 @@ export function ExperimentDetail({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+      <div className="panel p-6">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-xl font-bold">{experiment.title}</h2>
@@ -142,7 +142,7 @@ export function ExperimentDetail({
 
       {/* Daily Log */}
       {(experiment.status === "draft" || experiment.status === "active") && (
-        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+        <div className="panel p-6">
           <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
             Log Today
           </h3>
@@ -186,7 +186,7 @@ export function ExperimentDetail({
       )}
 
       {/* Progress & Actions */}
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+      <div className="panel p-6">
         <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Progress
         </h3>
@@ -230,7 +230,7 @@ export function ExperimentDetail({
 
       {/* Analysis Results */}
       {(result || analyzeError) && (
-        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+        <div className="panel p-6">
           <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
             Analysis Results
           </h3>
@@ -279,7 +279,7 @@ export function ExperimentDetail({
 
       {/* Log History */}
       {experiment.logs.length > 0 && (
-        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+        <div className="panel p-6">
           <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
             Log History
           </h3>

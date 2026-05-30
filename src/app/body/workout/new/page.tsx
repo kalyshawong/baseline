@@ -133,7 +133,7 @@ export default function NewWorkoutPage() {
   return (
     <div className="space-y-4">
       {/* Date picker — shown expanded for backfill, collapsed for today */}
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="panel p-5">
         <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Workout Date
         </label>

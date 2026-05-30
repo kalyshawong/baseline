@@ -72,7 +72,7 @@ export function BaselineScoreCard({
 }) {
   if (!score) {
     return (
-      <div className="card-enter border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+      <div className="card-enter panel p-8 text-center">
         <p className="text-[var(--color-text-muted)]">
           {isConnected
             ? "No readiness data yet. Hit Sync to pull your latest Oura data."

@@ -9,7 +9,7 @@ export function VolumeZones({ data }: { data: MuscleVolume[] }) {
   const groups = Object.keys(volumeZones);
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="panel p-5">
       <h2 className="mb-1 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Weekly Volume
       </h2>

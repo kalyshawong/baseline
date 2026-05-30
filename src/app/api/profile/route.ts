@@ -11,6 +11,8 @@ const EXPERIENCE_LEVEL = ["beginner", "intermediate", "advanced"] as const;
 const ACTIVITY_LEVEL = ["sedentary", "light", "moderate", "active", "very_active"] as const;
 const GOAL = ["lose", "maintain", "gain"] as const;
 const UNIT = ["lb", "kg"] as const;
+// "pending" is the unset default — the card writes only personalized/standard.
+const HRV_BASELINE_CHOICE = ["pending", "personalized", "standard"] as const;
 
 export async function GET() {
   try {
@@ -54,6 +56,9 @@ export async function POST(request: NextRequest) {
         : null,
       body.goal !== undefined ? validateEnum(body.goal, GOAL, "goal") : null,
       body.unit !== undefined ? validateEnum(body.unit, UNIT, "unit") : null,
+      body.hrvBaselineChoice !== undefined
+        ? validateEnum(body.hrvBaselineChoice, HRV_BASELINE_CHOICE, "hrvBaselineChoice")
+        : null,
     );
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 });
@@ -71,6 +76,7 @@ export async function POST(request: NextRequest) {
       "targetWeightKg",
       "dailyCalorieTarget",
       "unit",
+      "hrvBaselineChoice",
     ] as const;
 
     const data: Record<string, unknown> = {};

@@ -39,7 +39,7 @@ export default async function HyroxPage() {
 
   if (!plan) {
     return (
-      <div className="flex flex-col items-center gap-4 border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+      <div className="flex flex-col items-center gap-4 panel p-8 text-center">
         <p className="text-sm text-[var(--color-text-muted)]">
           No active Hyrox plan. Set a race goal with subtype=hyrox to auto-create one.
         </p>
@@ -56,7 +56,7 @@ export default async function HyroxPage() {
   const archivedPlan = await maybeArchivePlan(plan);
   if (archivedPlan.status !== "active") {
     return (
-      <div className="flex flex-col items-center gap-4 border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+      <div className="flex flex-col items-center gap-4 panel p-8 text-center">
         <p className="text-sm text-[var(--color-text-muted)]">
           Your Hyrox plan was archived (race date passed).
         </p>
@@ -157,7 +157,7 @@ export default async function HyroxPage() {
   return (
     <div className="space-y-4">
       {/* ─── HEADER CARD ─── */}
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="panel p-5">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <h2 className="text-lg font-bold tracking-tight">
@@ -199,7 +199,7 @@ export default async function HyroxPage() {
       </div>
 
       {/* ─── TODAY'S SESSION CARD ─── */}
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="panel p-5">
         <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Today&rsquo;s Session
         </h3>

@@ -66,7 +66,7 @@ export function CyclePhaseSelector({
   }
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+    <div className="panel p-6">
       <h2 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
         Cycle Phase
       </h2>

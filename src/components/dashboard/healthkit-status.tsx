@@ -32,7 +32,7 @@ export function HealthKitStatus({ data }: { data: HealthKitStatusData }) {
   if (!data.lastSync && !data.todayWorkout) return null;
 
   return (
-    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+    <div className="panel p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Apple Watch

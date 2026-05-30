@@ -262,7 +262,7 @@ export function WorkoutLogger({
     <div className="space-y-6">
       {/* Rest Timer (hidden for backfill sessions) */}
       {!isBackfill && timerRunning && (
-        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <div className="panel p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-[var(--color-text-muted)]">Rest timer</p>
@@ -284,7 +284,7 @@ export function WorkoutLogger({
       )}
 
       {/* Exercise Selection */}
-      <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="panel p-5">
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Exercise
         </h2>
@@ -343,7 +343,7 @@ export function WorkoutLogger({
 
       {/* Set Logger */}
       {selectedExercise && (
-        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="panel p-5">
           <div className="mb-3 flex items-start justify-between">
             <div>
               <p className="text-lg font-bold">{selectedExercise.name}</p>
@@ -462,7 +462,7 @@ export function WorkoutLogger({
 
       {/* Logged Sets Summary */}
       {sets.length > 0 && (
-        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="panel p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
               Session Log

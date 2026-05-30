@@ -25,7 +25,7 @@ export function RunningMetricsCard({ metrics, vo2Max, vo2MaxDate }: RunningMetri
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
           Running & Cardio
         </h2>
-        <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="panel p-5">
           <p className="text-xs text-[var(--color-text-muted)]">
             No running or cardio data yet. Do a tracked outdoor run with your Apple Watch, then sync via Health Auto Export.
           </p>
