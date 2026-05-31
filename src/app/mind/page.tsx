@@ -104,10 +104,10 @@ export default async function MindPage({
   return (
     <div>
       {/* ── Page header ── */}
-      <div className="flex items-center justify-between px-9 pt-6">
+      <div className="flex items-center justify-between" style={{ paddingTop: "26px" }}>
         <div>
-          <h1 className="disp text-[46px] leading-none tracking-tight">MIND MODE</h1>
-          <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+          <h1 className="disp text-[46px] leading-[0.9] tracking-[0.02em] whitespace-nowrap">MIND MODE</h1>
+          <p className="mt-[3px] text-[14px] font-medium text-[var(--color-text-muted)]">
             Structured self-experimentation
           </p>
         </div>
@@ -117,7 +117,7 @@ export default async function MindPage({
       </div>
 
       {/* ── Context bar (full-width) ── */}
-      <div className="px-9 pt-5">
+      <div className="mt-4">
         <TodayContext
           data={{
             readinessScore: dayReadiness?.score ?? null,
@@ -130,26 +130,16 @@ export default async function MindPage({
         />
       </div>
 
-      {/* ── Two-column split ── */}
-      <div className="grid grid-cols-[360px_1fr] gap-4 px-9 pt-4 items-start">
+      {/* ── Two-column split — design: .wb ── */}
+      <div className="grid grid-cols-[360px_1fr] gap-4 pt-4 items-start">
         {/* ═══ LEFT: Inputs / Log ═══ */}
         <div>
-          {/* Column header */}
-          <div className="mb-3 flex items-center gap-3">
-            <p className="ov shrink-0" style={{ color: "var(--color-gold)" }}>
-              Inputs &middot; Log
-            </p>
-            <div className="h-px flex-1 bg-[var(--color-border)]" />
-          </div>
+          <ColHead>Inputs &middot; Log</ColHead>
 
           <div className="flex flex-col gap-[14px]">
-            {/* Quick Tag */}
             <QuickTag dateStr={viewDateStr} />
-
-            {/* Log Food */}
             <NutritionInput dateStr={viewDateStr} />
 
-            {/* Macro summary */}
             <MacroSummary
               data={
                 nutritionLog
@@ -164,7 +154,6 @@ export default async function MindPage({
               }
             />
 
-            {/* Nutrition log entries */}
             <NutritionLog
               entries={(nutritionLog?.entries ?? []).map((e) => ({
                 id: e.id,
@@ -181,7 +170,6 @@ export default async function MindPage({
               }))}
             />
 
-            {/* Life Context */}
             <LifeContextCard
               key={viewDateStr}
               dateStr={viewDateStr}
@@ -201,7 +189,6 @@ export default async function MindPage({
               }))}
             />
 
-            {/* Day's Tags timeline */}
             <TagTimeline
               tags={dayTags.map((t) => ({
                 id: t.id,
@@ -217,118 +204,66 @@ export default async function MindPage({
 
         {/* ═══ RIGHT: Findings ═══ */}
         <div>
-          {/* Column header */}
-          <div className="mb-3 flex items-center gap-3">
-            <p className="ov shrink-0" style={{ color: "var(--color-gold)" }}>
-              Findings
-            </p>
-            <div className="h-px flex-1 bg-[var(--color-border)]" />
-          </div>
+          <ColHead>Findings</ColHead>
 
-          {/* Flags — "what doesn't add up." Kept distinct from Insights
-              (correlations) since it's the system flagging contradictions,
-              bad data, and assumption mismatches. */}
-          <div className="mb-6">
-            <div className="mb-3 flex items-center gap-3">
-              <p className="ov shrink-0" style={{ color: "var(--color-gold)" }}>
-                Flags &middot; worth a look
-              </p>
-              <div className="h-px flex-1 bg-[var(--color-border)]" />
-            </div>
-            <FlagsFeed flags={flags} />
-          </div>
-
-          {/* Insights feed with filter bar */}
-          <InsightsFeed insights={insights} calibration={hrvCalibration} />
-
-          {/* Active Experiments */}
-          <div className="mt-6">
-            <div className="mb-3 flex items-center gap-3">
-              <p className="ov shrink-0" style={{ color: "var(--color-gold)" }}>
-                Active Experiments
-              </p>
-              <div className="h-px flex-1 bg-[var(--color-border)]" />
-            </div>
-            {active.length === 0 ? (
-              <div className="empty-state">
-                No active experiments.{" "}
-                <Link href="/mind/experiments/new" className="linklike">
-                  Start one from a template
-                </Link>
-                .
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                {active.map((exp) => {
-                  const treatmentDays = exp._count.logs;
-                  const progress = Math.min(100, Math.round((treatmentDays / (exp.minDays * 2)) * 100));
-                  return (
-                    <Link
-                      key={exp.id}
-                      href={`/mind/experiments/${exp.id}`}
-                      className="panel block transition duration-150 ease-out-strong active:scale-[0.97] hover:brightness-110"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-medium">{exp.title}</p>
-                          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                            {exp.hypothesis}
-                          </p>
-                        </div>
-                        <span className={statusColors[exp.status]}>
-                          {exp.status}
-                        </span>
-                      </div>
-                      <div className="mt-3">
-                        <div className="flex justify-between text-xs text-[var(--color-text-muted)]">
-                          <span>{treatmentDays} days logged</span>
-                          <span>{progress}%</span>
-                        </div>
-                        <div className="mt-1 h-1.5 bg-[var(--color-surface-2)]">
-                          <div
-                            className="h-full bg-[var(--color-green)] transition-all"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* All Experiments */}
-          {others.length > 0 && (
-            <div className="mt-4">
-              <div className="mb-3 flex items-center gap-3">
-                <p className="ov shrink-0">All Experiments</p>
-                <div className="h-px flex-1 bg-[var(--color-border)]" />
-              </div>
-              <div className="space-y-2">
-                {others.map((exp) => (
-                  <Link
-                    key={exp.id}
-                    href={`/mind/experiments/${exp.id}`}
-                    className="panel flex items-center justify-between !py-3 transition duration-150 ease-out-strong active:scale-[0.97] hover:brightness-110"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{exp.title}</p>
-                      <p className="text-xs text-[var(--color-text-muted)]">
-                        {exp._count.logs} days logged
-                      </p>
-                    </div>
-                    <span className={statusColors[exp.status]}>
-                      {exp.status}
-                    </span>
-                  </Link>
-                ))}
-              </div>
+          {/* Flags */}
+          {flags.length > 0 && (
+            <div className="mb-6">
+              <FlagsFeed flags={flags} />
             </div>
           )}
 
-          {/* Environment Card */}
-          <div className="mt-4">
+          {/* Insights feed with filter bar + featured finding */}
+          <InsightsFeed insights={insights} calibration={hrvCalibration} />
+
+          {/* Active Experiments + Environment — side by side tiles per design */}
+          <div className="grid grid-cols-2 gap-[14px] mt-[14px]">
+            <div className="panel">
+              <p className="ov mb-3">Active Experiments</p>
+              {active.length === 0 ? (
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  No active experiments.{" "}
+                  <Link href="/mind/experiments/new" className="linklike">
+                    Start from a template.
+                  </Link>
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {active.map((exp) => {
+                    const treatmentDays = exp._count.logs;
+                    const progress = Math.min(100, Math.round((treatmentDays / (exp.minDays * 2)) * 100));
+                    return (
+                      <Link
+                        key={exp.id}
+                        href={`/mind/experiments/${exp.id}`}
+                        className="block bg-[var(--color-surface-2)] p-3 text-xs transition hover:bg-white/10"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{exp.title}</p>
+                            <p className="mt-1 text-[var(--color-text-muted)]">{exp.hypothesis}</p>
+                          </div>
+                          <span className={statusColors[exp.status]}>{exp.status}</span>
+                        </div>
+                        <div className="mt-2">
+                          <div className="flex justify-between text-[var(--color-text-muted)]">
+                            <span>{treatmentDays} days logged</span>
+                            <span>{progress}%</span>
+                          </div>
+                          <div className="mt-1 h-1.5 bg-[var(--color-surface)]">
+                            <div
+                              className="h-full transition-all"
+                              style={{ width: `${progress}%`, background: "var(--color-green)" }}
+                            />
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <EnvCard
               latest={
                 latestEnv
@@ -343,8 +278,50 @@ export default async function MindPage({
               }
             />
           </div>
+
+          {/* All Experiments (compact list below tiles) */}
+          {others.length > 0 && (
+            <div className="mt-4">
+              <div className="mb-3 flex items-center gap-3">
+                <p className="ov shrink-0">All Experiments</p>
+                <div className="h-px flex-1 bg-[var(--color-border)]" />
+              </div>
+              <div className="space-y-2">
+                {others.map((exp) => (
+                  <Link
+                    key={exp.id}
+                    href={`/mind/experiments/${exp.id}`}
+                    className="panel flex items-center justify-between !py-3 transition hover:brightness-110"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{exp.title}</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">
+                        {exp._count.logs} days logged
+                      </p>
+                    </div>
+                    <span className={statusColors[exp.status]}>{exp.status}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Column header — gold overline with trailing line. Design: .colhead */
+function ColHead({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-[13px] flex items-center gap-3">
+      <p
+        className="text-[11px] font-extrabold uppercase tracking-[0.2em] shrink-0"
+        style={{ color: "var(--color-gold)" }}
+      >
+        {children}
+      </p>
+      <div className="h-px flex-1 bg-[var(--color-border)]" />
     </div>
   );
 }

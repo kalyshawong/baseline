@@ -57,12 +57,10 @@ export function WeightGoalSettings({ profile }: { profile: Profile | null }) {
   }
 
   return (
-    <div className="panel p-5">
+    <div className="panel p-[22px_24px]">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-            Goal
-          </h2>
+          <p className="ov">Goal</p>
           <p className="mt-1 text-sm font-semibold capitalize">
             {profile?.goal ?? "maintain"}
             {profile?.targetWeightKg && (
@@ -170,7 +168,8 @@ export function WeightGoalSettings({ profile }: { profile: Profile | null }) {
           <button
             onClick={save}
             disabled={isPending}
-            className="w-full bg-white/10 py-2 text-sm font-medium hover:bg-white/20 disabled:opacity-30"
+            className="btn w-full text-center"
+            style={{ clipPath: "none" }}
           >
             {isPending ? "Saving..." : "Save"}
           </button>

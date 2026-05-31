@@ -19,7 +19,6 @@ import {
 } from "@/lib/training";
 import { getHrvBaselineChoice } from "@/lib/training-call";
 import { ReadinessTierCard } from "@/components/body/readiness-tier-card";
-import { TodayCallCard } from "@/components/dashboard/today-call-card";
 import { VolumeZones } from "@/components/body/volume-zones";
 import { CyclePhaseGuidanceCard } from "@/components/body/cycle-phase-guidance-card";
 import { CyclePhaseSelector } from "@/components/dashboard/cycle-phase-selector";
@@ -28,7 +27,6 @@ import { NutritionCheck } from "@/components/body/nutrition-check";
 import { TrendsCharts } from "@/components/body/trends-charts";
 import { WeightCard } from "@/components/weight/weight-card";
 import { WeightTrendChart } from "@/components/weight/weight-trend-chart";
-import { WeightGoalSettings } from "@/components/weight/weight-goal-settings";
 import { TdeeCard } from "@/components/weight/tdee-card";
 import { RunningMetricsCard } from "@/components/body/running-metrics-card";
 import { HyroxSummaryCard } from "@/components/hyrox-summary-card";
@@ -47,15 +45,6 @@ function formatDuration(seconds: number | null): string {
   return `${h}h ${m}m`;
 }
 
-function formatSecondsFromMidnight(seconds: number): string {
-  const totalSeconds = seconds < 0 ? 86400 + seconds : seconds;
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
-}
-
 export const dynamic = "force-dynamic";
 
 export default async function BodyPage() {
@@ -63,7 +52,7 @@ export default async function BodyPage() {
 
   // Week window (Monday-Sunday)
   const weekStart = new Date(localToday);
-  const dayOfWeek = weekStart.getUTCDay() || 7; // Sunday = 7
+  const dayOfWeek = weekStart.getUTCDay() || 7;
   weekStart.setUTCDate(weekStart.getUTCDate() - (dayOfWeek - 1));
 
   const thirtyDaysAgo = new Date();
@@ -85,8 +74,6 @@ export default async function BodyPage() {
     sleepTimeRec,
   ] = await Promise.all([
     getScoreForDate(localToday),
-    // Staleness-guarded — see src/lib/cycle-phase.ts. Returns
-    // { phase: null, lastLoggedDaysAgo: N } when log is stale.
     (async () => {
       const { resolveCyclePhase } = await import("@/lib/cycle-phase");
       return resolveCyclePhase(localToday);
@@ -136,8 +123,6 @@ export default async function BodyPage() {
     prisma.sleepTimeRecommendation.findFirst({ orderBy: { day: "desc" } }),
   ]);
 
-  // For the integrated training call + RecoverySignalsRow (moved from
-  // /dashboard 2026-05-27) — /body didn't fetch these before.
   const [dayStress, daySpO2, dayResilience] = await Promise.all([
     prisma.dailyStress.findUnique({ where: { day: localToday } }),
     prisma.dailySpO2.findUnique({ where: { day: localToday } }),
@@ -154,7 +139,6 @@ export default async function BodyPage() {
 
   const guidance = cyclePhaseGuidance(phaseLog.phase);
 
-  // --- Weight / TDEE calculations ---
   const tdee = weightKg && profile
     ? totalDailyEnergyExpenditure({
         weightKg,
@@ -168,7 +152,6 @@ export default async function BodyPage() {
     : null;
   const goalCals = tdee ? goalCalories(tdee, profile?.goal ?? "maintain") : null;
 
-  // Weight trend chart data with 7-day moving avg
   const weightChartData = movingAverage(
     weightLogs.map((l) => ({
       date: l.day.toISOString().split("T")[0],
@@ -196,7 +179,7 @@ export default async function BodyPage() {
     sets,
   }));
 
-  // --- Personal records (top 5 most recent) ---
+  // --- Personal records ---
   const prs = await prisma.workoutSet.findMany({
     where: { isPR: true, isWarmup: false },
     orderBy: { createdAt: "desc" },
@@ -204,16 +187,12 @@ export default async function BodyPage() {
     include: { exercise: { select: { name: true } } },
   });
 
-  // --- HRV CV for overreaching signal ---
+  // --- HRV CV ---
   const hrvValues = recentSleep
     .map((s) => s.averageHrv)
     .filter((v): v is number => v != null);
-  // Current CV over the recent 7-night window — same window the dashboard's
-  // getTrainingCallForDate uses, so the two surfaces agree.
   const cv = hrvCV(hrvValues.slice(0, 7));
 
-  // Personal CV baseline from a longer history so "elevated" means "high for
-  // her," not above a flat 10%. See rollingHrvCvBaseline for the rationale.
   const hrvBaselineSleep = await prisma.dailySleep.findMany({
     where: { day: { lte: localToday }, averageHrv: { not: null } },
     orderBy: { day: "desc" },
@@ -225,7 +204,6 @@ export default async function BodyPage() {
       .map((s) => s.averageHrv)
       .filter((v): v is number => v != null)
   );
-  // Respect her calibration choice: "standard" reverts to the flat 10%.
   const hrvChoice = await getHrvBaselineChoice();
   const hrvCvBaseline = hrvChoice === "standard" ? null : personalHrvBaseline;
   const hrvCvElevated = isHrvCvElevated(cv, hrvCvBaseline);
@@ -235,7 +213,6 @@ export default async function BodyPage() {
     ([group, sets]) => sets >= volumeZones[group].mrv * 0.9
   );
 
-  // RPE creep detection
   const exerciseSetCounts = new Map<string, typeof allRecentSets>();
   for (const s of allRecentSets) {
     const list = exerciseSetCounts.get(s.exercise.name) ?? [];
@@ -254,7 +231,6 @@ export default async function BodyPage() {
     }
   }
 
-  // --- Compute real fatigue signals from data ---
   const hrvMean = hrvValues.length >= 5
     ? hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length
     : null;
@@ -314,9 +290,6 @@ export default async function BodyPage() {
     volumeApproachingMRV,
   });
 
-  // Integrated training call — same logic the dashboard hero uses, so the
-  // two surfaces never disagree. Sits above the breakdown cards as the
-  // synthesis.
   const trainingCall = computeTrainingCall({
     baselineScore: score?.overall ?? null,
     cyclePhase: phaseLog.phase,
@@ -326,7 +299,7 @@ export default async function BodyPage() {
     stressSummary: dayStress?.daySummary ?? null,
   });
 
-  // --- Nutrition data for Morton/Moore/Loucks checks ---
+  // --- Nutrition data ---
   const perMealProtein = new Map<string, number>();
   for (const entry of todayNutrition?.entries ?? []) {
     const mt = entry.mealType;
@@ -345,58 +318,65 @@ export default async function BodyPage() {
     : null;
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* ─── PAGE HEADER ─── */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between" style={{ paddingTop: "26px" }}>
         <div>
-          <h1 className="disp text-[46px] leading-[0.9] tracking-[0.02em]">BODY</h1>
-          <p className="mt-1 text-sm font-medium text-[var(--color-text-muted)]">Training readiness, recovery &amp; composition</p>
+          <h1 className="disp text-[46px] leading-[0.9] tracking-[0.02em] whitespace-nowrap">BODY</h1>
+          <p className="mt-[3px] text-sm font-medium text-[var(--color-text-muted)]">
+            Training readiness, recovery &amp; composition
+          </p>
         </div>
         <DateNav basePath="/body" />
       </div>
 
       {/* ─── HYROX STRIP ─── */}
-      <HyroxSummaryCard />
+      <div className="mt-6">
+        <HyroxSummaryCard />
+      </div>
 
       {/* ─── READINESS HERO BAND ─── */}
-      <div className="space-y-[14px]">
-        <TodayCallCard call={trainingCall} isConnected={true} />
-        <ReadinessTierCard call={trainingCall} baselineScore={score?.overall ?? null} hrvCv={cv} hrvCvElevated={hrvCvElevated} />
+      <div className="mt-6">
+        <ReadinessTierCard
+          call={trainingCall}
+          baselineScore={score?.overall ?? null}
+          hrvCv={cv}
+          hrvCvElevated={hrvCvElevated}
+        />
       </div>
 
       {/* ─── RECOVERY SIGNALS ─── */}
-      <div className="ov flex items-center gap-3">
-        <span className="flex-none">Recovery Signals</span>
-        <span className="h-px flex-1 bg-[var(--color-border)]" />
+      <SectionLabel>Recovery Signals</SectionLabel>
+      <div className="mt-6">
+        <RecoverySignalsRow
+          hrv={todaySleep?.averageHrv ?? null}
+          stress={
+            dayStress
+              ? {
+                  daySummary: dayStress.daySummary ?? null,
+                  stressHigh: dayStress.stressHigh ?? null,
+                  recoveryHigh: dayStress.recoveryHigh ?? null,
+                }
+              : null
+          }
+          spO2={daySpO2?.avgSpO2 ?? null}
+          resilience={
+            dayResilience
+              ? {
+                  level: dayResilience.level ?? null,
+                  sleepRecovery: dayResilience.sleepRecovery ?? null,
+                  daytimeRecovery: dayResilience.daytimeRecovery ?? null,
+                  stress: dayResilience.stress ?? null,
+                }
+              : null
+          }
+        />
       </div>
-      <RecoverySignalsRow
-        hrv={todaySleep?.averageHrv ?? null}
-        stress={
-          dayStress
-            ? {
-                daySummary: dayStress.daySummary ?? null,
-                stressHigh: dayStress.stressHigh ?? null,
-                recoveryHigh: dayStress.recoveryHigh ?? null,
-              }
-            : null
-        }
-        spO2={daySpO2?.avgSpO2 ?? null}
-        resilience={
-          dayResilience
-            ? {
-                level: dayResilience.level ?? null,
-                sleepRecovery: dayResilience.sleepRecovery ?? null,
-                daytimeRecovery: dayResilience.daytimeRecovery ?? null,
-                stress: dayResilience.stress ?? null,
-              }
-            : null
-        }
-      />
 
-      {/* ─── CYCLE + FATIGUE — TWO COLUMN ROW ─── */}
-      <div className="grid grid-cols-2 gap-[14px] items-stretch">
-        {/* Left: Cycle Phase Guidance + Selector */}
-        <div className="space-y-[14px]">
+      {/* ─── CYCLE + FATIGUE ─── */}
+      <div className="mt-[14px] grid grid-cols-2 gap-[14px] items-stretch">
+        {/* Left: Cycle Phase */}
+        <div className="flex flex-col gap-[14px]">
           {guidance && <CyclePhaseGuidanceCard guidance={guidance} />}
           <CyclePhaseSelector currentPhase={phaseLog.phase} />
         </div>
@@ -405,60 +385,54 @@ export default async function BodyPage() {
         <div>
           {fatigue.score > 0 ? (
             <div
-              className={`border p-5 h-full ${
-                fatigue.score >= 5
-                  ? "border-[var(--color-red)]/30 bg-[var(--color-red)]/10"
-                  : fatigue.score >= 3
-                    ? "border-[var(--color-yellow)]/30 bg-[var(--color-yellow)]/10"
-                    : "border-[var(--color-border)] bg-[var(--color-surface)]"
-              }`}
+              className="h-full p-[20px_24px]"
+              style={{
+                background: "color-mix(in oklch, var(--color-yellow), var(--color-surface) 88%)",
+                border: "1px solid color-mix(in oklch, var(--color-yellow), transparent 60%)",
+              }}
             >
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-                    Fatigue Signal (Pritchard 2024, Cadegiani 2019)
+                  <p className="ov">
+                    Fatigue Signal <span className="normal-case tracking-normal">(Pritchard 2024)</span>
                   </p>
-                  <p className="mt-1 text-sm font-semibold">{fatigue.recommendation}</p>
+                  <p className="mt-1 text-[15px] font-bold">{fatigue.recommendation}</p>
                 </div>
-                <div className="text-right">
-                  <span className="font-mono text-2xl font-bold">{fatigue.score}</span>
-                  <p className="text-[10px] text-[var(--color-text-muted)]">/8 composite</p>
+                <div className="text-right flex-none">
+                  <span className="disp text-[48px] leading-[0.8] num" style={{ color: "var(--color-yellow)" }}>
+                    {fatigue.score}
+                  </span>
+                  <p className="text-[10px] text-[var(--color-faint)] mt-[2px]">/8 composite</p>
                 </div>
               </div>
-              <div className="mt-3 space-y-1 text-xs">
+              <ul className="mt-[14px] flex flex-col gap-[5px] list-none">
                 {weeksSinceDeload >= 5 && (
-                  <p className="text-[var(--color-yellow)]">
-                    {weeksSinceDeload} consecutive training weeks (deload every 5-6 per Pritchard)
-                  </p>
-                )}
-                {hrvBelowBaseline && (
-                  <p className="text-[var(--color-yellow)]">HRV &gt;1 SD below 14-day baseline for 2+ days</p>
+                  <li className="text-[12.5px]" style={{ color: "var(--color-yellow)" }}>
+                    {weeksSinceDeload} consecutive training weeks (deload every 5-6)
+                  </li>
                 )}
                 {hrvCvElevated && (
-                  <p className="text-[var(--color-yellow)]">
+                  <li className="text-[12.5px]" style={{ color: "var(--color-yellow)" }}>
                     HRV CV elevated: {cv?.toFixed(1)}%
                     {hrvCvBaseline
                       ? ` (your normal ~${Math.round(hrvCvThreshold(hrvCvBaseline))}%)`
-                      : " (Flatt threshold: 10%)"}
-                  </p>
-                )}
-                {recentSleep.slice(0, 3).every((s) => (s.score ?? 100) < 70) && (
-                  <p className="text-[var(--color-yellow)]">Sleep score &lt;70 for 3+ nights</p>
-                )}
-                {rhrElevated && (
-                  <p className="text-[var(--color-yellow)]">Resting HR elevated 5+ BPM above baseline for 3+ mornings</p>
+                      : " (Flatt threshold 10%)"}
+                  </li>
                 )}
                 {anyRpeCreep && (
-                  <p className="text-[var(--color-red)] font-medium">RPE creep: +1 point at same loads over recent sessions (2x weight)</p>
+                  <li className="text-[12.5px] font-semibold" style={{ color: "var(--color-red)" }}>
+                    RPE creep: +1 pt at same loads over recent sessions
+                  </li>
                 )}
                 {volumeApproachingMRV && (
-                  <p className="text-[var(--color-yellow)]">Volume approaching/at MRV in 1+ muscle groups</p>
+                  <li className="text-[12.5px]" style={{ color: "var(--color-yellow)" }}>
+                    Volume approaching MRV in 1+ muscle groups
+                  </li>
                 )}
-              </div>
+              </ul>
               {fatigue.score >= 3 && (
-                <div className="mt-3 bg-[var(--color-surface-2)] p-3 text-xs text-[var(--color-text-muted)]">
-                  <p className="font-medium text-white">Deload protocol:</p>
-                  <p className="mt-1">Reduce volume 40-60% for 1 week. Maintain training frequency and intensity (keep same loads, fewer sets). Resume normal programming after 7 days.</p>
+                <div className="mt-[14px] bg-[var(--color-surface-2)] p-[12px_14px] text-[12.5px] text-[var(--color-text-muted)] leading-relaxed">
+                  <b className="text-[var(--color-text)]">Deload protocol:</b> Reduce volume 40-60% for 1 week. Keep frequency &amp; loads, fewer sets. Resume after 7 days.
                 </div>
               )}
             </div>
@@ -471,91 +445,76 @@ export default async function BodyPage() {
       </div>
 
       {/* ─── RUNNING & CARDIO ─── */}
-      <div className="ov flex items-center gap-3">
-        <span className="flex-none">Running &amp; Cardio</span>
-        <span className="h-px flex-1 bg-[var(--color-border)]" />
+      <SectionLabel>Running &amp; Cardio</SectionLabel>
+      <div className="mt-6">
+        <RunningMetricsCard
+          metrics={todayRunning ? {
+            runningSpeed: todayRunning.runningSpeed,
+            runningPower: todayRunning.runningPower,
+            groundContactTime: todayRunning.groundContactTime,
+            verticalOscillation: todayRunning.verticalOscillation,
+            strideLength: todayRunning.strideLength,
+            cardioRecovery: todayRunning.cardioRecovery,
+            walkingRunningDistance: todayRunning.walkingRunningDistance,
+            respiratoryRate: todayRunning.respiratoryRate,
+            physicalEffort: todayRunning.physicalEffort,
+          } : null}
+          vo2Max={latestVO2Max?.vo2Max ?? null}
+          vo2MaxDate={latestVO2Max?.day
+            ? `Updated ${latestVO2Max.day.toLocaleDateString()}`
+            : null}
+        />
       </div>
-      <RunningMetricsCard
-        metrics={todayRunning ? {
-          runningSpeed: todayRunning.runningSpeed,
-          runningPower: todayRunning.runningPower,
-          groundContactTime: todayRunning.groundContactTime,
-          verticalOscillation: todayRunning.verticalOscillation,
-          strideLength: todayRunning.strideLength,
-          cardioRecovery: todayRunning.cardioRecovery,
-          walkingRunningDistance: todayRunning.walkingRunningDistance,
-          respiratoryRate: todayRunning.respiratoryRate,
-          physicalEffort: todayRunning.physicalEffort,
-        } : null}
-        vo2Max={latestVO2Max?.vo2Max ?? null}
-        vo2MaxDate={latestVO2Max?.day
-          ? `Updated ${latestVO2Max.day.toLocaleDateString()}`
-          : null}
-      />
 
       {/* ─── STRENGTH TRAINING ─── */}
-      <div className="ov flex items-center gap-3">
-        <span className="flex-none">Strength Training</span>
-        <span className="h-px flex-1 bg-[var(--color-border)]" />
-      </div>
-      <div className="space-y-[14px]">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/body/workout/new"
-            className="btn"
-          >
+      <SectionLabel>Strength Training</SectionLabel>
+      <div className="mt-6">
+        <div className="flex items-center gap-[14px] mb-[14px]">
+          <Link href="/body/workout/new" className="btn">
             + Add Workout
           </Link>
-          <Link
-            href="/body/workout/new?backfill=1"
-            className="linklike"
-          >
+          <Link href="/body/workout/new?backfill=1" className="linklike">
             Log past workout
           </Link>
         </div>
 
-        {/* Two-column: VolumeZones left, PRs + Recent Workouts right */}
-        <div className="grid grid-cols-[1.5fr_1fr] gap-[14px] items-start">
+        {/* Two-column: VolumeZones left (1.5fr), PRs + Workouts right (1fr) */}
+        <div className="grid grid-cols-[1.5fr_1fr] gap-[14px] items-stretch">
           <VolumeZones data={weeklyVolumeData} />
 
-          <div className="space-y-[14px]">
-            {/* Personal Records */}
+          <div className="flex flex-col gap-[14px] h-full justify-between">
+            {/* Recent PRs */}
             {prs.length > 0 && (
-              <div className="panel">
-                <h2 className="mb-3 ov">
-                  Recent PRs
-                </h2>
-                <div className="space-y-2">
-                  {prs.map((pr) => (
-                    <div
-                      key={pr.id}
-                      className="flex items-center justify-between bg-[var(--color-surface-2)] px-3 py-2 text-xs"
-                    >
-                      <div>
-                        <p className="font-medium">{pr.exercise.name}</p>
-                        <p className="text-[var(--color-text-muted)]">
-                          {pr.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-mono tabular-nums">
-                          {pr.weight} × {pr.reps}
-                        </p>
-                        <p className="text-[var(--color-text-muted)]">
-                          e1RM: {Math.round(estimate1RM(pr.weight, pr.reps))}
-                        </p>
-                      </div>
+              <div className="panel p-[22px_24px]">
+                <p className="ov mb-[14px]">Recent PRs</p>
+                {prs.map((pr) => (
+                  <div
+                    key={pr.id}
+                    className="flex items-center justify-between bg-[var(--color-surface-2)] px-[14px] py-[11px] text-[13px]"
+                    style={{ marginTop: prs.indexOf(pr) > 0 ? "7px" : 0 }}
+                  >
+                    <div>
+                      <p className="font-semibold">{pr.exercise.name}</p>
+                      <p className="text-[11.5px] text-[var(--color-faint)] mt-[2px]">
+                        {pr.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </p>
                     </div>
-                  ))}
-                </div>
+                    <div className="text-right num">
+                      <p className="disp text-[20px] tracking-[0.02em]">
+                        {pr.weight} &times; {pr.reps}
+                      </p>
+                      <p className="text-[11px] text-[var(--color-faint)]">
+                        e1RM {Math.round(estimate1RM(pr.weight, pr.reps))}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* Recent sessions */}
-            <div className="panel">
-              <h2 className="mb-3 ov">
-                Recent Workouts
-              </h2>
+            {/* Recent Workouts */}
+            <div className="panel p-[22px_24px]">
+              <p className="ov mb-[14px]">Recent Workouts</p>
               {recentSessions.length === 0 ? (
                 <p className="text-xs text-[var(--color-text-muted)]">
                   No workouts logged yet.{" "}
@@ -565,43 +524,50 @@ export default async function BodyPage() {
                   .
                 </p>
               ) : (
-                <div className="space-y-2">
-                  {recentSessions.map((session) => (
-                    <Link
-                      key={session.id}
-                      href={`/body/workout/${session.id}`}
-                      className="block bg-[var(--color-surface-2)] px-3 py-2 text-xs hover:bg-white/10"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">
-                            {session.templateName ?? "Freestyle"}
-                          </p>
-                          <p className="text-[var(--color-text-muted)]">
-                            {session.date.toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            })}{" "}
-                            · {session.sets.length} sets
-                            {session.completedAt && session.sessionVolume != null && (
-                              <> · {Math.round(session.sessionVolume)} vol</>
-                            )}
-                          </p>
-                        </div>
-                        {session.completedAt ? (
-                          <span className="rounded-full bg-[var(--color-green)]/20 px-2 py-0.5 text-[10px] text-[var(--color-green)]">
-                            done
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-[var(--color-yellow)]/20 px-2 py-0.5 text-[10px] text-[var(--color-yellow)]">
-                            active
-                          </span>
+                recentSessions.map((session, i) => (
+                  <Link
+                    key={session.id}
+                    href={`/body/workout/${session.id}`}
+                    className="flex items-center justify-between bg-[var(--color-surface-2)] px-[14px] py-[11px] text-[13px] hover:bg-white/10"
+                    style={{ marginTop: i > 0 ? "7px" : 0 }}
+                  >
+                    <div>
+                      <p className="font-semibold">{session.templateName ?? "Freestyle"}</p>
+                      <p className="text-[11.5px] text-[var(--color-faint)] mt-[2px]">
+                        {session.date.toLocaleDateString("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                        {" · "}{session.sets.length} sets
+                        {session.completedAt && session.sessionVolume != null && (
+                          <> · {Math.round(session.sessionVolume).toLocaleString()} vol</>
                         )}
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+                      </p>
+                    </div>
+                    {session.completedAt ? (
+                      <span
+                        className="text-[10px] font-bold uppercase px-[9px] py-[3px] rounded-full"
+                        style={{
+                          background: "color-mix(in oklch, var(--color-green), transparent 80%)",
+                          color: "var(--color-green)",
+                        }}
+                      >
+                        done
+                      </span>
+                    ) : (
+                      <span
+                        className="text-[10px] font-bold uppercase px-[9px] py-[3px] rounded-full"
+                        style={{
+                          background: "color-mix(in oklch, var(--color-yellow), transparent 80%)",
+                          color: "var(--color-yellow)",
+                        }}
+                      >
+                        active
+                      </span>
+                    )}
+                  </Link>
+                ))
               )}
             </div>
           </div>
@@ -609,40 +575,44 @@ export default async function BodyPage() {
       </div>
 
       {/* ─── RECOVERY ─── */}
-      <div className="ov flex items-center gap-3">
-        <span className="flex-none">Recovery</span>
-        <span className="h-px flex-1 bg-[var(--color-border)]" />
-      </div>
-      <div className="grid grid-cols-2 gap-[14px] items-stretch">
+      <SectionLabel>Recovery</SectionLabel>
+      <div className="mt-6 grid grid-cols-2 gap-[14px] items-stretch">
         {/* Sleep Breakdown */}
         {todaySleep ? (
-          <div className="panel">
-            <h3 className="mb-4 ov">
-              Sleep Breakdown
-            </h3>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="disp num text-[38px] text-[var(--color-blue)]">
+          <div className="panel p-[22px_24px]">
+            <p className="ov">Sleep Breakdown</p>
+            <div
+              className="grid grid-cols-3 mt-[6px]"
+              style={{ gap: "1px", background: "var(--color-border)" }}
+            >
+              <div className="bg-[var(--color-surface)] p-4 text-center">
+                <p className="disp text-[38px] leading-[0.85] num" style={{ color: "var(--color-blue)" }}>
                   {formatDuration(todaySleep.deepSleepDuration)}
                 </p>
-                <p className="text-xs text-[var(--color-text-muted)]">Deep</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--color-faint)] mt-[5px]">
+                  Deep
+                </p>
               </div>
-              <div>
-                <p className="disp num text-[38px] text-[var(--color-gold)]">
+              <div className="bg-[var(--color-surface)] p-4 text-center">
+                <p className="disp text-[38px] leading-[0.85] num" style={{ color: "var(--color-gold)" }}>
                   {formatDuration(todaySleep.remSleepDuration)}
                 </p>
-                <p className="text-xs text-[var(--color-text-muted)]">REM</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--color-faint)] mt-[5px]">
+                  REM
+                </p>
               </div>
-              <div>
-                <p className="disp num text-[38px]">
+              <div className="bg-[var(--color-surface)] p-4 text-center">
+                <p className="disp text-[38px] leading-[0.85] num">
                   {formatDuration(todaySleep.lightSleepDuration)}
                 </p>
-                <p className="text-xs text-[var(--color-text-muted)]">Light</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--color-faint)] mt-[5px]">
+                  Light
+                </p>
               </div>
             </div>
             {todaySleep.lowestHeartRate && (
-              <p className="mt-3 text-center text-xs text-[var(--color-text-muted)]">
-                Lowest HR: {todaySleep.lowestHeartRate} bpm
+              <p className="mt-3 text-center text-[12.5px] text-[var(--color-faint)]">
+                Lowest HR: <b className="text-[var(--color-text)]">{todaySleep.lowestHeartRate} bpm</b>
               </p>
             )}
           </div>
@@ -652,7 +622,7 @@ export default async function BodyPage() {
           </div>
         )}
 
-        {/* Nutrition check */}
+        {/* Nutrition Check */}
         <NutritionCheck
           nutrition={
             todayNutrition
@@ -672,16 +642,15 @@ export default async function BodyPage() {
       </div>
 
       {/* Multi-week trend charts */}
-      <TrendsCharts />
+      <div className="mt-6">
+        <TrendsCharts />
+      </div>
 
       {/* ─── COMPOSITION & ENERGY ─── */}
-      <div className="ov flex items-center gap-3">
-        <span className="flex-none">Composition &amp; Energy</span>
-        <span className="h-px flex-1 bg-[var(--color-border)]" />
-      </div>
-      <div className="grid grid-cols-[1.5fr_1fr] gap-[14px] items-start">
-        {/* Left: Weight + Trend Chart */}
-        <div className="space-y-[14px]">
+      <SectionLabel>Composition &amp; Energy</SectionLabel>
+      <div className="mt-6 grid grid-cols-[1.5fr_1fr] gap-[14px] items-stretch">
+        {/* Left: Weight + Trend Chart — single card per design */}
+        <div className="panel p-[22px_24px]">
           <WeightCard
             latestWeightKg={weightKg}
             latestBodyFat={latestBodyFat}
@@ -699,35 +668,30 @@ export default async function BodyPage() {
           />
         </div>
 
-        {/* Right: TDEE + Goal Settings */}
-        <div className="space-y-[14px]">
-          <TdeeCard
-            tdee={tdee}
-            goalCals={goalCals}
-            actualCals={todayNutrition?.calories ?? null}
-            proteinTarget={weightKg ? Math.round(weightKg * 1.6) : null}
-            actualProtein={todayNutrition?.protein ?? null}
-            flag={null}
-            energyAvailability={eaValue}
-          />
-          <WeightGoalSettings
-            profile={
-              profile
-                ? {
-                    bodyWeightKg: profile.bodyWeightKg,
-                    heightCm: profile.heightCm,
-                    age: profile.age,
-                    sex: profile.sex,
-                    activityLevel: profile.activityLevel,
-                    goal: profile.goal,
-                    targetWeightKg: profile.targetWeightKg,
-                    unit: profile.unit,
-                  }
-                : null
-            }
-          />
-        </div>
+        {/* Right: TDEE & Targets — single card per design */}
+        <TdeeCard
+          tdee={tdee}
+          goalCals={goalCals}
+          actualCals={todayNutrition?.calories ?? null}
+          proteinTarget={weightKg ? Math.round(weightKg * 1.6) : null}
+          actualProtein={todayNutrition?.protein ?? null}
+          flag={null}
+          energyAvailability={eaValue}
+        />
       </div>
+
+      {/* bottom spacing */}
+      <div className="h-8" />
+    </div>
+  );
+}
+
+/** Section label with trailing line — matches design's .seclabel */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 pt-[30px]">
+      <span className="ov flex-none">{children}</span>
+      <span className="h-px flex-1 bg-[var(--color-border)]" />
     </div>
   );
 }

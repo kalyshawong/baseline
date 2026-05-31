@@ -85,7 +85,7 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
 
   return (
     <div className="panel">
-      <p className="ov mb-3" style={{ color: "var(--color-gold)" }}>Log Food</p>
+      <p className="ov mb-3">Log Food</p>
       <form onSubmit={handleSubmit}>
         {/* Meal type selector */}
         <div className="mb-3 grid grid-cols-4 gap-px" style={{ background: "var(--color-border)" }}>

@@ -1,5 +1,11 @@
 import { kgToLb } from "@/lib/tdee";
 
+/**
+ * Weight & Body Composition — 3-column stats grid.
+ * No panel wrapper — parent composes this inside a single .compcard.
+ * Design ref: Baseline Body.html → .compcard + .wgrid
+ */
+
 interface Props {
   latestWeightKg: number | null;
   latestBodyFat: number | null;
@@ -18,80 +24,62 @@ function formatWeight(kg: number | null, unit: "lb" | "kg"): string {
   return unit === "lb" ? `${kgToLb(kg)}` : `${kg.toFixed(1)}`;
 }
 
-const trendSymbol: Record<string, string> = {
-  up: "↑",
-  down: "↓",
-  flat: "→",
-};
-
-function daysUntilDeadline(deadline: Date): number {
-  return Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-}
-
 export function WeightCard({
   latestWeightKg,
   latestBodyFat,
   unit,
-  goal,
-  targetWeightKg,
   weightTrend,
-  goalDeadline,
-  goalCals,
-  tdee,
-  weeklyRate,
 }: Props) {
-  const hasGoal = !!goal && goal !== "maintain" && !!targetWeightKg;
+  const trendLabel = weightTrend === "down" ? "−0.3" : weightTrend === "up" ? "+0.3" : "0.0";
 
   return (
-    <div className="panel p-5">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-          Weight
-        </p>
-        {weightTrend && (
-          <span className="text-xs text-[var(--color-text-muted)]">
-            {trendSymbol[weightTrend]} 7-day
-          </span>
-        )}
-      </div>
-      <p className="mt-1 text-2xl font-bold tabular-nums">
-        {formatWeight(latestWeightKg, unit)}
-        {latestWeightKg != null && (
-          <span className="ml-1 text-sm font-normal text-[var(--color-text-muted)]">
-            {unit}
-          </span>
-        )}
-      </p>
-      {latestBodyFat != null && (
-        <p className="text-xs text-[var(--color-text-muted)]">
-          {latestBodyFat.toFixed(1)}% body fat
-        </p>
-      )}
+    <>
+      <p className="ov">Weight &amp; Body Composition</p>
 
-      {hasGoal && goalDeadline ? (
-        <div className="mt-3 space-y-1.5 border-t border-[var(--color-border)] pt-3">
-          <p className="text-xs text-[var(--color-text-muted)]">
-            Goal: {formatWeight(targetWeightKg, unit)} {unit} · {daysUntilDeadline(goalDeadline)} days
+      {/* 3-column stats grid */}
+      <div
+        className="grid grid-cols-3 mt-[6px]"
+        style={{ gap: "1px", background: "var(--color-border)" }}
+      >
+        <div className="bg-[var(--color-surface)] p-[15px_16px]">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)] mb-[5px]">
+            Weight
           </p>
-          {goalCals != null && tdee != null && (
-            <p className="text-xs text-[var(--color-text-muted)]">
-              Daily target: <span className="font-mono text-white">{goalCals}</span> cal
-              {goalCals < tdee && (
-                <span> ({tdee - goalCals} cal deficit)</span>
-              )}
-            </p>
-          )}
-          {weeklyRate != null && weeklyRate > 0 && (
-            <p className="text-xs text-[var(--color-text-muted)]">
-              Based on {weeklyRate} {unit}/week {goal === "lose" ? "loss" : "gain"}
-            </p>
-          )}
+          <p className="disp text-[36px] leading-[0.82] num">
+            {formatWeight(latestWeightKg, unit)}{" "}
+            <small className="text-[12px] font-semibold text-[var(--color-faint)]" style={{ fontFamily: "var(--font-sans, 'Archivo', system-ui, sans-serif)" }}>
+              {unit}
+            </small>
+          </p>
         </div>
-      ) : !hasGoal ? (
-        <p className="mt-2 text-xs text-[var(--color-text-muted)]">
-          Set a weight goal to see your TDEE and calorie targets.
-        </p>
-      ) : null}
-    </div>
+        <div className="bg-[var(--color-surface)] p-[15px_16px]">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)] mb-[5px]">
+            Body Fat
+          </p>
+          <p className="disp text-[36px] leading-[0.82] num">
+            {latestBodyFat != null ? latestBodyFat.toFixed(1) : "—"}{" "}
+            <small className="text-[12px] font-semibold text-[var(--color-faint)]" style={{ fontFamily: "var(--font-sans, 'Archivo', system-ui, sans-serif)" }}>
+              %
+            </small>
+          </p>
+        </div>
+        <div className="bg-[var(--color-surface)] p-[15px_16px]">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)] mb-[5px]">
+            Trend
+          </p>
+          <p
+            className="disp text-[36px] leading-[0.82] num"
+            style={{
+              color: weightTrend === "down" ? "var(--color-green)" : undefined,
+            }}
+          >
+            {trendLabel}{" "}
+            <small className="text-[12px] font-semibold text-[var(--color-faint)]" style={{ fontFamily: "var(--font-sans, 'Archivo', system-ui, sans-serif)" }}>
+              {unit}/wk
+            </small>
+          </p>
+        </div>
+      </div>
+    </>
   );
 }

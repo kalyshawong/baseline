@@ -1,23 +1,24 @@
-const phaseInfo: Record<string, { color: string; label: string; note: string }> = {
+/**
+ * Full-width context bar — Readiness/Sleep/HRV/Stress + cycle phase note.
+ * Design ref: Baseline Mind.html → .ctxbar
+ */
+
+const phaseInfo: Record<string, { label: string; note: string }> = {
   menstrual: {
-    color: "bg-red-500/20 text-red-400",
     label: "Menstrual",
-    note: "Energy lowest — prioritize recovery experiments, not high-load interventions",
+    note: "Energy lowest — prioritize recovery experiments, not high-load interventions.",
   },
   follicular: {
-    color: "bg-emerald-500/20 text-emerald-400",
     label: "Follicular",
-    note: "Rising energy — good window to test performance interventions",
+    note: "Rising energy — good window to test performance interventions.",
   },
   ovulation: {
-    color: "bg-amber-500/20 text-amber-400",
     label: "Ovulation",
-    note: "Peak output — experiments involving intensity/strength are most valid now",
+    note: "Peak output — experiments involving intensity/strength are most valid now.",
   },
   luteal: {
-    color: "bg-purple-500/20 text-purple-400",
     label: "Luteal",
-    note: "Temp elevated, mood may shift — account for this in experiment logging",
+    note: "Temp elevated, mood may shift — account for this in experiment logging.",
   },
 };
 
@@ -49,55 +50,63 @@ export function TodayContext({ data }: { data: TodayData }) {
       }}
     >
       {/* Readiness */}
-      <div className="bg-[var(--color-surface)] px-5 py-4">
-        <p className="ov mb-1">Readiness</p>
-        <p className="disp num text-[34px] leading-none">
+      <CtxCell label="Readiness">
+        <p className="disp num text-[34px] leading-[0.82]">
           {data.readinessScore ?? "—"}
         </p>
-      </div>
+      </CtxCell>
 
       {/* Sleep */}
-      <div className="bg-[var(--color-surface)] px-5 py-4">
-        <p className="ov mb-1">Sleep</p>
-        <p className="disp num text-[34px] leading-none">
-          {data.sleepScore ?? "—"}
+      <CtxCell label="Sleep">
+        <p className="disp num text-[34px] leading-[0.82]">
+          {data.totalSleep != null ? formatDuration(data.totalSleep) : (data.sleepScore ?? "—")}
         </p>
-        {data.totalSleep != null && (
-          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-            {formatDuration(data.totalSleep)}
-          </p>
-        )}
-      </div>
+      </CtxCell>
 
       {/* HRV */}
-      <div className="bg-[var(--color-surface)] px-5 py-4">
-        <p className="ov mb-1">HRV</p>
-        <p className="disp num text-[34px] leading-none">
+      <CtxCell label="HRV">
+        <p className="disp num text-[34px] leading-[0.82]">
           {data.averageHrv != null ? Math.round(data.averageHrv) : "—"}
           {data.averageHrv != null && (
-            <span className="text-[16px] text-[var(--color-text-muted)]"> ms</span>
+            <small
+              className="text-[12px] font-semibold text-[var(--color-faint)]"
+              style={{ fontFamily: "var(--font-sans, 'Archivo', system-ui, sans-serif)" }}
+            >
+              {" "}ms
+            </small>
           )}
         </p>
-      </div>
+      </CtxCell>
 
       {/* Stress */}
-      <div className="bg-[var(--color-surface)] px-5 py-4">
-        <p className="ov mb-1">Stress</p>
-        <p className="disp num text-[34px] leading-none">
+      <CtxCell label="Stress">
+        <p className="disp text-[34px] leading-[0.82]">
           {data.stressSummary
             ? data.stressSummary.charAt(0).toUpperCase() + data.stressSummary.slice(1)
             : "—"}
         </p>
-      </div>
+      </CtxCell>
 
-      {/* Menstrual phase note */}
-      <div className="flex items-center gap-3 bg-[var(--color-surface)] px-5 py-4">
+      {/* Cycle phase */}
+      <div
+        className="flex items-center gap-3 px-5 py-[15px]"
+        style={{
+          background: "var(--color-surface)",
+          backgroundImage: "linear-gradient(160deg, oklch(1 0 0 / 0.03), transparent 50%)",
+        }}
+      >
         {phase ? (
           <>
-            <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${phase.color}`}>
+            <span
+              className="angled-clip shrink-0 px-[11px] py-[5px] text-[10.5px] font-extrabold uppercase tracking-[0.08em]"
+              style={{
+                background: "color-mix(in oklch, var(--color-red), transparent 78%)",
+                color: "var(--color-red)",
+              }}
+            >
               {phase.label}
             </span>
-            <span className="text-xs leading-snug text-[var(--color-text-muted)]">
+            <span className="text-[12.5px] leading-snug text-[var(--color-text-muted)]">
               {phase.note}
             </span>
           </>
@@ -105,6 +114,23 @@ export function TodayContext({ data }: { data: TodayData }) {
           <span className="text-xs text-[var(--color-faint)]">No cycle data</span>
         )}
       </div>
+    </div>
+  );
+}
+
+function CtxCell({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div
+      className="px-5 py-[15px] flex flex-col justify-center"
+      style={{
+        background: "var(--color-surface)",
+        backgroundImage: "linear-gradient(160deg, oklch(1 0 0 / 0.03), transparent 50%)",
+      }}
+    >
+      <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-[var(--color-faint)] mb-[5px]">
+        {label}
+      </p>
+      {children}
     </div>
   );
 }

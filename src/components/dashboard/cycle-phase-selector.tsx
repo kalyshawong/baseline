@@ -3,36 +3,16 @@
 import { useState, useTransition } from "react";
 
 const phases = [
-  {
-    id: "menstrual",
-    label: "Menstrual",
-    color: "bg-red-500",
-    emoji: "1",
-    note: "Energy typically lowest. Focus on recovery, light movement, and technique work. Reduce volume 20-30%.",
-  },
-  {
-    id: "follicular",
-    label: "Follicular",
-    color: "bg-emerald-500",
-    emoji: "2",
-    note: "Rising estrogen supports strength gains. Great window for PR attempts, heavy compounds, and high-volume sessions.",
-  },
-  {
-    id: "ovulation",
-    label: "Ovulation",
-    color: "bg-amber-500",
-    emoji: "3",
-    note: "Peak strength and power output. Push intensity but watch joint laxity — estrogen peaks increase ligament flexibility.",
-  },
-  {
-    id: "luteal",
-    label: "Luteal",
-    color: "bg-purple-500",
-    emoji: "4",
-    note: "Progesterone rises, body temp elevates. Shift toward moderate intensity, steady-state cardio, and endurance work.",
-  },
+  { id: "menstrual", label: "Menstrual" },
+  { id: "follicular", label: "Follicular" },
+  { id: "ovulation", label: "Ovulation" },
+  { id: "luteal", label: "Luteal" },
 ] as const;
 
+/**
+ * Phase picker — row of 4 options. Active = red fill per design.
+ * Design ref: Baseline Body.html → .phasepick
+ */
 export function CyclePhaseSelector({
   currentPhase,
 }: {
@@ -41,8 +21,6 @@ export function CyclePhaseSelector({
   const [selected, setSelected] = useState(currentPhase);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-
-  const activePhase = phases.find((p) => p.id === selected);
 
   function handleSelect(phaseId: string) {
     const previous = selected;
@@ -55,9 +33,7 @@ export function CyclePhaseSelector({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ phase: phaseId }),
         });
-        if (!res.ok) {
-          throw new Error("Save failed");
-        }
+        if (!res.ok) throw new Error("Save failed");
       } catch {
         setSelected(previous);
         setError("Failed to save — try again");
@@ -66,55 +42,29 @@ export function CyclePhaseSelector({
   }
 
   return (
-    <div className="panel p-6">
-      <h2 className="mb-4 text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        Cycle Phase
-      </h2>
-      <div className="grid grid-cols-4 gap-2">
-        {phases.map((phase) => (
-          <button
-            key={phase.id}
-            onClick={() => handleSelect(phase.id)}
-            disabled={isPending}
-            className={`relative border px-3 py-3 text-center text-xs font-medium transition-all ${
+    <div className="flex gap-2">
+      {phases.map((phase) => (
+        <button
+          key={phase.id}
+          onClick={() => handleSelect(phase.id)}
+          disabled={isPending}
+          className="flex-1 text-center text-[11px] font-bold uppercase tracking-[0.06em] py-[10px] px-[6px] cursor-pointer transition-all"
+          style={{
+            background:
               selected === phase.id
-                ? `${phase.color}/15 border-current shadow-sm`
-                : "border-[var(--color-border)] bg-[var(--color-surface-2)] hover:border-[var(--color-text-muted)]/30"
-            }`}
-            style={
+                ? "var(--color-red)"
+                : "var(--color-surface-2)",
+            color:
               selected === phase.id
-                ? {
-                    color:
-                      phase.id === "menstrual"
-                        ? "#f87171"
-                        : phase.id === "follicular"
-                          ? "#34d399"
-                          : phase.id === "ovulation"
-                            ? "#fbbf24"
-                            : "#a78bfa",
-                  }
-                : undefined
-            }
-          >
-            <div
-              className={`mx-auto mb-1.5 h-2 w-2 rounded-full ${phase.color} ${
-                selected === phase.id ? "opacity-100" : "opacity-40"
-              }`}
-            />
-            {phase.label}
-          </button>
-        ))}
-      </div>
+                ? "var(--color-text)"
+                : "var(--color-text-muted)",
+          }}
+        >
+          {phase.label}
+        </button>
+      ))}
       {error && (
-        <p className="mt-2 text-xs text-red-400">{error}</p>
-      )}
-      {activePhase && (
-        <div className="mt-4 bg-[var(--color-surface-2)] p-3 text-xs leading-relaxed text-[var(--color-text-muted)]">
-          <span className="font-medium text-[var(--color-text)]">
-            Training note:
-          </span>{" "}
-          {activePhase.note}
-        </div>
+        <p className="text-xs text-[var(--color-red)] mt-1">{error}</p>
       )}
     </div>
   );

@@ -12,10 +12,15 @@ import {
 } from "recharts";
 import { kgToLb } from "@/lib/tdee";
 
+/**
+ * Weight trend chart — no panel wrapper, composed inside parent .compcard.
+ * Design ref: Baseline Body.html → .trendph
+ */
+
 interface WeightPoint {
   date: string;
-  weight: number; // in display unit
-  avg: number | null; // in display unit
+  weight: number;
+  avg: number | null;
 }
 
 function formatDate(d: string): string {
@@ -34,9 +39,8 @@ export function WeightTrendChart({
 }) {
   if (logs.length === 0) {
     return (
-      <div className="panel p-5 text-center text-sm text-[var(--color-text-muted)]">
-        <h2 className="mb-2 text-sm font-medium uppercase tracking-wider">Weight Trend</h2>
-        <p>No weight logs yet. Log your first entry to see the 30-day chart.</p>
+      <div className="mt-[14px] h-[120px] bg-[var(--color-surface-2)] flex items-center justify-center">
+        <p className="text-xs text-[var(--color-faint)]">No weight logs yet.</p>
       </div>
     );
   }
@@ -54,84 +58,59 @@ export function WeightTrendChart({
     : null;
 
   return (
-    <div className="panel p-5">
-      <div className="mb-3">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-          Weight Trend (30 days)
-        </h2>
-        <p className="text-xs text-[var(--color-text-muted)]">
-          Raw + 7-day moving average
-        </p>
-      </div>
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-          <XAxis
-            dataKey="date"
-            tick={{ fill: "var(--color-text-muted)", fontSize: 10 }}
-            tickFormatter={formatDate}
-            axisLine={{ stroke: "var(--color-border)" }}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fill: "var(--color-text-muted)", fontSize: 10 }}
-            axisLine={false}
-            tickLine={false}
-            width={35}
-            domain={["dataMin - 2", "dataMax + 2"]}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: 8,
-              fontSize: 11,
-            }}
-            labelFormatter={formatDate}
-            formatter={(value: number, name: string) => [
-              value != null ? `${value} ${unit}` : "—",
-              name === "weight" ? "Raw" : "7-day avg",
-            ]}
-          />
-          {targetDisplay && (
-            <ReferenceLine
-              y={targetDisplay}
-              stroke="#a855f7"
-              strokeDasharray="4 4"
-              label={{ value: `Target ${targetDisplay}${unit}`, fill: "#a855f7", fontSize: 10, position: "right" }}
+    <>
+      <div
+        className="mt-[14px] relative overflow-hidden"
+        style={{ height: "120px", background: "var(--color-surface-2)" }}
+      >
+        <ResponsiveContainer width="100%" height={120}>
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <XAxis dataKey="date" hide />
+            <YAxis hide domain={["dataMin - 2", "dataMax + 2"]} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+                borderRadius: 0,
+                fontSize: 11,
+              }}
+              labelFormatter={formatDate}
+              formatter={(value: number, name: string) => [
+                value != null ? `${value} ${unit}` : "—",
+                name === "weight" ? "Raw" : "7-day avg",
+              ]}
             />
-          )}
-          <Line
-            type="monotone"
-            dataKey="weight"
-            stroke="#525252"
-            strokeWidth={1.5}
-            dot={{ r: 2 }}
-            connectNulls
-          />
-          <Line
-            type="monotone"
-            dataKey="avg"
-            stroke="#22c55e"
-            strokeWidth={2.5}
-            dot={false}
-            connectNulls
-          />
-        </LineChart>
-      </ResponsiveContainer>
-      <div className="mt-2 flex gap-4 text-[10px] text-[var(--color-text-muted)]">
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-0.5 w-4 bg-[#525252]" /> Raw
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-0.5 w-4 bg-emerald-500" /> 7-day avg
-        </span>
-        {targetDisplay && (
-          <span className="flex items-center gap-1">
-            <span className="inline-block h-0.5 w-4 border-t-2 border-dashed border-purple-500" /> Target
-          </span>
-        )}
+            {targetDisplay && (
+              <ReferenceLine
+                y={targetDisplay}
+                stroke="oklch(0.82 0.155 88)"
+                strokeDasharray="5 5"
+                strokeOpacity={0.5}
+              />
+            )}
+            <Line
+              type="monotone"
+              dataKey="weight"
+              stroke="oklch(0.66 0.012 264)"
+              strokeWidth={2}
+              dot={false}
+              connectNulls
+            />
+            <Line
+              type="monotone"
+              dataKey="avg"
+              stroke="oklch(0.82 0.155 88)"
+              strokeWidth={2.5}
+              dot={false}
+              connectNulls
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
-    </div>
+      <p className="mt-[10px] text-[11.5px] text-[var(--color-faint)]">
+        30-day weight · 7-day moving average (gold) · target line dashed
+      </p>
+    </>
   );
 }

@@ -1,5 +1,11 @@
 import { MetricCard } from "@/components/dashboard/metric-card";
 
+/**
+ * Running & Cardio — 3-column grid of 9 metric cards.
+ * Section label is provided by the parent page.
+ * Design ref: Baseline Body.html → .mgrid3
+ */
+
 interface RunningMetricsCardProps {
   metrics: {
     runningSpeed: number | null;
@@ -21,25 +27,17 @@ export function RunningMetricsCard({ metrics, vo2Max, vo2MaxDate }: RunningMetri
 
   if (!hasAnyData) {
     return (
-      <div className="space-y-3">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-          Running & Cardio
-        </h2>
-        <div className="panel p-5">
-          <p className="text-xs text-[var(--color-text-muted)]">
-            No running or cardio data yet. Do a tracked outdoor run with your Apple Watch, then sync via Health Auto Export.
-          </p>
-        </div>
+      <div className="panel p-5">
+        <p className="text-xs text-[var(--color-text-muted)]">
+          No running or cardio data yet. Do a tracked outdoor run with your Apple Watch, then sync via Health Auto Export.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        Running & Cardio
-      </h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <div>
+      <div className="grid grid-cols-3 gap-[14px]">
         <MetricCard
           label="Running Speed"
           value={metrics?.runningSpeed?.toFixed(1) ?? null}
@@ -51,7 +49,7 @@ export function RunningMetricsCard({ metrics, vo2Max, vo2MaxDate }: RunningMetri
           unit="W"
         />
         <MetricCard
-          label="VO2 Max"
+          label="VO₂ Max"
           value={vo2Max?.toFixed(1) ?? null}
           unit="mL/kg/min"
           detail={vo2MaxDate ?? undefined}
@@ -92,7 +90,7 @@ export function RunningMetricsCard({ metrics, vo2Max, vo2MaxDate }: RunningMetri
         />
       </div>
       {metrics?.respiratoryRate && (
-        <p className="text-xs text-[var(--color-text-muted)]">
+        <p className="text-[12.5px] text-[var(--color-faint)] mt-3">
           Respiratory rate: {metrics.respiratoryRate.toFixed(1)} breaths/min
         </p>
       )}

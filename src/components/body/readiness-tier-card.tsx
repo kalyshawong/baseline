@@ -1,46 +1,14 @@
 import { TIER_MODS, type TrainingCall } from "@/lib/training";
 
 /**
- * Displays the FINAL integrated training tier — same answer as
- * TodayCallCard, with the Volume/Intensity modifiers and the score-
- * band context shown alongside.
+ * Body-page hero band — the "Command Deck" readiness verdict.
  *
- * Bug history (2026-05-28): this card previously consumed the
- * score-only `readinessTier(score)` tier, which says "Go Hard" for
- * any score ≥ 85 regardless of HRV CV or cycle phase. When the
- * integrated call downgraded to "Easy" due to overreaching + menstrual
- * phase, the two cards on /body contradicted each other. This version
- * uses the integrated call's final tier so the page never disagrees
- * with itself.
+ * Combines what was previously TodayCallCard + a separate tier card
+ * into a single amber-accented hero band: huge Bebas verdict on the
+ * left, Volume/Intensity/HRV-CV/Baseline mods on the right.
+ *
+ * Design ref: Baseline Body.html → .rband
  */
-
-const tierStyles: Record<string, { bg: string; border: string; text: string }> = {
-  go_hard: {
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/30",
-    text: "text-emerald-400",
-  },
-  standard: {
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/30",
-    text: "text-blue-400",
-  },
-  moderate: {
-    bg: "bg-yellow-500/10",
-    border: "border-yellow-500/30",
-    text: "text-yellow-400",
-  },
-  light: {
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/30",
-    text: "text-amber-400",
-  },
-  recovery: {
-    bg: "bg-red-500/10",
-    border: "border-red-500/30",
-    text: "text-red-400",
-  },
-};
 
 export function ReadinessTierCard({
   call,
@@ -48,23 +16,16 @@ export function ReadinessTierCard({
   hrvCv,
   hrvCvElevated,
 }: {
-  /** The integrated training call from computeTrainingCall(). Source
-   *  of truth for the verdict + final tier. When null, the card
-   *  renders a "no data" fallback. */
   call: TrainingCall | null;
   baselineScore: number | null;
   hrvCv?: number | null;
-  /** Whether the CV is elevated relative to HER baseline (personalized),
-   *  not a flat 10%. When omitted, no amber emphasis is applied. */
   hrvCvElevated?: boolean;
 }) {
   if (!call) {
     return (
-      <div className="panel p-5">
-        <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-          Today&apos;s Training Tier
-        </p>
-        <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+      <div className="panel p-8">
+        <p className="ov">Training Tier · Today</p>
+        <p className="mt-3 text-sm text-[var(--color-text-muted)]">
           No readiness data — sync to compute today&apos;s training call.
         </p>
       </div>
@@ -74,71 +35,135 @@ export function ReadinessTierCard({
   const finalTier = call.tier;
   const baseTier = call.baseTier;
   const wasDowngraded = finalTier !== baseTier;
-
-  const style = tierStyles[finalTier];
   const finalMods = TIER_MODS[finalTier];
   const baseMods = TIER_MODS[baseTier];
 
+  // Status flag text
+  const statusFlag =
+    call.color === "red"
+      ? "Alert"
+      : call.color === "yellow"
+        ? "Caution"
+        : "Ready";
+
   return (
-    <div className={`border ${style.border} ${style.bg} p-5`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-            Today&apos;s Training Tier
-          </p>
-          {/* Use the call's verdict ("Easy", "Push", etc.) instead of
-           *  the tier label ("Moderate", "Go Hard") so this headline
-           *  matches the TodayCallCard above + the dashboard hero
-           *  verbatim. The Volume/Intensity % below still surface the
-           *  granular tier (moderate vs light) so no information is
-           *  lost. */}
-          <p className={`mt-1 text-2xl font-bold ${style.text}`}>
-            {call.verdict}
-          </p>
-          {baselineScore != null && (
-            <p className="text-xs text-[var(--color-text-muted)]">
-              Baseline Score: {baselineScore}
-            </p>
-          )}
+    <div
+      className="grid grid-cols-[1fr_300px]"
+      style={{
+        borderLeft: "6px solid var(--color-yellow)",
+        background: "var(--color-surface)",
+        backgroundImage:
+          "linear-gradient(135deg, color-mix(in oklch, var(--color-yellow), transparent 80%), transparent 55%)",
+        boxShadow:
+          "0 0 60px -22px var(--color-yellow), inset 0 1px 0 oklch(1 0 0 / 0.05)",
+      }}
+    >
+      {/* Left — verdict area */}
+      <div className="p-[26px_30px]">
+        <div className="flex items-center justify-between">
+          <span className="ov">Training Tier · Today</span>
+          <span
+            className="angled-clip px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.08em]"
+            style={{
+              background:
+                call.color === "red"
+                  ? "var(--color-red)"
+                  : call.color === "yellow"
+                    ? "var(--color-yellow)"
+                    : "var(--color-green)",
+              color: "var(--color-bg)",
+            }}
+          >
+            {statusFlag}
+          </span>
         </div>
-        <div className="text-right text-xs text-[var(--color-text-muted)]">
-          <p>Volume: {Math.round(finalMods.volumeMod * 100)}%</p>
-          <p>Intensity: {Math.round(finalMods.intensityMod * 100)}%</p>
-          {hrvCv != null && (
-            <p
-              className={
-                hrvCvElevated ? "text-amber-400 font-medium" : ""
-              }
-            >
-              HRV CV: {hrvCv.toFixed(1)}%
-            </p>
-          )}
-        </div>
+        <p
+          className="disp leading-[0.82] mt-[6px] mb-[2px]"
+          style={{
+            fontSize: "108px",
+            color: "var(--color-yellow)",
+          }}
+        >
+          {call.verdict}
+        </p>
+        <p className="text-[17px] font-medium max-w-[520px]">
+          {call.whyLine}
+        </p>
+        <p
+          className="mt-[9px] text-[15px] font-bold uppercase tracking-[0.02em]"
+          style={{ color: "var(--color-yellow)" }}
+        >
+          {call.actionLine}
+        </p>
+        {wasDowngraded && (
+          <p className="mt-[14px] text-[13px] leading-relaxed text-[var(--color-text-muted)] max-w-[520px]">
+            Score alone would suggest{" "}
+            <span className="font-bold text-[var(--color-text)]">
+              {baseMods.label}
+            </span>
+            {call.downgrades.length > 0 && (
+              <>
+                {" "}— downgraded due to{" "}
+                <span className="font-bold text-[var(--color-text)]">
+                  {call.downgrades.join(" and ")}
+                </span>
+              </>
+            )}
+            .
+          </p>
+        )}
       </div>
 
-      {/* When the score-only tier differs from the final tier, surface
-       * the downgrade explicitly. Avoids the confusion of "Baseline 87
-       * → Easy" without an explanation. */}
-      {wasDowngraded && (
-        <p className="mt-3 text-xs leading-relaxed text-[var(--color-text-muted)]">
-          Score alone would suggest{" "}
-          <span className="font-medium text-[var(--color-text)]">
-            {baseMods.label}
+      {/* Right — mods panel */}
+      <div
+        className="flex flex-col justify-center gap-4 p-[22px_24px]"
+        style={{ background: "var(--color-surface-2)" }}
+      >
+        <div className="flex items-baseline justify-between border-b border-[var(--color-border)] pb-3">
+          <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)]">
+            Volume
           </span>
-          {call.downgrades.length > 0 ? (
-            <>
-              {" "}
-              — downgraded due to{" "}
-              <span className="font-medium text-[var(--color-text)]">
-                {call.downgrades.join(", ")}
-              </span>
-              .
-            </>
-          ) : (
-            "."
-          )}
-        </p>
-      )}
+          <span className="disp text-[34px] leading-[0.85] num">
+            {Math.round(finalMods.volumeMod * 100)}%
+          </span>
+        </div>
+        <div className="flex items-baseline justify-between border-b border-[var(--color-border)] pb-3">
+          <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)]">
+            Intensity
+          </span>
+          <span className="disp text-[34px] leading-[0.85] num">
+            {Math.round(finalMods.intensityMod * 100)}%
+          </span>
+        </div>
+        {hrvCv != null && (
+          <div className="flex items-baseline justify-between border-b border-[var(--color-border)] pb-3">
+            <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)]">
+              HRV CV
+            </span>
+            <span
+              className="disp text-[34px] leading-[0.85] num"
+              style={{
+                color: hrvCvElevated ? "var(--color-yellow)" : undefined,
+              }}
+            >
+              {hrvCv.toFixed(1)}%
+            </span>
+          </div>
+        )}
+        {baselineScore != null && (
+          <div className="flex items-baseline justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)]">
+              Baseline
+            </span>
+            <span
+              className="disp text-[34px] leading-[0.85] num"
+              style={{ color: "var(--color-green)" }}
+            >
+              {baselineScore}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

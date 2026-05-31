@@ -282,6 +282,12 @@ body {
   .card-enter:nth-child(n) { transition-delay: 0ms; }
 }
 
+/* Coach typing indicator */
+@keyframes coach-typing {
+  0%, 60%, 100% { opacity: 0.3; }
+  30% { opacity: 1; }
+}
+
 /* Typewriter caret for morning verdict */
 @keyframes baseline-caret-blink {
   50% { opacity: 0; }

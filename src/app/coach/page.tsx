@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/db";
+import { getLocalDay } from "@/lib/date-utils";
+import { getScoreForDate } from "@/lib/baseline-score";
+import { computeTrainingCall, hrvCV, rollingHrvCvBaseline, isHrvCvElevated, computeFatigueScore } from "@/lib/training";
+import { getHrvBaselineChoice } from "@/lib/training-call";
 import { ChatInterface } from "@/components/coach/chat-interface";
 import { buildWorkoutDiscussionStarter } from "@/lib/workout-discussion";
 
@@ -12,10 +16,6 @@ export default async function CoachPage({
   const params = await searchParams;
   const sessionId = typeof params.session === "string" ? params.session : null;
 
-  // Deep-link from WorkoutCard's "Discuss with coach →" button. When
-  // both params are present, we build a draft message pre-loaded with
-  // the workout's full context and seed the chat input with it. The
-  // user can edit before sending — we never auto-send.
   const workoutId =
     typeof params.workout === "string" ? params.workout : null;
   const workoutSource =
@@ -24,6 +24,91 @@ export default async function CoachPage({
     workoutId && !sessionId
       ? await buildWorkoutDiscussionStarter(workoutSource, workoutId)
       : null;
+
+  // Build daily brief summary from real data
+  const localToday = getLocalDay();
+  const [score, recentSleep, dayStress, cyclePhase] = await Promise.all([
+    getScoreForDate(localToday),
+    prisma.dailySleep.findMany({
+      where: { day: { lte: localToday }, averageHrv: { not: null } },
+      orderBy: { day: "desc" },
+      take: 14,
+      select: { averageHrv: true, score: true },
+    }),
+    prisma.dailyStress.findUnique({ where: { day: localToday } }),
+    (async () => {
+      const { resolveCyclePhase } = await import("@/lib/cycle-phase");
+      return resolveCyclePhase(localToday);
+    })(),
+  ]);
+
+  const hrvValues = recentSleep.map((s) => s.averageHrv).filter((v): v is number => v != null);
+  const cv = hrvCV(hrvValues.slice(0, 7));
+  const hrvBaselineSleep = await prisma.dailySleep.findMany({
+    where: { day: { lte: localToday }, averageHrv: { not: null } },
+    orderBy: { day: "desc" },
+    take: 60,
+    select: { averageHrv: true },
+  });
+  const personalBaseline = rollingHrvCvBaseline(
+    hrvBaselineSleep.map((s) => s.averageHrv).filter((v): v is number => v != null)
+  );
+  const hrvChoice = await getHrvBaselineChoice();
+  const hrvCvBaseline = hrvChoice === "standard" ? null : personalBaseline;
+  const hrvCvElevated = isHrvCvElevated(cv, hrvCvBaseline);
+
+  const allSessions2 = await prisma.workoutSession.findMany({
+    where: { completedAt: { not: null } },
+    orderBy: { date: "desc" },
+    select: { date: true },
+    take: 60,
+  });
+  let weeksSinceDeload = 0;
+  if (allSessions2.length > 0) {
+    const weekSet = new Set<string>();
+    for (const s of allSessions2) {
+      const d = s.date;
+      const dow = d.getUTCDay() || 7;
+      const ws = new Date(d);
+      ws.setUTCDate(d.getUTCDate() - (dow - 1));
+      weekSet.add(ws.toISOString().split("T")[0]);
+    }
+    const sorted = Array.from(weekSet).sort().reverse();
+    for (let i = 0; i < sorted.length; i++) {
+      if (i === 0) { weeksSinceDeload++; continue; }
+      const prev = new Date(sorted[i - 1] + "T00:00:00Z");
+      const curr = new Date(sorted[i] + "T00:00:00Z");
+      if (Math.abs((prev.getTime() - curr.getTime()) / (7 * 86400000) - 1) < 0.5) weeksSinceDeload++;
+      else break;
+    }
+  }
+
+  const fatigue = computeFatigueScore({
+    weeksSinceLastDeload: weeksSinceDeload,
+    hrvBelowBaseline: false,
+    hrvCvElevated,
+    sleepQualityDecline: false,
+    rhrElevated: false,
+    rpeCreep: false,
+    volumeApproachingMRV: false,
+  });
+
+  const trainingCall = computeTrainingCall({
+    baselineScore: score?.overall ?? null,
+    cyclePhase: cyclePhase.phase,
+    hrvCv: cv,
+    hrvCvBaseline,
+    fatigueScore: fatigue.score,
+    stressSummary: dayStress?.daySummary ?? null,
+  });
+
+  // Build the brief summary
+  const briefTitle = trainingCall
+    ? `${trainingCall.verdict} day — ${trainingCall.actionLine?.toLowerCase() ?? "listen to your body"}`
+    : "Check your readiness";
+  const briefBody = trainingCall
+    ? `Readiness is ${score?.overall ? `solid at **${score.overall}**` : "pending"}${cv ? `, but HRV's noisy (CV ${cv.toFixed(0)}%)` : ""}${cyclePhase.phase ? `. ${cyclePhase.phase.charAt(0).toUpperCase() + cyclePhase.phase.slice(1)} phase` : ""}. ${trainingCall.whyLine}`
+    : "Sync your data to see today's brief.";
 
   const [sessions, currentSession, activeGoals] = await Promise.all([
     prisma.chatSession.findMany({
@@ -43,27 +128,32 @@ export default async function CoachPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-[1000px] px-9 py-10">
-      {/* Header */}
-      <div className="mb-6 text-center">
-        <h1 className="disp text-[46px] leading-none">BASELINE COACH</h1>
-        <p className="mt-1.5 text-sm text-[var(--color-text-muted)]">
+    <div className="mx-auto max-w-[1000px] pt-[18px]">
+      {/* Header — centered */}
+      <div className="text-center pt-[14px] pb-1">
+        <h1 className="disp text-[46px] leading-[0.9] tracking-[0.02em]">BASELINE COACH</h1>
+        <p className="mt-1 text-[14px] font-medium text-[var(--color-text-muted)]">
           Science-backed coaching with full access to your data.
         </p>
       </div>
 
-      {/* Action row */}
-      <div className="mb-5 flex items-center justify-center gap-3">
-        <a href="/coach" className="btn">+ New Chat</a>
+      {/* Action bar — New Chat left, History right per design .focusbar */}
+      <div className="flex items-center justify-between mb-[14px]">
+        <a href="/coach" className="btn" style={{ width: "auto", padding: "11px 20px" }}>
+          + New Chat
+        </a>
         <a
           href="/coach?view=history"
-          className="flex items-center gap-2 panel px-4 py-2 text-[13px] font-semibold tracking-wide text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-gold)] hover:text-[var(--color-text)]"
+          className="inline-flex items-center gap-2 text-[12.5px] font-bold tracking-[0.04em] px-4 py-[11px] cursor-pointer"
+          style={{
+            color: "var(--color-text-muted)",
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+          }}
         >
-          History
+          &#9201; History
           {sessions.length > 0 && (
-            <span className="min-w-[20px] bg-[var(--color-gold)] px-1.5 py-0.5 text-center text-[11px] font-bold text-[var(--color-bg)]">
-              {sessions.length}
-            </span>
+            <b style={{ color: "var(--color-gold)" }}>{sessions.length}</b>
           )}
         </a>
       </div>
@@ -86,6 +176,7 @@ export default async function CoachPage({
           deadline: g.deadline?.toISOString() ?? null,
         }))}
         initialInput={workoutStarter}
+        dailyBrief={{ title: briefTitle, body: briefBody }}
       />
     </div>
   );

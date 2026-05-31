@@ -486,7 +486,7 @@ const VERDICT_BY_TIER: Record<ReadinessTier["tier"], TrainingVerdict> = {
 
 const COLOR_BY_TIER: Record<ReadinessTier["tier"], "green" | "yellow" | "red"> = {
   go_hard: "green",
-  standard: "yellow",
+  standard: "green",
   moderate: "yellow",
   light: "yellow",
   recovery: "red",

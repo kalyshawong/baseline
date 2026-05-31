@@ -86,7 +86,7 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
 
   return (
     <div className="panel">
-      <p className="ov mb-3" style={{ color: "var(--color-gold)" }}>Quick Tag</p>
+      <p className="ov mb-3">Quick Tag</p>
 
       {flash && (
         <div className="mb-3 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
