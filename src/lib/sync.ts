@@ -261,7 +261,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     );
     for (const r of readiness.data) {
       await prisma.dailyReadiness.upsert({
-        where: { id: r.id },
+        where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
         update: {
           score: r.score,
           temperatureDeviation: r.temperature_deviation,
@@ -378,7 +378,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
         : {};
 
       await prisma.dailySleep.upsert({
-        where: { id: s.id },
+        where: { userId_day: { userId: getCurrentUserId(), day: new Date(s.day) } },
         update: {
           score: s.score,
           ...periodFields,
@@ -407,7 +407,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     );
     for (const s of stress.data) {
       await prisma.dailyStress.upsert({
-        where: { id: s.id },
+        where: { userId_day: { userId: getCurrentUserId(), day: new Date(s.day) } },
         update: {
           stressHigh: s.stress_high,
           recoveryHigh: s.recovery_high,
@@ -483,7 +483,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
         : null;
 
       await prisma.dailyActivity.upsert({
-        where: { id: a.id },
+        where: { userId_day: { userId: getCurrentUserId(), day: new Date(a.day) } },
         update: {
           score: a.score,
           activeCalories: a.active_calories,
@@ -527,7 +527,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     const spo2 = await ouraFetch<OuraListResponse<OuraSpO2>>("daily_spo2", params);
     for (const r of spo2.data) {
       await prisma.dailySpO2.upsert({
-        where: { id: r.id },
+        where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
         update: { avgSpO2: r.spo2_percentage?.average ?? null },
         create: {
           userId: getCurrentUserId(),
@@ -730,7 +730,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     const sleepTime = await ouraFetch<OuraListResponse<OuraSleepTime>>("sleep_time", params);
     for (const st of sleepTime.data) {
       await prisma.sleepTimeRecommendation.upsert({
-        where: { id: st.id },
+        where: { userId_day: { userId: getCurrentUserId(), day: new Date(st.day) } },
         update: {
           optimalBedtimeStart: st.optimal_bedtime?.start_offset ?? null,
           optimalBedtimeEnd: st.optimal_bedtime?.end_offset ?? null,
@@ -765,7 +765,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     const resilience = await ouraFetch<OuraListResponse<OuraResilience>>("daily_resilience", params);
     for (const r of resilience.data) {
       await prisma.dailyResilience.upsert({
-        where: { id: r.id },
+        where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
         update: {
           level: r.level,
           sleepRecovery: r.contributors.sleep_recovery,
