@@ -1,0 +1,897 @@
+// ============================================================================
+// MULTI-TENANT DRAFT SCHEMA — review before adopting. Drafted June 16, 2026.
+//
+// Changes vs current schema.prisma:
+//   1. Provider sqlite -> postgresql
+//   2. New `User` model (the tenant) + `UserBaseline` (per-signal maturity/stats)
+//   3. `userId` + relation on every user-owned table, incl. denormalized onto
+//      child tables (for simple Supabase RLS) — see MULTITENANCY_AUDIT.md Tier 2
+//   4. Every `day @unique` -> `@@unique([userId, day])`; natural-key uniques
+//      get userId folded in (Tier 1)
+//   5. UserProfile + OuraToken go from singletons to one-per-user
+//   6. Exercise gets nullable userId: null = shared seed catalog, set = custom
+//
+// NOT done here (deliberately): RLS policies (live in Supabase, not Prisma),
+// the 305-callsite query sweep, and data backfill. This is the shape only.
+// ============================================================================
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin-arm64"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Supabase: pooled connection (PgBouncer, port 6543, ?pgbouncer=true) for the
+  // app/serverless. Migrations need a direct connection (port 5432) — directUrl.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Tenant
+// ---------------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Onboarding anchor — when this user first synced data. Baseline maturity
+  // (see UserBaseline) is measured against per-signal data sufficiency, but
+  // this gives a single "day 0" for the top-level "still learning" banner.
+  baselineStartedAt DateTime?
+
+  // back-relations
+  ouraToken                OuraToken?
+  profile                  UserProfile?
+  baselines                UserBaseline[]
+  dailyReadiness           DailyReadiness[]
+  dailySleep               DailySleep[]
+  dailyActivity            DailyActivity[]
+  dailyStress              DailyStress[]
+  heartRateSamples         HeartRateSample[]
+  cyclePhaseLogs           CyclePhaseLog[]
+  syncLogs                 SyncLog[]
+  experiments              Experiment[]
+  experimentLogs           ExperimentLog[]
+  activityTags             ActivityTag[]
+  nutritionLogs            NutritionLog[]
+  nutritionEntries         NutritionEntry[]
+  exercises                Exercise[]
+  workoutSessions          WorkoutSession[]
+  workoutSets              WorkoutSet[]
+  workoutTemplates         WorkoutTemplate[]
+  goals                    Goal[]
+  hyroxPlans               HyroxPlan[]
+  hyroxSessions            HyroxSession[]
+  hyroxStationBenchmarks   HyroxStationBenchmark[]
+  goalWorkoutTags          GoalWorkoutTag[]
+  chatSessions             ChatSession[]
+  chatMessages             ChatMessage[]
+  weightLogs               WeightLog[]
+  healthKitSyncs           HealthKitSync[]
+  healthKitWorkouts        HealthKitWorkout[]
+  heartRateZoneSummaries   HeartRateZoneSummary[]
+  dailySpO2                DailySpO2[]
+  ouraWorkouts             OuraWorkout[]
+  ouraSessions             OuraSession[]
+  sleepTimeRecommendations SleepTimeRecommendation[]
+  dailyResilience          DailyResilience[]
+  dailyRunningMetrics      DailyRunningMetrics[]
+  dailyVO2Max              DailyVO2Max[]
+  envReadings              EnvReading[]
+  lifeContextDefs          LifeContextDef[]
+  lifeContextLogs          LifeContextLog[]
+  workoutNotes             WorkoutNote[]
+}
+
+// Per-user, per-signal baseline state. This is the gate between "priors mode"
+// (coach leans on shared research) and "personalized mode" (coach uses the
+// user's own baseline). Recomputed on each sync from the daily/sample tables;
+// cached here so the dashboard/coach don't recompute rolling stats per request.
+//
+// THIS is where per-user calibration lives — e.g. the HRV-CV overreaching
+// cutoff is derived from THIS row's cv, never a hardcoded 10% constant. The
+// maturity *rules* (minDays per signal) stay in code as shared engine config.
+model UserBaseline {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Which signal: "hrv" | "rhr" | "sleepScore" | "sleepDuration" |
+  // "readiness" | "stress" | "cyclePhase" | "runningSpeed" | ...
+  signal String
+
+  // Data sufficiency
+  n              Int       @default(0) // days/points observed
+  firstDay       DateTime?
+  lastDay        DateTime?
+  spanDays       Int       @default(0)
+  cyclesObserved Int? // for cycle-modulated signals; null if N/A
+
+  // Computed baseline — null until mature
+  mean Float?
+  sd   Float?
+  cv   Float? // per-user coefficient of variation (the HRV-CV fix lives here)
+  p20  Float? // personal range bounds (percentiles), optional
+  p80  Float?
+
+  // Maturity gate
+  isMature    Boolean  @default(false)
+  maturityPct Float    @default(0) // 0..1 — drives the onboarding "learning" UI
+  computedAt  DateTime @updatedAt
+
+  @@unique([userId, signal])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Oura auth (one connection per user)
+// ---------------------------------------------------------------------------
+
+model OuraToken {
+  id           Int      @id @default(autoincrement())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  scope        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Oura daily tables (id stays the Oura record id; day uniqueness now per-user)
+// ---------------------------------------------------------------------------
+
+model DailyReadiness {
+  id                        String   @id
+  userId                    String
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day                       DateTime
+  score                     Int?
+  temperatureDeviation      Float?
+  temperatureTrendDeviation Float?
+  hrvBalance                Int?
+  bodyTemperature           Int?
+  recoveryIndex             Int?
+  restingHeartRate          Int?
+  sleepBalance              Int?
+  activityBalance           Int?
+  createdAt                 DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+model DailySleep {
+  id                 String   @id
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day                DateTime
+  score              Int?
+  totalSleepDuration Int?
+  remSleepDuration   Int?
+  deepSleepDuration  Int?
+  lightSleepDuration Int?
+  sleepEfficiency    Int?
+  latency            Int?
+  averageHeartRate   Float?
+  lowestHeartRate    Int?
+  averageHrv         Int?
+  createdAt          DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+model DailyActivity {
+  id                        String   @id
+  userId                    String
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day                       DateTime
+  score                     Int?
+  activeCalories            Int?
+  totalCalories             Int?
+  steps                     Int?
+  equivalentWalkingDistance Int?
+  highActivityTime          Int?
+  mediumActivityTime        Int?
+  lowActivityTime           Int?
+  sedentaryTime             Int?
+  restingTime               Int?
+  metMinutes                Int?
+  createdAt                 DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+model DailyStress {
+  id           String   @id
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day          DateTime
+  stressHigh   Int?
+  recoveryHigh Int?
+  daySummary   String?
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+model HeartRateSample {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bpm       Int
+  source    String
+  timestamp DateTime
+
+  @@unique([userId, timestamp, source])
+  @@index([userId])
+}
+
+model CyclePhaseLog {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       DateTime
+  phase     String
+  source    String   @default("manual")
+  createdAt DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+model SyncLog {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncDate  DateTime @default(now())
+  status    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Mind Mode
+// ---------------------------------------------------------------------------
+
+model Experiment {
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title               String
+  hypothesis          String
+  independentVariable String
+  dependentVariable   String
+  dependentMetric     String
+  metricSource        String
+  lagDays             Int       @default(0)
+  startDate           DateTime
+  endDate             DateTime?
+  minDays             Int       @default(14)
+  status              String    @default("draft")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  logs ExperimentLog[]
+  tags ActivityTag[]
+
+  @@index([userId])
+}
+
+model ExperimentLog {
+  id               String     @id @default(cuid())
+  userId           String
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experimentId     String
+  experiment       Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  day              DateTime
+  independentValue Boolean
+  intensity        Float?
+  notes            String?
+  createdAt        DateTime   @default(now())
+
+  @@unique([experimentId, day])
+  @@index([userId])
+}
+
+model ActivityTag {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tag          String
+  category     String
+  timestamp    DateTime    @default(now())
+  metadata     String?
+  experimentId String?
+  experiment   Experiment? @relation(fields: [experimentId], references: [id])
+  ouraTagId    String?
+  source       String      @default("manual")
+  createdAt    DateTime    @default(now())
+
+  @@unique([userId, ouraTagId])
+  @@index([userId])
+}
+
+model NutritionLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       DateTime
+  calories  Float    @default(0)
+  protein   Float    @default(0)
+  carbs     Float    @default(0)
+  fat       Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries NutritionEntry[]
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+enum MealSource {
+  home_cooked
+  takeout
+  restaurant
+  pre_packaged
+}
+
+model NutritionEntry {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nutritionLogId String
+  nutritionLog   NutritionLog @relation(fields: [nutritionLogId], references: [id], onDelete: Cascade)
+  description    String
+  calories       Float
+  protein        Float
+  carbs          Float
+  fat            Float
+  quantity       Float        @default(1)
+  unit           String       @default("serving")
+  foodName       String
+  mealType       String       @default("snack")
+  source         MealSource?
+  eatenAt        DateTime     @default(now())
+  timeUnknown    Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Body Mode
+// ---------------------------------------------------------------------------
+
+// Exercise: null userId = shared seed catalog; set userId = user's custom.
+// NOTE: Postgres treats NULLs as distinct in unique constraints, so the
+// @@unique([userId, name]) does NOT prevent duplicate *global* names — keep
+// the seed catalog controlled (seeded once), it only enforces per-user custom
+// uniqueness. If you want strict global uniqueness too, enforce it in app code
+// or with a partial index added in a raw migration.
+model Exercise {
+  id              String   @id @default(cuid())
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  muscleGroup     String
+  secondaryMuscle String?
+  movementPattern String
+  equipment       String
+  isCompound      Boolean  @default(false)
+  defaultSets     Int      @default(3)
+  defaultReps     Int      @default(10)
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  sets WorkoutSet[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model WorkoutSession {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date           DateTime
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  durationMin    Int?
+  readinessScore Int?
+  cyclePhase     String?
+  sessionRPE     Int?
+  sessionVolume  Float?
+  notes          String?
+  templateName   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  sets         WorkoutSet[]
+  goalTags     GoalWorkoutTag[]
+  hyroxSession HyroxSession?
+
+  @@index([userId])
+}
+
+model WorkoutSet {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId   String
+  session     WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exerciseId  String
+  exercise    Exercise       @relation(fields: [exerciseId], references: [id])
+  setNumber   Int
+  reps        Int
+  weight      Float
+  rpe         Int?
+  restSeconds Int?
+  isWarmup    Boolean        @default(false)
+  isPR        Boolean        @default(false)
+  notes       String?
+  createdAt   DateTime       @default(now())
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([exerciseId])
+}
+
+model WorkoutTemplate {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  split     String   @default("custom")
+  exercises String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// One profile per user (was a hardcoded id=1 singleton).
+model UserProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bodyWeightKg       Float?
+  bodyFatPct         Float?
+  heightCm           Float?
+  age                Int?
+  sex                String?
+  experienceLevel    String   @default("intermediate")
+  activityLevel      String   @default("moderate")
+  goal               String   @default("maintain")
+  targetWeightKg     Float?
+  dailyCalorieTarget Int?
+  unit               String   @default("lb")
+  hrvBaselineChoice  String   @default("pending") // pending | personalized | standard
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Goal {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  type      String
+  subtype   String?
+  target    String?
+  deadline  DateTime?
+  status    String    @default("active")
+  isPrimary Boolean   @default(false)
+  priority  Int       @default(0)
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  workoutTags GoalWorkoutTag[]
+  hyroxPlan   HyroxPlan?
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Hyrox Race-Prep Module
+// ---------------------------------------------------------------------------
+
+model HyroxPlan {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goalId     String   @unique
+  goal       Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  raceDate   DateTime
+  targetTime Int
+  startDate  DateTime @default(now())
+
+  weeklyRunHours         Float @default(3.0)
+  weeklyStrengthHours    Float @default(2.0)
+  weeklyCompromisedHours Float @default(1.0)
+
+  accumulationDays  Int @default(14)
+  transmutationDays Int @default(14)
+  realizationDays   Int @default(11)
+  taperDays         Int @default(14)
+
+  currentBlock   String   @default("accumulation")
+  blockStartDate DateTime @default(now())
+  status         String   @default("active")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions          HyroxSession[]
+  stationBenchmarks HyroxStationBenchmark[]
+
+  @@index([userId])
+}
+
+model HyroxSession {
+  id     String    @id @default(cuid())
+  userId String
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId String
+  plan   HyroxPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  workoutSessionId String?         @unique
+  workoutSession   WorkoutSession? @relation(fields: [workoutSessionId], references: [id], onDelete: SetNull)
+
+  day         DateTime
+  sessionType String
+
+  stationOrderJson    String?
+  transitionTimesJson String?
+  racePaceTargetJson  String?
+  intervalsJson       String?
+
+  prescriptionNotes String?
+  rationale         String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([planId])
+  @@index([day])
+}
+
+model HyroxStationBenchmark {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId      String
+  plan        HyroxPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  station     String
+  timeSeconds Int
+  weightKg    Float?
+  notes       String?
+  recordedAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([planId, station])
+}
+
+model GoalWorkoutTag {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goalId    String
+  goal      Goal           @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  sessionId String
+  session   WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([goalId, sessionId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Coach chat
+// ---------------------------------------------------------------------------
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages ChatMessage[]
+
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String
+  content   String
+  createdAt DateTime    @default(now())
+
+  @@index([userId])
+  @@index([sessionId])
+}
+
+model WeightLog {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day          DateTime
+  weightKg     Float
+  bodyFatPct   Float?
+  muscleMassKg Float?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// HealthKit / Apple Watch
+// ---------------------------------------------------------------------------
+
+model HealthKitSync {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncedAt DateTime @default(now())
+  source   String   @default("health-auto-export")
+  status   String
+  details  String?
+  metrics  Int      @default(0)
+  workouts Int      @default(0)
+
+  @@index([userId])
+}
+
+model HealthKitWorkout {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  externalId      String
+  name            String
+  startedAt       DateTime
+  endedAt         DateTime
+  durationSeconds Int
+  activeCalories  Float?
+  distance        Float?
+  distanceUnit    String?
+  avgHeartRate    Int?
+  maxHeartRate    Int?
+  minHeartRate    Int?
+  source          String   @default("apple-watch")
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, externalId])
+  @@index([userId])
+}
+
+model HeartRateZoneSummary {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutId    String?
+  date         DateTime
+  zone1Minutes Float    @default(0)
+  zone2Minutes Float    @default(0)
+  zone3Minutes Float    @default(0)
+  zone4Minutes Float    @default(0)
+  zone5Minutes Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Oura Expansion
+// ---------------------------------------------------------------------------
+
+model DailySpO2 {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       DateTime
+  avgSpO2   Float?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+model OuraWorkout {
+  id              String   @id
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day             DateTime
+  activity        String
+  calories        Float?
+  distance        Float?
+  intensity       String?
+  label           String?
+  source          String?
+  startedAt       DateTime
+  endedAt         DateTime
+  durationSeconds Int
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([day])
+}
+
+model OuraSession {
+  id              String   @id
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day             DateTime
+  type            String
+  startedAt       DateTime
+  endedAt         DateTime
+  durationSeconds Int
+  avgHeartRate    Float?
+  avgHrv          Float?
+  mood            String?
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([day])
+}
+
+model SleepTimeRecommendation {
+  id                  String   @id
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day                 DateTime
+  optimalBedtimeStart Int?
+  optimalBedtimeEnd   Int?
+  recommendation      String?
+  status              String?
+  createdAt           DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+model DailyResilience {
+  id              String   @id
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day             DateTime
+  level           String
+  sleepRecovery   Int?
+  daytimeRecovery Int?
+  stress          Int?
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+model DailyRunningMetrics {
+  id                     String   @id @default(cuid())
+  userId                 String
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day                    DateTime
+  runningSpeed           Float?
+  runningPower           Float?
+  groundContactTime      Float?
+  verticalOscillation    Float?
+  strideLength           Float?
+  cardioRecovery         Float?
+  walkingRunningDistance Float?
+  respiratoryRate        Float?
+  physicalEffort         Float?
+  createdAt              DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+model DailyVO2Max {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       DateTime
+  vo2Max    Float?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId])
+}
+
+model EnvReading {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId    String   @default("env-sensor-bedroom")
+  timestamp   DateTime
+  pm25        Float?
+  temperature Float?
+  humidity    Float?
+  pressure    Float?
+  noiseDb     Float?
+  lux         Float?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([timestamp])
+  @@index([deviceId, timestamp])
+}
+
+// ---------------------------------------------------------------------------
+// Life Context
+// ---------------------------------------------------------------------------
+
+model LifeContextDef {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String
+  category  String   @default("custom")
+  emoji     String?
+  color     String?
+  groupKey  String?
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  logs LifeContextLog[]
+
+  @@unique([userId, label])
+  @@index([userId])
+}
+
+model LifeContextLog {
+  id     String         @id @default(cuid())
+  userId String
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defId  String
+  def    LifeContextDef @relation(fields: [defId], references: [id], onDelete: Cascade)
+
+  day DateTime
+
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@unique([defId, day])
+  @@index([userId])
+  @@index([day])
+}
+
+model WorkoutNote {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutSource  String
+  workoutId      String
+  workoutDate    DateTime
+  narrative      String
+  analysis       String?
+  signalSnapshot String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, workoutSource, workoutId])
+  @@index([userId])
+  @@index([workoutDate])
+}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { dateStrToUTC } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
+import { getCurrentUserId } from "@/lib/current-user";
 
 // Allow up to 5 minutes for large backfills (e.g. 16-day HAE re-exports).
 export const maxDuration = 300;
@@ -88,9 +89,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           await prisma.$transaction(
             batch.map((r) =>
               prisma.heartRateSample.upsert({
-                where: { timestamp_source: { timestamp: r.timestamp, source: "apple-watch" } },
+                where: { userId_timestamp_source: { userId: getCurrentUserId(), timestamp: r.timestamp, source: "apple-watch" } },
                 update: { bpm: r.bpm },
-                create: { bpm: r.bpm, source: "apple-watch", timestamp: r.timestamp },
+                create: { userId: getCurrentUserId(), bpm: r.bpm, source: "apple-watch", timestamp: r.timestamp },
               }),
             ),
           );
@@ -112,9 +113,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           await prisma.$transaction(
             batch.map((r) =>
               prisma.heartRateSample.upsert({
-                where: { timestamp_source: { timestamp: r.timestamp, source: "apple-watch-resting" } },
+                where: { userId_timestamp_source: { userId: getCurrentUserId(), timestamp: r.timestamp, source: "apple-watch-resting" } },
                 update: { bpm: r.bpm },
-                create: { bpm: r.bpm, source: "apple-watch-resting", timestamp: r.timestamp },
+                create: { userId: getCurrentUserId(), bpm: r.bpm, source: "apple-watch-resting", timestamp: r.timestamp },
               }),
             ),
           );
@@ -129,11 +130,11 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           const day = dateStrToUTC(d.date.substring(0, 10));
           // Check if Oura already has this day — only overwrite steps (Apple Watch more accurate)
           const existing = await prisma.dailyActivity.findUnique({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
           });
           if (existing) {
             await prisma.dailyActivity.update({
-              where: { day },
+              where: { userId_day: { userId: getCurrentUserId(), day } },
               data: { steps: Math.round(d.qty) },
             });
           }
@@ -146,11 +147,11 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!d.qty || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           const existing = await prisma.dailyActivity.findUnique({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
           });
           if (existing) {
             await prisma.dailyActivity.update({
-              where: { day },
+              where: { userId_day: { userId: getCurrentUserId(), day } },
               data: { activeCalories: Math.round(d.qty) },
             });
           }
@@ -164,9 +165,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           const day = dateStrToUTC(d.date.substring(0, 10));
           const weightKg = d.qty * 0.453592;
           await prisma.weightLog.upsert({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { weightKg },
-            create: { day, weightKg },
+            create: { userId: getCurrentUserId(), day, weightKg },
           });
           count++;
         }
@@ -177,16 +178,16 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!d.qty || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           const existing = await prisma.weightLog.findUnique({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
           });
           if (existing) {
             await prisma.weightLog.update({
-              where: { day },
+              where: { userId_day: { userId: getCurrentUserId(), day } },
               data: { bodyFatPct: d.qty },
             });
           } else {
             await prisma.weightLog.create({
-              data: { day, weightKg: 0, bodyFatPct: d.qty },
+              data: { userId: getCurrentUserId(), day, weightKg: 0, bodyFatPct: d.qty },
             });
           }
           count++;
@@ -201,9 +202,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!val || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           await prisma.dailyRunningMetrics.upsert({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { walkingRunningDistance: val },
-            create: { day, walkingRunningDistance: val },
+            create: { userId: getCurrentUserId(), day, walkingRunningDistance: val },
           });
           count++;
         }
@@ -215,9 +216,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!val || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           await prisma.dailyRunningMetrics.upsert({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { physicalEffort: val },
-            create: { day, physicalEffort: val },
+            create: { userId: getCurrentUserId(), day, physicalEffort: val },
           });
           count++;
         }
@@ -229,9 +230,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!val || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           await prisma.dailyRunningMetrics.upsert({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { respiratoryRate: val },
-            create: { day, respiratoryRate: val },
+            create: { userId: getCurrentUserId(), day, respiratoryRate: val },
           });
           count++;
         }
@@ -243,9 +244,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!val || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           await prisma.dailyVO2Max.upsert({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { vo2Max: val },
-            create: { id: `hae-vo2-${d.date.substring(0, 10)}`, day, vo2Max: val },
+            create: { id: `hae-vo2-${d.date.substring(0, 10)}`, userId: getCurrentUserId(), day, vo2Max: val },
           });
           count++;
         }
@@ -259,9 +260,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!val || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           await prisma.dailyRunningMetrics.upsert({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { runningSpeed: val },
-            create: { day, runningSpeed: val },
+            create: { userId: getCurrentUserId(), day, runningSpeed: val },
           });
           count++;
         }
@@ -273,9 +274,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!val || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           await prisma.dailyRunningMetrics.upsert({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { runningPower: val },
-            create: { day, runningPower: val },
+            create: { userId: getCurrentUserId(), day, runningPower: val },
           });
           count++;
         }
@@ -287,9 +288,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!val || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           await prisma.dailyRunningMetrics.upsert({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { groundContactTime: val },
-            create: { day, groundContactTime: val },
+            create: { userId: getCurrentUserId(), day, groundContactTime: val },
           });
           count++;
         }
@@ -301,9 +302,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!val || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           await prisma.dailyRunningMetrics.upsert({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { verticalOscillation: val },
-            create: { day, verticalOscillation: val },
+            create: { userId: getCurrentUserId(), day, verticalOscillation: val },
           });
           count++;
         }
@@ -315,9 +316,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!val || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           await prisma.dailyRunningMetrics.upsert({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { strideLength: val },
-            create: { day, strideLength: val },
+            create: { userId: getCurrentUserId(), day, strideLength: val },
           });
           count++;
         }
@@ -329,9 +330,9 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
           if (!val || !d.date) continue;
           const day = dateStrToUTC(d.date.substring(0, 10));
           await prisma.dailyRunningMetrics.upsert({
-            where: { day },
+            where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { cardioRecovery: val },
-            create: { day, cardioRecovery: val },
+            create: { userId: getCurrentUserId(), day, cardioRecovery: val },
           });
           count++;
         }
@@ -380,19 +381,22 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
         // createMany (the typed option errors as `never`). Use raw
         // INSERT … ON CONFLICT DO UPDATE — same pattern as the bulk HR
         // sample insert at line ~70. Batches keep payload bounded.
+        const userId = getCurrentUserId();
         const BATCH = 500;
         for (let i = 0; i < points.length; i += BATCH) {
           const batch = points.slice(i, i + BATCH);
           const values = batch
             .map(
               (p) =>
-                `(${p.bpm}, '${p.source}', '${p.timestamp.toISOString()}')`,
+                `('${userId}', ${p.bpm}, '${p.source}', '${p.timestamp.toISOString()}')`,
             )
             .join(",\n");
+          // Multi-tenant: include userId and match the compound unique
+          // (userId, timestamp, source) in ON CONFLICT.
           await prisma.$executeRawUnsafe(`
-            INSERT INTO "HeartRateSample" (bpm, source, timestamp)
+            INSERT INTO "HeartRateSample" ("userId", bpm, source, timestamp)
             VALUES ${values}
-            ON CONFLICT (timestamp, source) DO UPDATE SET bpm = EXCLUDED.bpm
+            ON CONFLICT ("userId", timestamp, source) DO UPDATE SET bpm = EXCLUDED.bpm
           `);
         }
 
@@ -444,9 +448,10 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
     }
 
     await prisma.healthKitWorkout.upsert({
-      where: { externalId: w.id },
+      where: { userId_externalId: { userId: getCurrentUserId(), externalId: w.id } },
       update: updateData,
       create: {
+        userId: getCurrentUserId(),
         externalId: w.id,
         name: w.name,
         startedAt: new Date(w.start),
@@ -542,13 +547,13 @@ async function processCycleTracking(entries: CycleEntry[]): Promise<number> {
 
     // Manual entries take priority — only write if no manual entry exists for this day
     const existing = await prisma.cyclePhaseLog.findUnique({
-      where: { day },
+      where: { userId_day: { userId: getCurrentUserId(), day } },
     });
     if (!existing || existing.source !== "manual") {
       await prisma.cyclePhaseLog.upsert({
-        where: { day },
+        where: { userId_day: { userId: getCurrentUserId(), day } },
         update: { phase, source: "healthkit" },
-        create: { day, phase, source: "healthkit" },
+        create: { userId: getCurrentUserId(), day, phase, source: "healthkit" },
       });
       count++;
     }
@@ -579,6 +584,7 @@ export async function POST(request: NextRequest) {
       try {
         await prisma.healthKitSync.create({
           data: {
+            userId: getCurrentUserId(),
             status: "unauthorized",
             metrics: 0,
             workouts: 0,
@@ -691,6 +697,7 @@ export async function POST(request: NextRequest) {
 
     await prisma.healthKitSync.create({
       data: {
+        userId: getCurrentUserId(),
         status,
         metrics: metricsCount,
         workouts: workoutsCount,
@@ -714,6 +721,7 @@ export async function POST(request: NextRequest) {
     try {
       await prisma.healthKitSync.create({
         data: {
+          userId: getCurrentUserId(),
           status: "error",
           metrics: 0,
           workouts: 0,

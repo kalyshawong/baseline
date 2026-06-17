@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { apiError } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
 
     const created = await prisma.activityTag.create({
       data: {
+        userId: getCurrentUserId(),
         tag,
         category,
         metadata: metadata ? JSON.stringify(metadata) : null,

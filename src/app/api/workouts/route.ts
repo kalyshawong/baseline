@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getLocalDay } from "@/lib/date-utils";
+import { getCurrentUserId } from "@/lib/current-user";
+import { getLocalDay, getLocalDayStr, dateStrToUTC } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
-import { apiError, parseIntInRange } from "@/lib/utils";
+import { apiError, parseIntInRange, validateString } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,15 +32,33 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { templateName, date } = body;
 
+    // BUG-H1: validate inputs before they flow into Date constructors / Prisma.
+    const errors: string[] = [];
+    const templateErr = validateString(templateName, "templateName", { maxLen: 200 });
+    if (templateErr) errors.push(templateErr);
+
+    if (date !== undefined && date !== null) {
+      if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        errors.push("date must be a YYYY-MM-DD string");
+      } else if (Number.isNaN(dateStrToUTC(date).getTime())) {
+        errors.push("date must be a valid calendar date");
+      } else if (date > getLocalDayStr()) {
+        // Lexicographic compare is chronological for YYYY-MM-DD.
+        errors.push("date cannot be in the future");
+      }
+    }
+
+    if (errors.length > 0) {
+      return NextResponse.json({ errors }, { status: 400 });
+    }
+
     const isBackfill = !!date;
-    const sessionDate = isBackfill
-      ? new Date(date + "T00:00:00.000Z")
-      : getLocalDay();
+    const sessionDate = isBackfill ? dateStrToUTC(date) : getLocalDay();
 
     // For backfilled sessions, anchor startedAt at noon on the chosen date
     // so it doesn't look like a workout that happened just now.
     const startedAt = isBackfill
-      ? new Date(date + "T12:00:00.000Z")
+      ? new Date(dateStrToUTC(date).getTime() + 12 * 60 * 60 * 1000)
       : new Date();
 
     // Snapshot readiness + cycle phase at session start (uses historical date for backfill).
@@ -55,6 +74,7 @@ export async function POST(request: NextRequest) {
 
     const session = await prisma.workoutSession.create({
       data: {
+        userId: getCurrentUserId(),
         date: sessionDate,
         startedAt,
         readinessScore: score?.overall ?? null,

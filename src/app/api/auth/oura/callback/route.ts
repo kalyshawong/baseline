@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { apiError } from "@/lib/utils";
 
 interface TokenResponse {
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
     } else {
       await prisma.ouraToken.create({
         data: {
+          userId: getCurrentUserId(),
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token,
           expiresAt: new Date(Date.now() + tokens.expires_in * 1000),

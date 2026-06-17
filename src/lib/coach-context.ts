@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { getCurrentUserId } from "./current-user";
 import { getLocalDay } from "./date-utils";
 import { getScoreForDate } from "./baseline-score";
 import {
@@ -6,12 +7,15 @@ import {
   cyclePhaseGuidance,
   compoundContributions,
   volumeZones,
-  hrvCV,
+  isHrvCvElevated,
+  hrvCvThreshold,
   estimate1RM,
   ffmFromBodyComposition,
   energyAvailability as computeEA,
   proteinTarget,
+  type HrvCvBaseline,
 } from "./training";
+import { computeHrvCvSignals } from "./training-call";
 import {
   totalDailyEnergyExpenditure,
   goalCalories,
@@ -19,6 +23,7 @@ import {
   kgToLb,
 } from "./tdee";
 import { generateInsights } from "./insights";
+import { analyzeMealGi } from "./meal-gi";
 import { currentBlock } from "./hyrox-blocks";
 import { computePaceBudget, formatKmPace, formatClockTime, paceDelta } from "./hyrox-pace";
 import { maybeArchivePlan } from "./hyrox-archive";
@@ -239,6 +244,10 @@ export function detectTradeoffs(
     readinessScore: number | null;
     cyclePhase: string | null;
     hrvCv: number | null;
+    /** Her personal HRV-CV baseline; null falls back to the flat 10%. */
+    hrvCvBaseline?: HrvCvBaseline | null;
+    /** Corroborating strain signal: overnight HRV itself below baseline. */
+    hrvBelowBaseline?: boolean | null;
     weeklyRunningKm: number | null;
     calorieBalance: number | null;
   }
@@ -277,12 +286,29 @@ export function detectTradeoffs(
     });
   }
 
-  // 4. OVERREACHING SIGNALS
-  if (context.hrvCv != null && context.hrvCv > 10) {
-    tradeoffs.push({
-      severity: "warning",
-      message: `HRV CV is ${context.hrvCv.toFixed(1)}% (elevated). Flatt & Esco (2016): sustained high HRV variability over 2-3 weeks signals non-functional overreaching. Consider deloading regardless of current program week.`,
-    });
+  // 4. OVERREACHING SIGNALS — judged against HER baseline (mean + 1 SD), and
+  // only when a second recovery signal corroborates (overnight HRV below
+  // baseline, or sub-par readiness). CV on her low, HR-coupled HRV is
+  // structurally inflated, so a flat 10% / solo CV is not a reliable
+  // overreaching trigger. See training.ts § Personalized HRV-CV threshold.
+  if (
+    context.hrvCv != null &&
+    isHrvCvElevated(context.hrvCv, context.hrvCvBaseline ?? null)
+  ) {
+    const corroborated =
+      context.hrvBelowBaseline === true ||
+      (context.readinessScore != null && context.readinessScore < 65);
+    if (corroborated) {
+      const thr = Math.round(hrvCvThreshold(context.hrvCvBaseline ?? null));
+      const corroborator =
+        context.hrvBelowBaseline === true
+          ? "overnight HRV is also trending below baseline"
+          : "readiness is also sub-par";
+      tradeoffs.push({
+        severity: "warning",
+        message: `HRV CV is ${context.hrvCv.toFixed(1)}% — above your ~${thr}% baseline, and ${corroborator}. Flatt & Esco (2016): elevated HRV variability that persists signals non-functional overreaching. Consider deloading regardless of current program week.`,
+      });
+    }
   }
 
   // 5. LUTEAL PHASE + UPCOMING RACE
@@ -549,7 +575,7 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
       take: 14,
     }),                                                              // 6
     prisma.nutritionLog.findUnique({
-      where: { day: localToday },
+      where: { userId_day: { userId: getCurrentUserId(), day: localToday } },
       include: { entries: true },
     }),                                                              // 7
     prisma.workoutSession.findMany({
@@ -573,7 +599,7 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
       orderBy: { day: "desc" },
       take: 14,
     }),                                                              // 10
-    prisma.userProfile.findUnique({ where: { id: 1 } }),            // 11
+    prisma.userProfile.findUnique({ where: { userId: getCurrentUserId() } }),            // 11
     prisma.experiment.findMany({
       where: { status: { in: ["active", "analyzed"] } },
       include: { _count: { select: { logs: true } } },
@@ -679,7 +705,10 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
 
   // Store computed values for tradeoff detection
   let computedEA: number | null = null;
-  let computedHrvCv: number | null = null;
+  // Personal-baseline-aware HRV-CV signals (see computeHrvCvSignals): used for
+  // both the Oura display line and the overreaching tradeoff, so CV is judged
+  // against HER baseline rather than a flat threshold.
+  const cvSignals = await computeHrvCvSignals();
 
   // --- Profile (always first, outside ordering) ---
   const profileLines: string[] = [];
@@ -734,14 +763,15 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
     ouraLines.push(`- Activity: ${todayActivity.totalCalories ?? "—"} cal burned total, ${todayActivity.activeCalories ?? "—"} active, ${todayActivity.steps ?? "—"} steps`);
   }
 
-  // HRV CV for overreaching signal
-  const hrvValues = recentSleep.map((s) => s.averageHrv).filter((v): v is number => v != null);
-  if (hrvValues.length >= 5) {
-    const cv = hrvCV(hrvValues);
-    if (cv != null) {
-      computedHrvCv = cv;
-      ouraLines.push(`- 14-day HRV CV: ${cv.toFixed(1)}%${cv > 8 ? " (ELEVATED — possible overreaching per Flatt & Esco 2016)" : ""}`);
-    }
+  // HRV CV for overreaching signal — judged against HER personal baseline
+  // (mean + 1 SD), not a flat threshold. CV on her low (~20ms), HR-coupled HRV
+  // is mechanically inflated, so a flat cutoff reads "elevated" almost daily.
+  if (cvSignals.hrvCv != null) {
+    const elevated = isHrvCvElevated(cvSignals.hrvCv, cvSignals.hrvCvBaseline);
+    const thr = Math.round(hrvCvThreshold(cvSignals.hrvCvBaseline));
+    ouraLines.push(
+      `- HRV CV: ${cvSignals.hrvCv.toFixed(1)}% (vs your ~${thr}% baseline)${elevated ? " — ELEVATED for you (Flatt & Esco 2016)" : ""}`,
+    );
   }
   // Only add if we have any data beyond the header
   if (ouraLines.length > 1) {
@@ -954,6 +984,33 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
     // Insights may fail if no tags yet
   }
 
+  // --- Pre-workout meal -> GI patterns (backward analyzer) ---
+  try {
+    const gi = await analyzeMealGi();
+    if (gi.analyzedSessions > 0) {
+      const giLines: string[] = ["## Pre-workout meal -> GI patterns"];
+      if (!gi.sufficient) {
+        giLines.push(
+          `- Watching: only ${gi.positiveEvents} GI failure(s) across ${gi.analyzedSessions} fueled session(s) — below the 6 needed to call a pattern. Do NOT assert a meal->GI cause yet; keep logging the outcome.`,
+        );
+      } else if (gi.patterns.length === 0) {
+        giLines.push(
+          `- ${gi.positiveEvents} GI failures logged, but no single pre-workout factor separates failure days from clean days yet.`,
+        );
+      } else {
+        for (const p of gi.patterns.slice(0, 4)) {
+          giLines.push(`- ${p.recommendation} [${p.significance}, p=${p.pValue}]`);
+        }
+        giLines.push(
+          "Rule: never voice a GI pattern as fact — always state the confidence AND a path to prove it (a Mind experiment on the single suspect).",
+        );
+      }
+      addSection("meal-gi", giLines);
+    }
+  } catch {
+    // meal-gi may fail if gi* fields aren't migrated / no labeled notes yet
+  }
+
   // --- Goals + Tradeoffs + Archived Pattern Recall ---
   // Determine focus goal
   const focusGoal = focusGoalId
@@ -977,7 +1034,9 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
       energyAvailability: computedEA,
       readinessScore: score?.overall ?? null,
       cyclePhase: cyclePhase.phase,
-      hrvCv: computedHrvCv,
+      hrvCv: cvSignals.hrvCv,
+      hrvCvBaseline: cvSignals.hrvCvBaseline,
+      hrvBelowBaseline: cvSignals.hrvBelowBaseline,
       weeklyRunningKm: latestRunning?.walkingRunningDistance ? latestRunning.walkingRunningDistance / 1000 : null,
       calorieBalance: null,
     });

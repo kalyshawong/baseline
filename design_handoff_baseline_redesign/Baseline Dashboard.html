@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baseline — Glow · Gold</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:oklch(0.155 0.006 264);
+    --surf:oklch(0.195 0.007 264);
+    --surf2:oklch(0.225 0.008 264);
+    --line:oklch(0.30 0.01 264);
+    --ink:oklch(0.97 0.003 264);
+    --dim:oklch(0.66 0.012 264);
+    --faint:oklch(0.50 0.012 264);
+    --volt:oklch(0.88 0.21 120);
+    --green:oklch(0.82 0.17 150);
+    --amber:oklch(0.83 0.16 80);
+    --red:oklch(0.66 0.21 25);
+    --blue:oklch(0.74 0.13 232);
+    --disp:"Bebas Neue",Impact,sans-serif;
+    --sans:"Archivo",system-ui,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  body{width:1320px;margin:0 auto;padding:0 0 60px}
+  .num{font-variant-numeric:tabular-nums}
+  .disp{font-family:var(--disp);letter-spacing:.01em}
+  .ov{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--faint)}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:20px 36px;border-bottom:2px solid var(--line)}
+  .brand{font-family:var(--disp);font-size:30px;letter-spacing:.04em;display:flex;align-items:center;gap:10px}
+  .brand::before{content:"";width:14px;height:14px;background:var(--volt);display:inline-block;transform:skewX(-12deg)}
+  nav{display:flex;gap:6px}
+  nav a{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);text-decoration:none;padding:9px 16px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+  nav a.on{background:var(--volt);color:var(--bg)}
+  nav a:not(.on):hover{color:var(--ink);background:var(--surf2)}
+
+  .strip{display:flex;align-items:center;justify-content:space-between;padding:14px 36px;background:var(--surf);border-bottom:2px solid var(--line)}
+  .datenav{display:flex;align-items:center;gap:12px}
+  .datenav .d{font-family:var(--disp);font-size:22px;letter-spacing:.03em}
+  .datenav button{background:var(--surf2);border:none;color:var(--dim);width:32px;height:32px;cursor:pointer;font-size:15px;clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%)}
+  .datenav button:hover{color:var(--ink);background:var(--line)}
+  .sync{display:flex;align-items:center;gap:16px}
+  .sync button{display:flex;align-items:center;gap:8px;font-family:var(--sans);font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;background:var(--volt);color:var(--bg);border:none;padding:10px 18px;cursor:pointer;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+  .sync .last{font-size:12px;color:var(--faint);font-weight:600;letter-spacing:.04em}
+
+  .pad{padding:24px 36px 0}
+  .grid{display:grid;gap:14px}
+
+  /* HERO call */
+  .hero{display:grid;grid-template-columns:1fr 320px;gap:14px}
+  .call{background:linear-gradient(135deg,color-mix(in oklch,var(--amber),var(--surf) 78%),var(--surf));border-left:6px solid var(--amber);padding:28px 32px;position:relative;overflow:hidden}
+  .call .top{display:flex;align-items:center;justify-content:space-between}
+  .statusflag{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--bg);background:var(--amber);padding:5px 12px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+  .call .verdict{font-family:var(--disp);font-size:140px;line-height:.82;color:var(--amber);margin:8px 0 4px;letter-spacing:.01em}
+  .call .read{font-size:18px;font-weight:500;max-width:560px}
+  .call .read b{color:var(--volt)}
+  .call .rec{font-size:16px;font-weight:700;color:var(--amber);margin-top:10px;text-transform:uppercase;letter-spacing:.02em}
+  .call .more{display:inline-block;margin-top:22px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);text-decoration:none}
+  .call .more:hover{color:var(--volt)}
+  .scorestack{display:grid;grid-template-rows:1fr 1fr 1fr;gap:14px}
+  .scard{background:var(--surf);padding:18px 20px;display:flex;flex-direction:column;justify-content:center;border-left:4px solid var(--line)}
+  .scard.g{border-left-color:var(--green)}
+  .scard .ov{margin-bottom:2px}
+  .scard .n{font-family:var(--disp);font-size:52px;line-height:.9}
+  .scard.g .n{color:var(--green)}
+  .scard .n small{font-family:var(--sans);font-size:15px;font-weight:600;color:var(--faint);letter-spacing:0}
+
+  /* TAPER band */
+  .taper{display:grid;grid-template-columns:300px 1fr;gap:14px}
+  .cd{background:var(--volt);color:var(--bg);padding:24px 26px;display:flex;flex-direction:column;justify-content:center}
+  .cd .ov{color:color-mix(in oklch,var(--bg),transparent 35%)}
+  .cd .big{font-family:var(--disp);font-size:104px;line-height:.8;margin-top:12px}
+  .cd .lbl{font-weight:800;text-transform:uppercase;letter-spacing:.04em;font-size:15px;margin-top:4px}
+  .cd .meta{font-weight:600;font-size:13px;margin-top:14px;opacity:.8}
+  .sess{background:var(--surf);padding:22px 26px;display:flex;flex-direction:column;justify-content:center}
+  .sess .t{font-family:var(--disp);font-size:40px;line-height:.95}
+  .sess .d{font-size:16px;color:var(--dim);margin-top:6px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .chip{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);background:var(--surf2);padding:6px 11px}
+  .chip b{color:var(--volt)}
+  .sess .more{margin-top:16px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);text-decoration:none}
+  .sess .more:hover{color:var(--volt)}
+
+  /* triple */
+  .triple{display:grid;grid-template-columns:1.4fr 1fr 1.2fr;gap:14px}
+  .panel{background:var(--surf);padding:20px 22px}
+  .panel .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .a4{display:grid;grid-template-columns:1fr 1fr;gap:16px 12px}
+  .a4 .k{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .a4 .v{font-family:var(--disp);font-size:42px;line-height:.85}
+  .a4 .v small{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--faint)}
+  .pfoot{font-size:12px;font-weight:600;color:var(--faint);margin-top:16px;padding-top:12px;border-top:1px solid var(--line);letter-spacing:.03em}
+  .cyc .state{display:flex;align-items:center;gap:9px;font-family:var(--disp);font-size:40px;color:var(--red)}
+  .cyc .state .d{width:11px;height:11px;background:var(--red);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+  .cyc .two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
+  .cyc .two .k{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .cyc .two .v{font-family:var(--disp);font-size:44px;line-height:.85}
+  .cyc .two .v.blue{color:var(--blue)}
+  .cal3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .cal3 .c{text-align:center;background:var(--surf2);padding:12px 6px}
+  .cal3 .c .k{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .cal3 .c .v{font-family:var(--disp);font-size:40px;line-height:.9}
+  .cal3 .c .v.in{color:var(--green)}.cal3 .c .v.out{color:var(--amber)}.cal3 .c .v.net{color:var(--amber)}
+  .calbar{margin-top:12px;background:var(--amber);color:var(--bg);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;text-align:center;padding:9px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+
+  /* sleep wide */
+  .sleep{background:var(--surf);padding:24px 28px}
+  .sleep .ph{display:flex;align-items:flex-start;justify-content:space-between}
+  .sleep .dur{font-family:var(--disp);font-size:84px;line-height:.8}
+  .sleep .sub{font-weight:600;color:var(--dim);font-size:14px}
+  .sleep .scorebadge{background:var(--green);color:var(--bg);font-family:var(--disp);font-size:30px;padding:6px 16px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+  .sm3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:20px}
+  .sm{padding:16px 18px;border-top:4px solid var(--line)}
+  .sm.g{border-top-color:var(--green);background:color-mix(in oklch,var(--green),var(--surf) 90%)}
+  .sm.a{border-top-color:var(--amber);background:color-mix(in oklch,var(--amber),var(--surf) 90%)}
+  .sm .k{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .sm .v{font-family:var(--disp);font-size:48px;line-height:.85;margin:4px 0}
+  .sm.g .v{color:var(--green)}.sm.a .v{color:var(--amber)}
+  .sm .t{font-size:11.5px;font-weight:600;color:var(--faint)}
+  .stages{margin-top:22px}
+  .stages .bar{display:flex;height:12px;gap:3px}
+  .stages .bar i{display:block}
+  .stages .bar .deep{background:var(--blue);flex:1.28}.stages .bar .rem{background:var(--volt);flex:2.15}.stages .bar .light{background:var(--line);flex:5.43}
+  .stages .leg{display:flex;gap:22px;margin-top:12px;font-size:13px;font-weight:600;color:var(--dim)}
+  .stages .leg b{color:var(--ink)}
+  .recov{margin-top:16px;font-size:13px;font-weight:600;color:var(--faint);letter-spacing:.03em}
+  .recov b{color:var(--ink)}
+
+  /* workout */
+  .wk{background:var(--surf);padding:22px 26px}
+  .wk .none{font-size:16px;font-weight:600;color:var(--dim);margin:6px 0 16px}
+  .logrow{display:grid;grid-template-columns:80px 1fr;gap:18px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+  .logrow .tm{font-weight:700;font-size:13px;color:var(--faint);letter-spacing:.03em}
+  .logrow .dt{font-size:14px;color:var(--dim)}
+  .logrow .dt b{color:var(--ink);text-transform:uppercase;font-weight:700;font-size:13px;letter-spacing:.04em}
+  .wk .more{display:inline-block;margin-top:14px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);text-decoration:none}
+  .wk .more:hover{color:var(--volt)}
+
+  /* actions + tonight */
+  .actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  .act{background:var(--surf);padding:22px 24px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;border-left:4px solid var(--volt)}
+  .act:hover{background:var(--surf2)}
+  .act b{font-family:var(--disp);font-size:28px;letter-spacing:.02em}
+  .act .ar{color:var(--volt);font-size:20px}
+  .tonight{display:flex;align-items:center;justify-content:space-between;padding:20px 26px;background:var(--surf2)}
+  .tonight .l{font-family:var(--disp);font-size:26px}
+  .tonight .l b{color:var(--volt)}
+  .tonight .r{font-size:12px;font-weight:600;color:var(--faint);letter-spacing:.04em;text-transform:uppercase}
+</style>
+<style>
+:root{--bg:oklch(0.135 0.008 264)}
+  /* keep angled cuts; add rich depth + glow */
+  .call{box-shadow:0 0 60px -22px var(--amber),inset 0 1px 0 oklch(1 0 0/.05)}
+  .cd{box-shadow:0 0 50px -10px var(--volt)}
+  .panel,.sleep,.wk,.sess,.act{background-image:linear-gradient(160deg,oklch(1 0 0/.032),transparent 42%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000}
+  nav a.on,.sync button{box-shadow:0 0 24px -6px var(--volt)}
+  .scorebadge{box-shadow:0 0 22px -6px var(--green)}
+
+</style>
+<style>
+  :root{--volt:oklch(0.82 0.155 88);--bg:oklch(0.142 0.010 70);--surf:oklch(0.195 0.010 70);--surf2:oklch(0.228 0.010 70);--line:oklch(0.30 0.010 70)}
+</style>
+</head>
+<body data-screen-label="Dashboard · Glow · Gold">
+
+  <header>
+    <div class="brand">BASELINE</div>
+    <nav>
+      <a href="#" class="on">Dashboard</a>
+      <a href="Baseline Mind.html">Mind</a>
+      <a href="Baseline Body.html">Body</a>
+      <a href="Baseline Coach.html">Coach</a>
+      <a href="Baseline Goals.html">Goals</a>
+    </nav>
+  </header>
+
+  <div class="strip">
+    <div class="datenav">
+      <button>‹</button>
+      <span class="d">THU · MAY 28</span>
+      <button>›</button>
+    </div>
+    <div class="sync"><button>⟳ Sync Now</button><span class="last">LAST SYNC 8:10 PM</span></div>
+  </div>
+
+  <div class="pad">
+    <!-- HERO -->
+    <div class="hero grid">
+      <div class="call">
+        <div class="top"><span class="ov">Today's Call</span><span class="statusflag">Caution</span></div>
+        <div class="verdict disp">EASY</div>
+        <div class="read">Baseline <b>87</b> — menstrual phase; HRV unstable (CV 34%).</div>
+        <div class="rec">Cut volume ~20%. Skip the heaviest sets.</div>
+        <a href="#" class="more">See full training breakdown →</a>
+      </div>
+      <div class="scorestack">
+        <div class="scard g"><span class="ov">Baseline</span><div class="n num">87</div></div>
+        <div class="scard g"><span class="ov">Readiness</span><div class="n num">88</div></div>
+        <div class="scard"><span class="ov">Sleep</span><div class="n num">9:03 <small>h:m</small></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pad">
+    <!-- TAPER -->
+    <div class="taper grid">
+      <div class="cd">
+        <span class="ov">Hyrox · Taper</span>
+        <div class="big num">6</div>
+        <div class="lbl">days to race</div>
+        <div class="meta">TUE JUN 2 · TARGET SUB-85 · 6:23/KM</div>
+      </div>
+      <div class="sess">
+        <span class="ov">Today's Session</span>
+        <div class="t">EASY RUN</div>
+        <div class="d">30–40 min easy, conversational pace (zone 2).</div>
+        <div class="chips">
+          <span class="chip">~<b>26</b> MIN</span>
+          <span class="chip">TAPER <b>WK 1</b></span>
+          <span class="chip"><b>6D</b> TO RACE</span>
+          <span class="chip">TMPL <b>EASY_RUN</b></span>
+          <span class="chip">RDY <b>88</b></span>
+          <span class="chip">HRV CV <b>31.3%</b></span>
+          <span class="chip">FIRST HYROX SESSION</span>
+        </div>
+        <a href="#" class="more">See full plan →</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="pad">
+    <!-- TRIPLE -->
+    <div class="triple grid">
+      <div class="panel">
+        <div class="ph"><span class="ov">Activity</span><span class="ov" style="color:var(--green)">● 10:29 PM</span></div>
+        <div class="a4">
+          <div><div class="k">Total Burn</div><div class="v num">1740<small> cal</small></div></div>
+          <div><div class="k">Active</div><div class="v num">278<small> cal</small></div></div>
+          <div><div class="k">Steps</div><div class="v num">7,538</div></div>
+          <div><div class="k">Active Time</div><div class="v num">40<small> m</small></div></div>
+        </div>
+        <div class="pfoot">WALKS · 3 SESSIONS · 1H 33M · 180 CAL</div>
+      </div>
+      <div class="panel cyc">
+        <div class="ph"><span class="ov">Cycle</span></div>
+        <div class="state"><span class="d"></span>MENSTRUAL</div>
+        <div class="two">
+          <div><div class="k">Day</div><div class="v num">7</div></div>
+          <div><div class="k">Temp</div><div class="v num blue">−.16°</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><span class="ov">Calories</span></div>
+        <div class="cal3">
+          <div class="c"><div class="k">In</div><div class="v in num">1395</div></div>
+          <div class="c"><div class="k">Out</div><div class="v out num">1740</div></div>
+          <div class="c"><div class="k">Net</div><div class="v net num">−345</div></div>
+        </div>
+        <div class="calbar">Deficit of 345 kcal</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pad">
+    <!-- SLEEP -->
+    <div class="sleep">
+      <div class="ph">
+        <div><span class="ov">Sleep</span><div class="dur num">9H 3M</div><div class="sub">total time asleep</div></div>
+        <div class="scorebadge num">92</div>
+      </div>
+      <div class="sm3">
+        <div class="sm g"><div class="k">Efficiency</div><div class="v num">91%</div><div class="t">TARGET ≥ 85%</div></div>
+        <div class="sm g"><div class="k">Latency</div><div class="v num">17M</div><div class="t">TARGET 15–20M</div></div>
+        <div class="sm a"><div class="k">WASO</div><div class="v num">37M</div><div class="t">TARGET &lt; 30M</div></div>
+      </div>
+      <div class="stages">
+        <div class="bar"><i class="deep"></i><i class="rem"></i><i class="light"></i></div>
+        <div class="leg"><span>DEEP <b>1h 28m</b></span><span>REM <b>2h 9m</b></span><span>LIGHT <b>5h 26m</b></span></div>
+      </div>
+      <div class="recov">RECOVERY · HRV <b>17 ms</b> · LOW HR <b>69 bpm</b></div>
+    </div>
+  </div>
+
+  <div class="pad">
+    <!-- WORKOUT -->
+    <div class="wk">
+      <span class="ov">Workout</span>
+      <div class="none">No training workout — just ambient activity.</div>
+      <div class="logrow"><span class="tm">5:45 PM</span><span class="dt"><b>Walking</b> · 16m · 320 m · 34 cal</span></div>
+      <div class="logrow"><span class="tm">3:58 PM</span><span class="dt"><b>Walking</b> · 1h 6m · 1.52 km · 112 cal</span></div>
+      <div class="logrow"><span class="tm">1:57 PM</span><span class="dt"><b>Walking</b> · 11m · 602 m · 33 cal</span></div>
+      <a href="#" class="more">+ Log a workout</a>
+    </div>
+  </div>
+
+  <div class="pad">
+    <!-- ACTIONS -->
+    <div class="actions">
+      <div class="act"><b>LOG FOOD</b><span class="ar">→</span></div>
+      <div class="act"><b>LOG WORKOUT</b><span class="ar">→</span></div>
+      <div class="act"><b>OPEN COACH</b><span class="ar">→</span></div>
+    </div>
+  </div>
+
+  <div class="pad">
+    <div class="tonight">
+      <div class="l">SLEEP TARGET <b>11:45 PM</b></div>
+      <div class="r">Today · 3 workouts (93 min total) · 4 meals</div>
+    </div>
+  </div>
+
+</body>
+</html>

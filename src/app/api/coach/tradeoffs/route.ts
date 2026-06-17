@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { detectTradeoffs } from "@/lib/coach-context";
 import { getLocalDay } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
-import { hrvCV, energyAvailability, ffmFromBodyComposition } from "@/lib/training";
+import { energyAvailability, ffmFromBodyComposition } from "@/lib/training";
+import { computeHrvCvSignals } from "@/lib/training-call";
 import { apiError } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -13,24 +15,20 @@ export async function GET() {
     const localToday = getLocalDay();
 
     const { resolveCyclePhase } = await import("@/lib/cycle-phase");
-    const [goals, score, cycle, recentSleep, nutrition, activity, profile, weight, running] =
+    const [goals, score, cycle, cvSignals, nutrition, activity, profile, weight, running] =
       await Promise.all([
         prisma.goal.findMany({ where: { status: "active" } }),
         getScoreForDate(localToday),
         // Staleness-guarded — phase: null when last log is too old.
         resolveCyclePhase(localToday),
-        prisma.dailySleep.findMany({
-          where: { day: { lte: localToday } },
-          orderBy: { day: "desc" },
-          take: 14,
-          select: { averageHrv: true },
-        }),
-        prisma.nutritionLog.findUnique({ where: { day: localToday } }),
+        // Personal-baseline-aware HRV-CV signals (see computeHrvCvSignals).
+        computeHrvCvSignals(localToday),
+        prisma.nutritionLog.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: localToday } } }),
         prisma.dailyActivity.findFirst({
           where: { day: { lte: localToday } },
           orderBy: { day: "desc" },
         }),
-        prisma.userProfile.findUnique({ where: { id: 1 } }),
+        prisma.userProfile.findUnique({ where: { userId: getCurrentUserId() } }),
         prisma.weightLog.findFirst({ orderBy: { day: "desc" } }),
         prisma.dailyRunningMetrics.findFirst({
           where: { day: { lte: localToday } },
@@ -41,12 +39,6 @@ export async function GET() {
     if (goals.length === 0) {
       return NextResponse.json({ tradeoffs: [] });
     }
-
-    // Compute HRV CV from recent sleep HRV readings
-    const hrvValues = recentSleep
-      .map((s) => s.averageHrv)
-      .filter((v): v is number => v != null);
-    const computedHrvCv = hrvValues.length >= 5 ? hrvCV(hrvValues) : null;
 
     // Compute energy availability if possible
     let computedEA: number | null = null;
@@ -66,7 +58,9 @@ export async function GET() {
       energyAvailability: computedEA,
       readinessScore: score?.overall ?? null,
       cyclePhase: cycle.phase,
-      hrvCv: computedHrvCv,
+      hrvCv: cvSignals.hrvCv,
+      hrvCvBaseline: cvSignals.hrvCvBaseline,
+      hrvBelowBaseline: cvSignals.hrvBelowBaseline,
       weeklyRunningKm: running?.walkingRunningDistance
         ? running.walkingRunningDistance / 1000
         : null,

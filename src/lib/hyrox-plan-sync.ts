@@ -20,6 +20,7 @@
 import type { Prisma, Goal } from "@prisma/client";
 import { parseTargetTimeSeconds } from "./hyrox-pace";
 import { autoScaleBlocks, weeksToRace } from "./hyrox-blocks";
+import { getCurrentUserId } from "./current-user";
 
 /** sub-85 min default when goal.target is unparseable. */
 const DEFAULT_TARGET_SECONDS = 5100;
@@ -63,6 +64,7 @@ export async function syncHyroxPlanForGoal(
 
   await tx.hyroxPlan.create({
     data: {
+      userId: getCurrentUserId(),
       goalId: goal.id,
       raceDate,
       targetTime,

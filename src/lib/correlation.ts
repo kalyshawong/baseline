@@ -1,6 +1,7 @@
 import { prisma } from "./db";
 // @ts-expect-error — jstat has no type declarations
 import { jStat } from "jstat";
+import { fisherExactTwoTailed, cohensH } from "./fisher";
 
 export interface CorrelationResult {
   treatmentMean: number;
@@ -85,6 +86,25 @@ async function fetchMetricValues(
     rows = await prisma.dailyStress.findMany({
       where: { day: { gte: minDay, lte: maxDay } },
     });
+  } else if (metricSource === "WorkoutNote") {
+    // GI outcome as a binary daily failure flag: 1 if any labeled workout that
+    // day was a moderate/vomited event, 0 if a clean labeled workout. Days with
+    // no labeled workout stay absent (excluded, like a null metric). The
+    // dependentMetric (giOutcome) is implied — there's only one GI field.
+    const notes = await prisma.workoutNote.findMany({
+      where: {
+        workoutDate: { gte: minDay, lte: maxDay },
+        giOutcome: { not: null },
+        giNeedsReview: false,
+      },
+      select: { workoutDate: true, giOutcome: true },
+    });
+    for (const nt of notes) {
+      const dayStr = nt.workoutDate.toISOString().split("T")[0];
+      const failed = nt.giOutcome === "moderate" || nt.giOutcome === "vomited" ? 1 : 0;
+      result.set(dayStr, Math.max(result.get(dayStr) ?? 0, failed));
+    }
+    return result;
   }
 
   for (const row of rows) {
@@ -96,6 +116,73 @@ async function fetchMetricValues(
   }
 
   return result;
+}
+
+/**
+ * Binary (rate) analysis path for a GI experiment — Fisher's exact + Cohen's h.
+ * Returns the same CorrelationResult shape as the continuous path, so the
+ * experiment UI renders it unchanged. treatment/controlMean are FAILURE RATES
+ * (0..1); the `cohensD` field carries Cohen's h.
+ */
+function analyzeBinary(
+  experiment: { independentVariable: string; dependentVariable: string },
+  treatment: number[],
+  control: number[],
+): CorrelationResult {
+  const tFail = treatment.reduce((s, v) => s + v, 0);
+  const cFail = control.reduce((s, v) => s + v, 0);
+  const tN = treatment.length;
+  const cN = control.length;
+  const tRate = tFail / tN;
+  const cRate = cFail / cN;
+
+  const p = fisherExactTwoTailed(tFail, tN - tFail, cFail, cN - cFail);
+  const h = cohensH(tRate, cRate);
+  const rateDiff = tRate - cRate;
+  const pctDiff = cRate !== 0 ? (rateDiff / cRate) * 100 : 0;
+  const se = Math.sqrt((tRate * (1 - tRate)) / tN + (cRate * (1 - cRate)) / cN);
+  const ciMargin = 1.96 * se;
+
+  // Underpowered if any 2x2 cell < 5 — never claim "significant" there.
+  const underpowered = [tFail, tN - tFail, cFail, cN - cFail].some((x) => x < 5);
+  const significance: CorrelationResult["significance"] = underpowered
+    ? p < 0.1
+      ? "suggestive"
+      : "not_significant"
+    : p < 0.05
+      ? "significant"
+      : p < 0.1
+        ? "suggestive"
+        : "not_significant";
+
+  const tPct = Math.round(tRate * 100);
+  const cPct = Math.round(cRate * 100);
+  const head = `${experiment.independentVariable}: GI-failure rate ${tPct}% (${tFail}/${tN}) vs ${cPct}% (${cFail}/${cN}) without`;
+  let insight: string;
+  if (significance === "significant") {
+    insight = `${head} — significant (Fisher p=${p.toFixed(2)}, effect h=${h.toFixed(2)}, ${cohensLabel(h)}).`;
+  } else if (significance === "suggestive") {
+    insight = `${head} — suggestive (Fisher p=${p.toFixed(2)}, ${cohensLabel(h)} effect)${underpowered ? "; small cells, keep logging" : ""}.`;
+  } else {
+    insight = `${head} — no clear effect yet (Fisher p=${p.toFixed(2)}).`;
+  }
+
+  return {
+    treatmentMean: Math.round(tRate * 1000) / 1000,
+    controlMean: Math.round(cRate * 1000) / 1000,
+    meanDifference: Math.round(rateDiff * 1000) / 1000,
+    percentDifference: Math.round(pctDiff * 10) / 10,
+    pValue: Math.round(p * 1000) / 1000,
+    cohensD: Math.round(h * 100) / 100, // Cohen's h for the proportion difference
+    confidenceInterval: [
+      Math.round((rateDiff - ciMargin) * 1000) / 1000,
+      Math.round((rateDiff + ciMargin) * 1000) / 1000,
+    ],
+    significance,
+    treatmentN: tN,
+    controlN: cN,
+    insight,
+  };
 }
 
 export async function analyzeExperiment(experimentId: string): Promise<CorrelationResult | null> {
@@ -146,6 +233,12 @@ export async function analyzeExperiment(experimentId: string): Promise<Correlati
 
   if (treatmentValues.length < 3 || controlValues.length < 3) {
     return null;
+  }
+
+  // GI outcome is a binary rate, not a continuous mean — use the Fisher's-exact
+  // path instead of the Welch t-test.
+  if (experiment.metricSource === "WorkoutNote") {
+    return analyzeBinary(experiment, treatmentValues, controlValues);
   }
 
   const { p } = welchTTest(treatmentValues, controlValues);

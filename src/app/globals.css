@@ -114,6 +114,7 @@ body {
 .pill-g { background: var(--color-green); color: var(--color-bg); }
 .pill-a { background: var(--color-yellow); color: var(--color-bg); }
 .pill-r { background: var(--color-red); color: var(--color-text); }
+.pill-b { background: color-mix(in oklch, var(--color-blue), transparent 78%); color: var(--color-blue); }
 .pill-muted { background: var(--color-surface-2); color: var(--color-text-muted); }
 
 /* ---------- tag chips ---------- */
@@ -227,6 +228,10 @@ body {
 .insight-card-a {
   border-left-color: var(--color-yellow);
   background-image: linear-gradient(160deg, color-mix(in oklch, var(--color-yellow), transparent 88%), transparent 55%);
+}
+.insight-card-b {
+  border-left-color: var(--color-blue);
+  background-image: linear-gradient(160deg, color-mix(in oklch, var(--color-blue), transparent 88%), transparent 55%);
 }
 .insight-card-muted {
   border-left-color: var(--color-faint);

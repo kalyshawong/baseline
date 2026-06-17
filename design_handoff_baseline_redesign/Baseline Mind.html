@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baseline — Mind</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="baseline.css" rel="stylesheet">
+<style>
+  /* full-width context bar */
+  .ctxbar{display:grid;grid-template-columns:repeat(4,1fr) 2.6fr;gap:1px;background:var(--line);margin:16px 36px 0}
+  .ctxbar .c{background:var(--surf);background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 50%);padding:15px 20px;display:flex;flex-direction:column;justify-content:center}
+  .ctxbar .k{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:5px}
+  .ctxbar .v{font-family:var(--disp);font-size:34px;line-height:.82}
+  .ctxbar .v small{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--faint)}
+  .ctxbar .phase{flex-direction:row;align-items:center;gap:12px}
+  .ctxbar .phase .p{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:5px 11px;background:color-mix(in oklch,var(--red),transparent 78%);color:var(--red);clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+  .ctxbar .phase .note{font-size:12.5px;color:var(--dim);line-height:1.4}
+
+  .wb{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px 36px 0;align-items:start}
+  .colhead{font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:13px;display:flex;align-items:center;gap:12px}
+  .colhead::after{content:"";flex:1;height:1px;background:var(--line)}
+  .stack{display:flex;flex-direction:column;gap:14px}
+  .seg.c2{grid-template-columns:1fr 1fr}
+  .seg + .seg{margin-top:7px}
+  .frow{display:flex;align-items:center;justify-content:space-between;margin:13px 0;font-size:12px}
+  .frow .l{display:flex;align-items:center;gap:9px;color:var(--dim);font-weight:600}
+  .qr{display:flex;gap:8px;margin-top:12px}
+
+  /* findings toolbar */
+  .findbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px}
+  .ffilters{display:flex;gap:7px}
+  .fchip{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);background:var(--surf2);border:none;padding:7px 12px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+  .fchip .ct{color:var(--faint)}
+  .fchip.on{background:var(--gold);color:var(--bg)}
+  .fchip.on .ct{color:var(--bg);opacity:.7}
+  .fsort{font-size:12px;font-weight:600;color:var(--dim);display:flex;align-items:center;gap:7px;cursor:pointer}
+  .fsort b{color:var(--ink)}
+
+  /* featured finding (wide) */
+  .ffeat{display:grid;grid-template-columns:1fr 232px;border-left:5px solid var(--green);background:var(--surf);background-image:linear-gradient(150deg,color-mix(in oklch,var(--green),transparent 84%),transparent 55%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000}
+  .ffeat .l{padding:24px 26px}
+  .ffeat .ey{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+  .ffeat h2{font-family:var(--disp);font-size:42px;line-height:.88;letter-spacing:.01em;max-width:430px}
+  .ffeat h2 em{font-style:normal;color:var(--green)}
+  .ffeat .rec{font-size:14px;color:var(--dim);margin-top:13px;max-width:430px}
+  .ffeat .n{font-size:11.5px;color:var(--faint);font-style:italic;margin-top:9px}
+  .ffeat .big{background:var(--green);color:var(--bg);padding:22px 24px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 0 46px -14px var(--green)}
+  .ffeat .big .eyb{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.72}
+  .ffeat .big .delta{font-family:var(--disp);font-size:78px;line-height:.78;margin:4px 0}
+  .ffeat .big .cmp{font-family:var(--disp);font-size:22px;letter-spacing:.02em}
+  .ffeat .big .cmp small{font-family:var(--sans);font-size:12px;font-weight:700;opacity:.72}
+
+  .findgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .findgrid .insight{padding:20px 22px}
+  .findgrid .insight .metric{font-size:26px;margin-top:11px}
+  .findgrid .insight .title{font-size:14px}
+  .findmore{margin-top:14px;text-align:center;padding:13px;border:1px dashed var(--line);color:var(--dim);font-size:13px;font-weight:600;cursor:pointer}
+  .findmore:hover{color:var(--gold);border-color:var(--gold)}
+  .ftiles{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+
+  /* tweakable variables (driven by the Tweaks panel) */
+  :root{--statgap:5px;--numscale:1;--panelpad:20px}
+  .ctxbar .k{margin-bottom:var(--statgap)}
+  .ctxbar .v{font-size:calc(34px * var(--numscale))}
+  .ffeat .big .delta{font-size:calc(78px * var(--numscale))}
+  .findgrid .insight .metric{font-size:calc(26px * var(--numscale))}
+  .panel.tight{padding:var(--panelpad) calc(var(--panelpad) + 2px)}
+</style>
+</head>
+<body data-screen-label="Mind">
+
+  <header>
+    <div class="brand">BASELINE</div>
+    <nav>
+      <a href="Baseline Dashboard.html">Dashboard</a>
+      <a href="#" class="on">Mind</a>
+      <a href="Baseline Body.html">Body</a>
+      <a href="Baseline Coach.html">Coach</a>
+      <a href="Baseline Goals.html">Goals</a>
+    </nav>
+  </header>
+
+  <div class="pagebar" style="padding-top:26px">
+    <div>
+      <h1 style="font-family:var(--disp);font-size:46px;line-height:.9;letter-spacing:.02em;white-space:nowrap">MIND MODE</h1>
+      <div class="sub" style="color:var(--dim);font-size:14px;font-weight:500;margin-top:3px">Structured self-experimentation</div>
+    </div>
+    <div class="datenav"><button>‹</button><span class="d">FRI · MAY 29</span><button>›</button></div>
+  </div>
+
+  <!-- context bar -->
+  <div class="ctxbar">
+    <div class="c"><div class="k">Readiness</div><div class="v num">88</div></div>
+    <div class="c"><div class="k">Sleep</div><div class="v num">9h 3m</div></div>
+    <div class="c"><div class="k">HRV</div><div class="v num">17 <small>ms</small></div></div>
+    <div class="c"><div class="k">Stress</div><div class="v">Normal</div></div>
+    <div class="c phase"><span class="p">Menstrual</span><span class="note">Energy lowest — prioritize recovery experiments, not high-load interventions.</span></div>
+  </div>
+
+  <div class="wb">
+
+    <!-- LEFT: inputs -->
+    <div>
+      <div class="colhead">Inputs · Log</div>
+      <div class="stack">
+        <div class="panel tight">
+          <div class="ph"><span class="ov">Quick Tag</span></div>
+          <div class="chips">
+            <button class="tagchip">music</button><button class="tagchip">breathing</button>
+            <button class="tagchip">caffeine</button><button class="tagchip">alcohol</button>
+            <button class="tagchip">meditation</button><button class="tagchip">exercise</button>
+            <button class="tagchip">social</button><button class="tagchip">study</button>
+          </div>
+          <input class="field" style="margin-top:12px" placeholder="Custom tag (e.g. cold shower, sauna)">
+          <div class="qr">
+            <span class="timefield" style="flex:1;justify-content:center">12:34 AM</span>
+            <button class="btn" style="flex:none">Tag</button>
+          </div>
+        </div>
+
+        <div class="panel tight">
+          <div class="ph"><span class="ov">Log Food</span></div>
+          <div class="seg c2">
+            <div class="opt">Breakfast</div><div class="opt">Lunch</div>
+            <div class="opt">Dinner</div><div class="opt on">Snack</div>
+          </div>
+          <div class="seg c2">
+            <div class="opt on">Home cooked</div><div class="opt">Takeout</div>
+            <div class="opt">Restaurant</div><div class="opt">Pre-packaged</div>
+          </div>
+          <div class="frow">
+            <div class="l">Time <span class="timefield">12:34</span></div>
+            <label class="check"><span class="box"></span>Forgot time</label>
+          </div>
+          <textarea class="field" style="margin-bottom:12px" placeholder="3 eggs, 200g ground beef, 1 cup rice…"></textarea>
+          <button class="btn block">Log Meal</button>
+        </div>
+
+        <div class="panel tight">
+          <div class="ph"><span class="ov">Life Context</span><div class="acts"><a class="linklike">Manage</a><a class="linklike">+ New</a></div></div>
+          <div class="chips">
+            <button class="tagchip">🛏 Shared bed (partner)</button>
+            <button class="tagchip">🛏 Slept alone</button>
+            <button class="tagchip">🛏 Non-partner</button>
+            <button class="tagchip">Exam Day</button>
+            <button class="tagchip">Presentation</button>
+            <button class="tagchip">Went Out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: findings -->
+    <div>
+      <div class="colhead">Findings</div>
+
+      <div class="findbar">
+        <div class="ffilters">
+          <button class="fchip on">All <span class="ct">7</span></button>
+          <button class="fchip">Strong <span class="ct">3</span></button>
+          <button class="fchip">Trends <span class="ct">2</span></button>
+          <button class="fchip">Watching <span class="ct">2</span></button>
+        </div>
+        <div class="fsort">Sort: <b>Strength</b>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+
+      <!-- featured top finding -->
+      <div class="ffeat">
+        <div class="l">
+          <div class="ey"><span class="ov" style="color:var(--green)">Top finding</span><span class="pill g">Strong signal</span></div>
+          <h2>Sleeping <em>alone</em> gives you deeper sleep.</h2>
+          <div class="rec">Across 29 nights, "Slept alone" tracks a clear jump in deep sleep versus sharing a bed. Keep it up.</div>
+          <div class="n">n=29 tagged vs n=31 days sharing a bed</div>
+        </div>
+        <div class="big">
+          <div class="eyb">Deep sleep</div>
+          <div class="delta num">+26%</div>
+          <div class="cmp num">1h 48m <small>vs 1h 26m · p=0</small></div>
+        </div>
+      </div>
+
+      <!-- growing list of findings -->
+      <div class="findgrid">
+        <div class="insight g">
+          <div class="top"><div class="title">Days with <b>"sex"</b>: lower</div><span class="pill g">Strong</span></div>
+          <div class="metric"><span class="lbl">deep sleep</span><span class="hi num">1h 24m</span><span class="vs">vs</span><span class="num">1h 42m</span></div>
+          <div class="n">17.3%, p=0.002 · n=18 vs 42</div>
+          <div class="rec">Consider reducing — correlates with lower deep sleep.</div>
+        </div>
+        <div class="insight g">
+          <div class="top"><div class="title">Days with <b>"caffeine after 2pm"</b>: lower</div><span class="pill g">Strong</span></div>
+          <div class="metric"><span class="lbl">deep sleep</span><span class="hi num">1h 12m</span><span class="vs">vs</span><span class="num">1h 35m</span></div>
+          <div class="n">18.9%, p=0.004 · n=22 vs 38</div>
+          <div class="rec">Cutting late caffeine tracks meaningfully deeper sleep.</div>
+        </div>
+        <div class="insight a">
+          <div class="top"><div class="title">Days with <b>"Shared bed (partner)"</b>: higher</div><span class="pill a">Trend</span></div>
+          <div class="metric"><span class="lbl">HRV</span><span class="hi num">23 ms</span><span class="vs">vs</span><span class="num">19 ms</span></div>
+          <div class="n">24.4%, p=0.041 · n=23 vs 37</div>
+          <div class="rec">Promising HRV trend. Keep logging to confirm.</div>
+        </div>
+        <div class="insight a">
+          <div class="top"><div class="title">Days with <b>"meditation"</b>: higher</div><span class="pill a">Trend</span></div>
+          <div class="metric"><span class="lbl">HRV</span><span class="hi num">21 ms</span><span class="vs">vs</span><span class="num">18 ms</span></div>
+          <div class="n">16.1%, p=0.048 · n=15 vs 45</div>
+          <div class="rec">Meditation days lean toward higher HRV. Worth a formal experiment.</div>
+        </div>
+        <div class="insight muted">
+          <div class="top"><div class="title">Days with <b>"spirits"</b>: lower</div><span class="pill muted">Watching</span></div>
+          <div class="metric"><span class="lbl">HRV</span><span class="hi num">15 ms</span><span class="vs">vs</span><span class="num">21 ms</span></div>
+          <div class="n">31.1%, p=0.061 · n=4 vs 56</div>
+          <div class="rec">Early signal — needs more data.</div>
+        </div>
+        <div class="insight muted">
+          <div class="top"><div class="title">Days with <b>"late workout"</b>: lower</div><span class="pill muted">Watching</span></div>
+          <div class="metric"><span class="lbl">readiness</span><span class="hi num">82</span><span class="vs">vs</span><span class="num">87</span></div>
+          <div class="n">5.7%, p=0.089 · n=6 vs 54</div>
+          <div class="rec">Early signal — evening sessions may dent next-day readiness.</div>
+        </div>
+      </div>
+
+      <div class="findmore">Show archived &amp; low-confidence signals (12) →</div>
+
+      <div class="ftiles">
+        <div class="panel"><div class="ph"><span class="ov">Active Experiments</span></div><div class="empty" style="border:none;padding:6px 0;text-align:left">No active experiments. <a>Start from a template.</a></div></div>
+        <div class="panel"><div class="ph"><span class="ov">Environment</span></div><div class="empty" style="border:none;padding:6px 0;text-align:left">No sensor data yet. Connect your ESP32.</div></div>
+      </div>
+
+      <div class="disclaimer" style="text-align:left;padding:16px 0 0">Correlations are personal observations, not medical advice — limited sample sizes mean these are hypotheses.</div>
+    </div>
+
+  </div>
+
+  <div id="tweak-root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "accent": "#E3B53C",
+      "labelGap": 5,
+      "numberSize": 1,
+      "density": "regular"
+    }/*EDITMODE-END*/;
+
+    function MindTweaks() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      React.useEffect(() => {
+        const r = document.documentElement.style;
+        r.setProperty('--gold', t.accent);
+        r.setProperty('--statgap', t.labelGap + 'px');
+        r.setProperty('--numscale', String(t.numberSize));
+        const pad = t.density === 'compact' ? 16 : t.density === 'cozy' ? 28 : 20;
+        r.setProperty('--panelpad', pad + 'px');
+      }, [t]);
+      return (
+        <TweaksPanel>
+          <TweakSection label="Accent" />
+          <TweakColor label="Brand accent" value={t.accent}
+            options={['#E3B53C', '#E5762E', '#3E9BE8', '#36C5C0']}
+            onChange={(v) => setTweak('accent', v)} />
+          <TweakSection label="Layout" />
+          <TweakSlider label="Label spacing" value={t.labelGap} min={2} max={18} step={1} unit="px"
+            onChange={(v) => setTweak('labelGap', v)} />
+          <TweakSlider label="Number size" value={t.numberSize} min={0.85} max={1.25} step={0.05}
+            onChange={(v) => setTweak('numberSize', v)} />
+          <TweakRadio label="Density" value={t.density}
+            options={['compact', 'regular', 'cozy']}
+            onChange={(v) => setTweak('density', v)} />
+        </TweaksPanel>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('tweak-root')).render(<MindTweaks />);
+  </script>
+</body>
+</html>

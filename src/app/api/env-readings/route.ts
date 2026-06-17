@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { apiError, parseIntInRange } from "@/lib/utils";
 
 // Sensor reading bounds — anything outside is either a wiring fault or a
@@ -85,6 +86,7 @@ export async function POST(request: NextRequest) {
 
     const reading = await prisma.envReading.create({
       data: {
+        userId: getCurrentUserId(),
         deviceId: device_id ?? "env-sensor-bedroom",
         timestamp: ts,
         pm25: pm25 ?? null,

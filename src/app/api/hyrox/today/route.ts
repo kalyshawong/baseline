@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { apiError } from "@/lib/utils";
 import { maybeArchivePlan } from "@/lib/hyrox-archive";
 import { recommendSession } from "@/lib/hyrox-session-recommender";
+import { computeHrvCvSignals } from "@/lib/hyrox-today";
 
 /**
  * GET /api/hyrox/today
@@ -52,13 +53,10 @@ export async function GET() {
     }
 
     // Pull context in parallel — no dependencies between these reads.
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
     const [
       readinessRow,
       sleepRow,
-      recentSleeps,
+      cvSignals,
       cycleRow,
       lastHardSession,
     ] = await Promise.all([
@@ -70,14 +68,8 @@ export async function GET() {
         where: { day: { lte: today }, totalSleepDuration: { not: null } },
         orderBy: { day: "desc" },
       }),
-      prisma.dailySleep.findMany({
-        where: {
-          day: { gte: sevenDaysAgo, lte: today },
-          averageHrv: { not: null },
-        },
-        orderBy: { day: "desc" },
-        take: 7,
-      }),
+      // Personal-baseline-aware CV signals (see computeHrvCvSignals).
+      computeHrvCvSignals(today),
       // Staleness-guarded — phase: null when last log is older than
       // its phase's max-days cap. See src/lib/cycle-phase.ts.
       (async () => {
@@ -99,22 +91,7 @@ export async function GET() {
     const sleepSeconds = sleepRow?.totalSleepDuration ?? null;
     const sleepHours = sleepSeconds !== null ? sleepSeconds / 3600 : null;
 
-    // HRV CV (%) = (stdev / mean) * 100 over recent averageHrv samples.
-    // Need at least 3 points to be meaningful.
-    let hrvCv: number | null = null;
-    const hrvValues = recentSleeps
-      .map((s) => s.averageHrv)
-      .filter((v): v is number => v !== null && v !== undefined);
-    if (hrvValues.length >= 3) {
-      const mean = hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length;
-      if (mean > 0) {
-        const variance =
-          hrvValues.reduce((acc, v) => acc + (v - mean) ** 2, 0) /
-          hrvValues.length;
-        const stdev = Math.sqrt(variance);
-        hrvCv = (stdev / mean) * 100;
-      }
-    }
+    const { hrvCv, hrvCvBaseline, hrvBelowBaseline } = cvSignals;
 
     const cyclePhase = cycleRow.phase;
 
@@ -135,6 +112,8 @@ export async function GET() {
       plan: archived,
       readiness,
       hrvCv,
+      hrvCvBaseline,
+      hrvBelowBaseline,
       sleepHours,
       cyclePhase,
       daysSinceLastHardSession,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { apiError } from "@/lib/utils";
 import { dateStrToUTC } from "@/lib/date-utils";
 
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
       where: { defId_day: { defId, day } },
       update: { notes: typeof notes === "string" ? notes : null },
       create: {
+        userId: getCurrentUserId(),
         defId,
         day,
         notes: typeof notes === "string" ? notes : null,

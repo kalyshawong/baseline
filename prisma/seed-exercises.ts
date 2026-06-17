@@ -9,12 +9,17 @@ async function main() {
   let skipped = 0;
 
   for (const ex of exerciseLibrary) {
-    const existing = await prisma.exercise.findUnique({ where: { name: ex.name } });
+    // Exercise is a shared catalog: catalog rows have userId = null.
+    // name alone is no longer unique (now @@unique([userId, name])), so a
+    // findUnique on name can't be used — match catalog rows via findFirst.
+    const existing = await prisma.exercise.findFirst({
+      where: { name: ex.name, userId: null },
+    });
     if (existing) {
       skipped++;
       continue;
     }
-    await prisma.exercise.create({ data: ex });
+    await prisma.exercise.create({ data: { ...ex, userId: null } });
     created++;
   }
 

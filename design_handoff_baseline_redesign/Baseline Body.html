@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baseline — Body</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="baseline.css" rel="stylesheet">
+<link href="baseline-body.css" rel="stylesheet">
+<style>
+  .seclabel{display:flex;align-items:center;gap:12px}
+  .seclabel::after{content:"";flex:1;height:1px;background:var(--line)}
+  .mgrid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .mgrid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  .two.s{grid-template-columns:1.5fr 1fr}
+  .rstack{display:flex;flex-direction:column;gap:14px}
+  .addbtns{display:flex;align-items:center;gap:14px;margin:2px 0 4px}
+
+  /* tweakable layout vars (driven by the Tweaks panel) */
+  :root{--bodypad:22px;--cardgap:14px}
+  .volcard,.listcard,.sleepbreak,.nutricard,.compcard,.cyclecard{padding:var(--bodypad) calc(var(--bodypad) + 2px)}
+  .mgrid4,.mgrid3,.two{gap:var(--cardgap)}
+  body.eqcards .two{align-items:stretch}
+  body.eqcards .two > *{height:100%}
+  body.eqcards .rstack{height:100%;justify-content:space-between}
+</style>
+</head>
+<body data-screen-label="Body" class="eqcards">
+
+  <header>
+    <div class="brand">BASELINE</div>
+    <nav>
+      <a href="Baseline Dashboard.html">Dashboard</a>
+      <a href="Baseline Mind.html">Mind</a>
+      <a href="#" class="on">Body</a>
+      <a href="Baseline Coach.html">Coach</a>
+      <a href="Baseline Goals.html">Goals</a>
+    </nav>
+  </header>
+
+  <div class="pagebar" style="padding-top:26px">
+    <div>
+      <h1 style="font-family:var(--disp);font-size:46px;line-height:.9;letter-spacing:.02em;white-space:nowrap">BODY</h1>
+      <div class="sub" style="color:var(--dim);font-size:14px;font-weight:500;margin-top:3px">Training readiness, recovery &amp; composition</div>
+    </div>
+    <div class="datenav"><button>‹</button><span class="d">FRI · MAY 29</span><button>›</button></div>
+  </div>
+
+  <!-- hyrox strip -->
+  <div class="pad">
+    <div class="hyroxbar">
+      <div class="l">
+        <span class="badge">Hyrox</span>
+        <span class="ttl">RACE PLAN</span>
+        <span class="meta"><span><b>6d</b> to race</span><span class="sep">|</span><span>taper <b>wk 1</b></span><span class="sep">|</span><span>Today: <b>Easy Run</b></span></span>
+      </div>
+      <span class="go">View plan →</span>
+    </div>
+  </div>
+
+  <!-- readiness hero -->
+  <div class="pad">
+    <div class="rband">
+      <div class="l">
+        <div class="top"><span class="ov">Training Tier · Today</span><span class="statusflag">Caution</span></div>
+        <div class="verdict">EASY</div>
+        <div class="read">Baseline <b>87</b> — menstrual phase; HRV unstable (CV 34%).</div>
+        <div class="rec">Cut volume ~20%. Skip the heaviest sets.</div>
+        <div class="down">Score alone would suggest <b>Go Hard</b> — downgraded due to <b>menstrual phase</b> and <b>overreaching signals</b>.</div>
+      </div>
+      <div class="mods">
+        <div class="mrow"><span class="mk">Volume</span><span class="mv num">55%</span></div>
+        <div class="mrow"><span class="mk">Intensity</span><span class="mv num">85%</span></div>
+        <div class="mrow"><span class="mk">HRV CV</span><span class="mv num warn">31.3%</span></div>
+        <div class="mrow"><span class="mk">Baseline</span><span class="mv num g">87</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- recovery signals -->
+  <div class="seclabel">Recovery Signals</div>
+  <div class="pad">
+    <div class="mgrid4">
+      <div class="mcard"><div class="k">HRV (overnight)</div><div class="v num">17 <small>ms</small></div><div class="t">Avg overnight</div></div>
+      <div class="mcard"><div class="k">Stress</div><div class="v">Normal</div><div class="t">32m recovery</div></div>
+      <div class="mcard"><div class="k">SpO₂</div><div class="v num">97 <small>%</small></div><div class="t">Blood oxygen</div></div>
+      <div class="mcard"><div class="k">Resilience</div><div class="v">Solid</div><div class="t">Sleep: good · Recovery: high</div></div>
+    </div>
+  </div>
+
+  <!-- cycle + fatigue -->
+  <div class="pad" style="padding-top:14px">
+    <div class="two">
+      <div class="cyclecard">
+        <div class="ov" style="margin-bottom:8px">Cycle Phase</div>
+        <div class="hd">Menstrual — listen to your body</div>
+        <div class="note">Intensity is okay if readiness supports it. Technique focus on low days.</div>
+        <div class="phasepick">
+          <div class="opt on">Menstrual</div><div class="opt">Follicular</div><div class="opt">Ovulation</div><div class="opt">Luteal</div>
+        </div>
+      </div>
+      <div class="fatigue">
+        <div class="top">
+          <div>
+            <div class="ov">Fatigue Signal <span style="text-transform:none;letter-spacing:0">(Pritchard 2024)</span></div>
+            <div class="rectext">Consider easing into a deload this week.</div>
+          </div>
+          <div class="score"><b class="num">4</b><span>/8 composite</span></div>
+        </div>
+        <ul>
+          <li>5 consecutive training weeks (deload every 5–6)</li>
+          <li>HRV CV elevated: 31.3% (Flatt threshold 10%)</li>
+          <li class="red">RPE creep: +1 pt at same loads over recent sessions</li>
+          <li>Volume approaching MRV in 1+ muscle groups</li>
+        </ul>
+        <div class="deload"><b>Deload protocol:</b> Reduce volume 40–60% for 1 week. Keep frequency &amp; loads, fewer sets. Resume after 7 days.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- running & cardio -->
+  <div class="seclabel">Running &amp; Cardio</div>
+  <div class="pad">
+    <div class="mgrid3">
+      <div class="mcard"><div class="k">Running Speed</div><div class="v num">11.4 <small>km/h</small></div></div>
+      <div class="mcard"><div class="k">Running Power</div><div class="v num">285 <small>W</small></div></div>
+      <div class="mcard"><div class="k">VO₂ Max</div><div class="v num">48.2 <small>mL/kg/min</small></div><div class="t">Updated May 26</div></div>
+      <div class="mcard"><div class="k">Ground Contact</div><div class="v num">242 <small>ms</small></div></div>
+      <div class="mcard"><div class="k">Vert. Oscillation</div><div class="v num">8.1 <small>cm</small></div></div>
+      <div class="mcard"><div class="k">Stride Length</div><div class="v num">1.12 <small>m</small></div></div>
+      <div class="mcard"><div class="k">Cardio Recovery</div><div class="v num">32 <small>BPM</small></div><div class="t">Post-workout HR drop</div></div>
+      <div class="mcard"><div class="k">Physical Effort</div><div class="v num">7.2</div><div class="t">Apple effort score</div></div>
+      <div class="mcard"><div class="k">Distance</div><div class="v num">6.4 <small>km</small></div><div class="t">Walking + running</div></div>
+    </div>
+    <p style="font-size:12.5px;color:var(--faint);margin-top:12px">Respiratory rate: 14.2 breaths/min</p>
+  </div>
+
+  <!-- strength -->
+  <div class="seclabel">Strength Training</div>
+  <div class="pad">
+    <div class="addbtns">
+      <button class="btn">+ Add Workout</button>
+      <a class="linklike">Log past workout</a>
+    </div>
+    <div class="two s">
+      <div class="volcard">
+        <div class="ov">Weekly Volume</div>
+        <div class="sub">Sets per muscle group vs MEV/MAV/MRV (Israetel 2021)</div>
+        <div class="volalert red">Approaching/exceeding MRV: <b>shoulders</b> — consider deload</div>
+        <div class="volalert warn">Below MEV: <b>triceps</b> — insufficient stimulus for growth</div>
+        <div class="volrows">
+          <div class="volrow"><div class="hd"><span class="g">Quads</span><span class="r"><span class="sets">14 sets</span><span class="st g">In MAV</span></span></div><div class="track"><span class="mav"></span><span class="mk g" style="left:56%"></span></div></div>
+          <div class="volrow"><div class="hd"><span class="g">Back</span><span class="r"><span class="sets">15 sets</span><span class="st g">In MAV</span></span></div><div class="track"><span class="mav"></span><span class="mk g" style="left:60%"></span></div></div>
+          <div class="volrow"><div class="hd"><span class="g">Chest</span><span class="r"><span class="sets">19 sets</span><span class="st a">Above MAV</span></span></div><div class="track"><span class="mav"></span><span class="mk a" style="left:75%"></span></div></div>
+          <div class="volrow"><div class="hd"><span class="g">Shoulders</span><span class="r"><span class="sets">24 sets</span><span class="st r">At MRV</span></span></div><div class="track"><span class="mav"></span><span class="mk r" style="left:90%"></span></div></div>
+          <div class="volrow"><div class="hd"><span class="g">Biceps</span><span class="r"><span class="sets">12 sets</span><span class="st g">In MAV</span></span></div><div class="track"><span class="mav"></span><span class="mk g" style="left:58%"></span></div></div>
+          <div class="volrow"><div class="hd"><span class="g">Triceps</span><span class="r"><span class="sets">5 sets</span><span class="st y">Below MEV</span></span></div><div class="track"><span class="mav"></span><span class="mk y" style="left:22%"></span></div></div>
+          <div class="volrow"><div class="hd"><span class="g">Glutes</span><span class="r"><span class="sets">9 sets</span><span class="st g">In MAV</span></span></div><div class="track"><span class="mav"></span><span class="mk g" style="left:52%"></span></div></div>
+          <div class="volrow"><div class="hd"><span class="g">Hamstrings</span><span class="r"><span class="sets">12 sets</span><span class="st g">In MAV</span></span></div><div class="track"><span class="mav"></span><span class="mk g" style="left:57%"></span></div></div>
+        </div>
+        <div class="vollegend"><span>│ MEV</span><span>▭ MAV (optimal)</span><span>│ MRV</span></div>
+      </div>
+      <div class="rstack">
+        <div class="listcard">
+          <div class="ov" style="margin-bottom:14px">Recent PRs</div>
+          <div class="lrow"><div><div class="nm">Back Squat</div><div class="dt">May 24</div></div><div class="rt"><div class="big num">100 × 3</div><div class="sm">e1RM 109</div></div></div>
+          <div class="lrow"><div><div class="nm">Deadlift</div><div class="dt">May 20</div></div><div class="rt"><div class="big num">120 × 2</div><div class="sm">e1RM 127</div></div></div>
+          <div class="lrow"><div><div class="nm">Bench Press</div><div class="dt">May 18</div></div><div class="rt"><div class="big num">60 × 5</div><div class="sm">e1RM 70</div></div></div>
+          <div class="lrow"><div><div class="nm">Overhead Press</div><div class="dt">May 15</div></div><div class="rt"><div class="big num">40 × 4</div><div class="sm">e1RM 44</div></div></div>
+        </div>
+        <div class="listcard">
+          <div class="ov" style="margin-bottom:14px">Recent Workouts</div>
+          <div class="lrow"><div><div class="nm">Lower Power</div><div class="dt">Thu, May 28 · 18 sets · 4,200 vol</div></div><span class="wstatus done">done</span></div>
+          <div class="lrow"><div><div class="nm">Hyrox Strength</div><div class="dt">Tue, May 26 · 14 sets</div></div><span class="wstatus active">active</span></div>
+          <div class="lrow"><div><div class="nm">Upper Hypertrophy</div><div class="dt">Sun, May 24 · 22 sets · 5,100 vol</div></div><span class="wstatus done">done</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- recovery -->
+  <div class="seclabel">Recovery</div>
+  <div class="pad">
+    <div class="two">
+      <div class="sleepbreak">
+        <div class="ov">Sleep Breakdown</div>
+        <div class="sb3">
+          <div class="c"><div class="v deep num">1h 28m</div><div class="k">Deep</div></div>
+          <div class="c"><div class="v rem num">2h 9m</div><div class="k">REM</div></div>
+          <div class="c"><div class="v num">5h 26m</div><div class="k">Light</div></div>
+        </div>
+        <div class="sbfoot">Lowest HR: <b style="color:var(--ink)">69 bpm</b></div>
+      </div>
+      <div class="nutricard">
+        <div class="ov">Nutrition Check</div>
+        <div class="nbar"><div class="lab"><span>Protein (target 118g — Morton 2018)</span><span class="v num">92 / 118g</span></div><div class="track"><i class="prot" style="width:78%"></i></div></div>
+        <div class="nbar"><div class="lab"><span>Calories (target 2085)</span><span class="v num">1395 / 2085</span></div><div class="track"><i class="cal" style="width:67%"></i></div></div>
+        <div class="permeal">
+          <div class="ttl">Per meal (MPS plateaus at ~25g — Moore 2009)</div>
+          <div class="m"><span>Breakfast</span><span class="amt ex num">34g (excess)</span></div>
+          <div class="m"><span>Lunch</span><span class="amt ok num">28g</span></div>
+          <div class="m"><span>Snack</span><span class="amt low num">12g (low)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- composition -->
+  <div class="seclabel">Composition &amp; Energy</div>
+  <div class="pad" style="padding-bottom:8px">
+    <div class="two s">
+      <div class="compcard">
+        <div class="ov">Weight &amp; Body Composition</div>
+        <div class="wgrid">
+          <div class="c"><div class="k">Weight</div><div class="v num">61.2 <small>kg</small></div></div>
+          <div class="c"><div class="k">Body Fat</div><div class="v num">22.4 <small>%</small></div></div>
+          <div class="c"><div class="k">Trend</div><div class="v down num">−0.3 <small>kg/wk</small></div></div>
+        </div>
+        <div class="trendph">
+          <svg viewBox="0 0 600 120" preserveAspectRatio="none">
+            <line x1="0" y1="92" x2="600" y2="78" stroke="oklch(0.82 0.155 88)" stroke-width="1.5" stroke-dasharray="5 5" opacity="0.5"/>
+            <polyline points="0,40 75,46 150,42 225,55 300,60 375,58 450,70 525,74 600,82" fill="none" stroke="oklch(0.66 0.012 264)" stroke-width="2"/>
+            <polyline points="0,44 75,47 150,49 225,53 300,57 375,62 450,67 525,72 600,78" fill="none" stroke="oklch(0.82 0.155 88)" stroke-width="2.5"/>
+          </svg>
+        </div>
+        <p style="font-size:11.5px;color:var(--faint);margin-top:10px">30-day weight · 7-day moving average (gold) · target line dashed</p>
+      </div>
+      <div class="compcard">
+        <div class="ov">TDEE &amp; Targets</div>
+        <div class="nbar" style="margin-top:16px"><div class="lab"><span>TDEE (maintenance)</span><span class="v num">2,085 kcal</span></div></div>
+        <div class="nbar"><div class="lab"><span>Goal (cut)</span><span class="v num">1,900 kcal</span></div></div>
+        <div class="nbar"><div class="lab"><span>Today's intake</span><span class="v num">1,395 kcal</span></div><div class="track"><i class="cal" style="width:73%"></i></div></div>
+        <div class="nbar"><div class="lab"><span>Protein (1.6 g/kg)</span><span class="v num">92 / 98g</span></div><div class="track"><i class="prot" style="width:94%"></i></div></div>
+        <a class="linklike" style="display:inline-block;margin-top:16px">Edit goal &amp; profile</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="tweak-root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "accent": "#E3B53C",
+      "equalHeight": true,
+      "density": "regular",
+      "cardGap": 14
+    }/*EDITMODE-END*/;
+
+    function BodyTweaks() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      React.useEffect(() => {
+        const r = document.documentElement.style;
+        r.setProperty('--gold', t.accent);
+        r.setProperty('--cardgap', t.cardGap + 'px');
+        const pad = t.density === 'compact' ? 18 : t.density === 'cozy' ? 28 : 22;
+        r.setProperty('--bodypad', pad + 'px');
+        document.body.classList.toggle('eqcards', !!t.equalHeight);
+      }, [t]);
+      return (
+        <TweaksPanel>
+          <TweakSection label="Accent" />
+          <TweakColor label="Brand accent" value={t.accent}
+            options={['#E3B53C', '#E5762E', '#3E9BE8', '#36C5C0']}
+            onChange={(v) => setTweak('accent', v)} />
+          <TweakSection label="Card layout" />
+          <TweakToggle label="Equal-height rows" value={t.equalHeight}
+            onChange={(v) => setTweak('equalHeight', v)} />
+          <TweakSlider label="Card gap" value={t.cardGap} min={8} max={26} step={1} unit="px"
+            onChange={(v) => setTweak('cardGap', v)} />
+          <TweakRadio label="Density" value={t.density}
+            options={['compact', 'regular', 'cozy']}
+            onChange={(v) => setTweak('density', v)} />
+        </TweaksPanel>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('tweak-root')).render(<BodyTweaks />);
+  </script>
+</body>
+</html>

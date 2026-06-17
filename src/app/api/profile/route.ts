@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { apiError, collectErrors, validateEnum, validateNumber } from "@/lib/utils";
 
 // Body composition + activity ranges. These feed TDEE math, energy availability,
@@ -16,7 +17,7 @@ const HRV_BASELINE_CHOICE = ["pending", "personalized", "standard"] as const;
 
 export async function GET() {
   try {
-    const profile = await prisma.userProfile.findUnique({ where: { id: 1 } });
+    const profile = await prisma.userProfile.findUnique({ where: { userId: getCurrentUserId() } });
     return NextResponse.json(profile);
   } catch (error) {
     const { status, body } = apiError(error);
@@ -85,9 +86,9 @@ export async function POST(request: NextRequest) {
     }
 
     const profile = await prisma.userProfile.upsert({
-      where: { id: 1 },
+      where: { userId: getCurrentUserId() },
       update: data,
-      create: { id: 1, ...data },
+      create: { userId: getCurrentUserId(), ...data },
     });
 
     return NextResponse.json(profile);

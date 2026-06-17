@@ -1,0 +1,80 @@
+/* ============================================================
+   BASELINE — Goals modules, built on baseline.css
+   ============================================================ */
+/* category colors (preserve semantic typing) */
+:root{
+  --t-race:var(--amber);
+  --t-strength:oklch(0.70 0.17 300);
+  --t-physique:oklch(0.73 0.19 350);
+  --t-cognitive:oklch(0.74 0.13 250);
+  --t-weight:oklch(0.78 0.15 158);
+  --t-health:oklch(0.80 0.10 195);
+  --t-custom:var(--dim);
+}
+.tbadge{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)}
+.tbadge.race{background:color-mix(in oklch,var(--t-race),transparent 80%);color:var(--t-race)}
+.tbadge.strength{background:color-mix(in oklch,var(--t-strength),transparent 80%);color:var(--t-strength)}
+.tbadge.physique{background:color-mix(in oklch,var(--t-physique),transparent 80%);color:var(--t-physique)}
+.tbadge.cognitive{background:color-mix(in oklch,var(--t-cognitive),transparent 80%);color:var(--t-cognitive)}
+.tbadge.weight{background:color-mix(in oklch,var(--t-weight),transparent 80%);color:var(--t-weight)}
+.tbadge.health{background:color-mix(in oklch,var(--t-health),transparent 80%);color:var(--t-health)}
+.subt{font-size:11px;color:var(--faint);text-transform:capitalize;font-weight:600}
+.primaryflag{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;background:var(--gold);color:var(--bg);padding:4px 9px;clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)}
+
+/* countdown ring */
+.ring{position:relative;flex:none;display:flex;align-items:center;justify-content:center}
+.ring svg{transform:rotate(-90deg)}
+.ring .bg{fill:none;stroke:var(--line)}
+.ring .fg{fill:none;stroke-linecap:round}
+.ring .lab{position:absolute;display:flex;flex-direction:column;align-items:center;line-height:1}
+.ring .lab b{font-family:var(--disp);letter-spacing:.02em}
+.ring .lab span{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+
+/* add goal */
+.addgoal{width:100%;border:1px dashed var(--line);background:transparent;color:var(--dim);font-family:var(--sans);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;padding:16px;cursor:pointer;text-align:center}
+.addgoal:hover{border-color:var(--gold);color:var(--gold)}
+
+/* goal card (display) */
+.goalcard{position:relative;background:var(--surf);background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 50%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000;border-left:4px solid var(--line);padding:20px 22px}
+.goalcard.primary{border-left-color:var(--gold)}
+.goalcard .gtop{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.goalcard .star{font-size:15px;cursor:pointer;line-height:1}
+.goalcard .star.on{color:var(--gold)}
+.goalcard .star.off{color:color-mix(in oklch,var(--dim),transparent 55%)}
+.goalcard .title{font-family:var(--disp);font-size:26px;letter-spacing:.01em;margin-top:10px;line-height:.95}
+.goalcard .tgt{font-size:13px;color:var(--dim);margin-top:7px}
+.goalcard .tgt b{color:var(--ink);font-weight:600}
+.goalcard .notes{font-size:12.5px;color:var(--faint);margin-top:8px;line-height:1.45}
+.goalcard .dead{display:flex;align-items:center;gap:11px;margin-top:14px}
+.goalcard .dead .dt{font-size:13px;color:var(--dim)}
+.goalcard .dead .dt b{color:var(--ink);font-weight:600}
+.goalcard .dead .dt .rel{font-family:var(--mono,monospace);color:var(--faint);margin-left:4px}
+.gactions{display:flex;gap:6px;position:absolute;top:18px;right:18px}
+.gactions button{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;background:var(--surf2);border:none;color:var(--dim);padding:5px 9px;cursor:pointer}
+.gactions button:hover{color:var(--ink)}
+.gactions button.done:hover{color:var(--green)}
+.gactions button.del:hover{color:var(--red)}
+
+/* primary hero */
+.gherom{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:center;background:var(--surf);background-image:linear-gradient(135deg,color-mix(in oklch,var(--gold),transparent 86%),transparent 55%);box-shadow:0 0 60px -24px var(--gold),inset 0 1px 0 oklch(1 0 0/.05);border-left:6px solid var(--gold);padding:30px 34px}
+.gherom .ringwrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.gherom .title{font-family:var(--disp);font-size:52px;line-height:.86;letter-spacing:.01em;margin-top:12px}
+.gherom .tgt{font-size:15px;color:var(--dim);margin-top:10px}
+.gherom .tgt b{color:var(--gold);font-weight:700}
+.gherom .meta{font-size:13px;color:var(--faint);margin-top:12px}
+.gherom .meta b{color:var(--ink)}
+
+/* compact archived/completed rows */
+.gcompact{display:flex;align-items:center;justify-content:space-between;background:var(--surf);padding:11px 16px;font-size:13px;opacity:.72}
+.gcompact + .gcompact{margin-top:7px}
+.gcompact .l{display:flex;align-items:center;gap:10px}
+.gcompact .l .nm{text-decoration:line-through;color:var(--dim)}
+.gcompact .r{display:flex;gap:6px}
+.gcompact .r button{font-size:11px;font-weight:600;background:none;border:none;color:var(--faint);cursor:pointer}
+.gcompact .r button:hover{color:var(--ink)}
+
+/* form chips */
+.gform{background:var(--surf);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000;padding:22px 24px}
+.gchips{display:flex;flex-wrap:wrap;gap:7px;margin-top:7px}
+.gchip{font-size:11.5px;font-weight:700;color:var(--dim);background:var(--surf2);border:1px solid transparent;padding:7px 12px;cursor:pointer}
+.gchip.on{background:var(--gold);color:var(--bg)}

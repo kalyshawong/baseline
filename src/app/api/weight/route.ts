@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { getLocalDay } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
 
@@ -52,17 +53,17 @@ export async function POST(request: NextRequest) {
     }
 
     const log = await prisma.weightLog.upsert({
-      where: { day },
+      where: { userId_day: { userId: getCurrentUserId(), day } },
       update: { weightKg, bodyFatPct, muscleMassKg, notes },
-      create: { day, weightKg, bodyFatPct, muscleMassKg, notes },
+      create: { userId: getCurrentUserId(), day, weightKg, bodyFatPct, muscleMassKg, notes },
     });
 
     // Also update UserProfile.bodyWeightKg to the latest for protein/TDEE calcs
     await prisma.userProfile.upsert({
-      where: { id: 1 },
+      where: { userId: getCurrentUserId() },
       update: { bodyWeightKg: weightKg, ...(bodyFatPct != null && { bodyFatPct }) },
       create: {
-        id: 1,
+        userId: getCurrentUserId(),
         bodyWeightKg: weightKg,
         ...(bodyFatPct != null && { bodyFatPct }),
       },

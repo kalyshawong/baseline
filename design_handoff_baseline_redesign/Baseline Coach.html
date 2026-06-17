@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baseline — Coach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="baseline.css" rel="stylesheet">
+<link href="baseline-coach.css" rel="stylesheet">
+<style>
+  .focuswrap{max-width:1000px;margin:0 auto;padding:18px 36px 0}
+  .focusbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .focusbar .newchat{width:auto;padding:11px 20px}
+  .hist{font-size:12.5px;font-weight:700;letter-spacing:.04em;color:var(--dim);background:var(--surf);border:1px solid var(--line);padding:11px 16px;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+  .hist:hover{color:var(--ink);border-color:var(--faint)}
+  .hist b{color:var(--gold)}
+  .chat{min-height:66vh}
+</style>
+</head>
+<body data-screen-label="Coach">
+
+  <header>
+    <div class="brand">BASELINE</div>
+    <nav>
+      <a href="Baseline Dashboard.html">Dashboard</a>
+      <a href="Baseline Mind.html">Mind</a>
+      <a href="Baseline Body.html">Body</a>
+      <a href="#" class="on">Coach</a>
+      <a href="Baseline Goals.html">Goals</a>
+    </nav>
+  </header>
+
+  <div class="focuswrap">
+    <div style="text-align:center;padding:14px 0 4px">
+      <h1 style="font-family:var(--disp);font-size:46px;line-height:.9;letter-spacing:.02em">BASELINE COACH</h1>
+      <div style="color:var(--dim);font-size:14px;font-weight:500;margin-top:4px">Science-backed coaching with full access to your data.</div>
+    </div>
+
+    <div class="focusbar">
+      <button class="newchat">+ New Chat</button>
+      <button class="hist">⏱ History <b>12</b></button>
+    </div>
+
+    <div class="chat">
+      <div class="lensbar">
+        <span class="lbl">Lens</span>
+        <button class="lens"><span class="star">★</span>Hyrox sub-85<span class="days">4d</span></button>
+        <button class="lens">Base build</button>
+        <button class="lens">Lose 2 kg</button>
+        <button class="lens">Holistic</button>
+        <button class="lens brief on">Daily Brief</button>
+      </div>
+
+      <div class="thread">
+        <div class="briefcard">
+          <div class="ey">Daily Brief · Fri, May 29</div>
+          <h3>Taper week — protect recovery</h3>
+          <p>Readiness is solid at <strong style="color:var(--ink)">88</strong>, but HRV's noisy (CV 31%) and you're <strong style="color:var(--ink)">6 days</strong> out. Today's an easy run — keep lifting light and hold any PR attempts until after the race.</p>
+        </div>
+
+        <div class="msg user"><div class="bubble user">Should I deload this week? My legs feel cooked after yesterday's lower session.</div></div>
+
+        <div class="msg ai">
+          <div class="bubble ai">
+            <div class="lenslabel">Daily Brief lens — <b>today's readiness</b></div>
+            <div class="md">
+              <h2>Ease off — don't fully deload yet</h2>
+              <p>Your fatigue composite is <strong>4/8</strong>: elevated, but not red.</p>
+              <div class="bul"><span><strong>HRV CV 31.3%</strong> — well above Flatt's 10% threshold; autonomic noise is high right now.</span></div>
+              <div class="bul"><span><strong>5 straight training weeks</strong> — a deload is due within 1–2 weeks (Pritchard 2024).</span></div>
+              <div class="bul"><span><strong>Menstrual phase</strong> — energy's at its floor; a poor week to chase PRs.</span></div>
+              <h3>This week</h3>
+              <p>Cut volume ~20%, keep your loads, drop the heaviest sets. Re-check HRV in 3 days — if CV stays above 10%, take a full deload next week.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="msg user"><div class="bubble user">Got it. Won't cutting volume hurt my Hyrox base?</div></div>
+        <div class="msg ai"><div class="typing"><i></i><i></i><i></i></div></div>
+      </div>
+
+      <div class="composer">
+        <textarea rows="2" placeholder="Ask your coach…"></textarea>
+        <button class="send">Send</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

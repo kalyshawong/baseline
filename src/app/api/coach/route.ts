@@ -5,6 +5,7 @@ import { buildCoachContext, COACH_SYSTEM_PROMPT, goalSystemPromptSection } from 
 import { apiError } from "@/lib/utils";
 import { withAnthropicRetry } from "@/lib/anthropic-retry";
 import { COACH_TOOLS, runCoachTool } from "@/lib/coach-tools";
+import { getCurrentUserId } from "@/lib/current-user";
 
 const client = new Anthropic();
 
@@ -96,14 +97,14 @@ export async function POST(request: NextRequest) {
 
     if (!session) {
       session = await prisma.chatSession.create({
-        data: { title: message.slice(0, 60) },
+        data: { userId: getCurrentUserId(), title: message.slice(0, 60) },
         include: { messages: true },
       });
     }
 
     // Save user message
     await prisma.chatMessage.create({
-      data: { sessionId: session.id, role: "user", content: message },
+      data: { userId: getCurrentUserId(), sessionId: session.id, role: "user", content: message },
     });
 
     // Build context (cached for 5 min to avoid 14+ queries every message)
@@ -206,7 +207,7 @@ Keep it under 250 words. Be direct and specific with numbers.`
     }
 
     const assistantMsg = await prisma.chatMessage.create({
-      data: { sessionId: session.id, role: "assistant", content: assistantText },
+      data: { userId: getCurrentUserId(), sessionId: session.id, role: "assistant", content: assistantText },
     });
 
     await prisma.chatSession.update({

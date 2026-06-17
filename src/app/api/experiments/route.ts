@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { getLocalDay } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
 
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
 
     const experiment = await prisma.experiment.create({
       data: {
+        userId: getCurrentUserId(),
         title,
         hypothesis,
         independentVariable,

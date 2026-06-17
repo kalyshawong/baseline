@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { safeJsonParse, apiError } from "@/lib/utils";
 
 export async function GET() {
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
 
     const template = await prisma.workoutTemplate.create({
       data: {
+        userId: getCurrentUserId(),
         name,
         split: split ?? "custom",
         exercises: JSON.stringify(exercises),

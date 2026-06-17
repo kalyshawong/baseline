@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { notFound } from "next/navigation";
 import { WorkoutLogger } from "@/components/body/workout-logger";
 import { workoutTemplates } from "@/lib/exercise-library";
 import { safeJsonParse } from "@/lib/utils";
+import { getLocalDayStr } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +39,7 @@ export default async function WorkoutPage({
       templateExercises = builtin.exercises;
     } else {
       const custom = await prisma.workoutTemplate.findUnique({
-        where: { name: session.templateName },
+        where: { userId_name: { userId: getCurrentUserId(), name: session.templateName } },
       });
       if (custom) {
         const parsed = safeJsonParse<Array<{
@@ -100,9 +102,14 @@ export default async function WorkoutPage({
     orderBy: { deadline: "asc" },
   });
 
-  // Detect backfill: session date is before today (UTC day comparison)
+  // Detect backfill: session date is before today (local-day comparison).
+  // session.date is stored at UTC-midnight of the user's local day, so its
+  // ISO date portion reads back as that local-day string. todayDay must also
+  // be local (BUG-H2): a bare toISOString() gives wall-clock UTC, which rolls
+  // over early for west-of-UTC users and misflags an in-progress workout as
+  // backfill, hiding the rest timer.
   const sessionDay = session.date.toISOString().split("T")[0];
-  const todayDay = new Date().toISOString().split("T")[0];
+  const todayDay = getLocalDayStr();
   const isBackfill = sessionDay < todayDay;
 
   const initialSets = session.sets.map((s) => ({

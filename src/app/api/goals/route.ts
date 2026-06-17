@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import {
   apiError,
   collectErrors,
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
       }
       const created = await tx.goal.create({
         data: {
+          userId: getCurrentUserId(),
           title,
           type,
           subtype: subtype ?? null,

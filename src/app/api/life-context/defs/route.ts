@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { apiError } from "@/lib/utils";
 
 const VALID_CATEGORIES = [
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
 
     const created = await prisma.lifeContextDef.create({
       data: {
+        userId: getCurrentUserId(),
         label: label.trim(),
         category: cat,
         emoji: typeof emoji === "string" && emoji.length > 0 ? emoji.slice(0, 4) : null,

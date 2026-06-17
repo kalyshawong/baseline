@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { getCurrentUserId } from "./current-user";
 
 export interface BaselineScore {
   overall: number;
@@ -166,7 +167,7 @@ export async function getScoreForDate(forDate?: Date): Promise<BaselineScore | n
   const today = forDate ?? utcToday();
 
   const readiness = await prisma.dailyReadiness.findUnique({
-    where: { day: today },
+    where: { userId_day: { userId: getCurrentUserId(), day: today } },
   });
 
   if (!readiness) return null;
@@ -177,7 +178,7 @@ export async function getScoreForDate(forDate?: Date): Promise<BaselineScore | n
       where: { day: { lte: today }, averageHrv: { not: null } },
       orderBy: { day: "desc" },
     }) ??
-    await prisma.dailySleep.findUnique({ where: { day: today } });
+    await prisma.dailySleep.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: today } } });
 
   // 3-day HRV average
   const threeDaysAgo = utcDaysAgo(today, 3);

@@ -46,3 +46,14 @@ __pycache__/
 .playwright-mcp/
 *.bak
 hyrox-smoke.ts
+migration-dump/
+counts.before.json
+counts.after.json
+
+# FUSE filesystem artifacts
+.fuse_hidden*
+
+# screenshots / design comparison images
+*.png
+# ...but DO ship the PWA icons in public/
+!public/*.png

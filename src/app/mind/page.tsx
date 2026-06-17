@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import Link from "next/link";
 import { generateInsights } from "@/lib/insights";
 import { getHrvCvCalibration } from "@/lib/training-call";
@@ -9,6 +10,8 @@ import { QuickTag } from "@/components/mind/quick-tag";
 import { TagTimeline } from "@/components/mind/tag-timeline";
 import { TodayContext } from "@/components/mind/today-context";
 import { InsightsFeed } from "@/components/mind/insights-feed";
+import { GiPatternsCard } from "@/components/mind/gi-patterns-card";
+import { analyzeMealGi } from "@/lib/meal-gi";
 import { EnvCard } from "@/components/mind/env-card";
 import { NutritionInput } from "@/components/mind/nutrition-input";
 import { MacroSummary } from "@/components/dashboard/macro-summary";
@@ -86,7 +89,7 @@ export default async function MindPage({
     getHrvCvCalibration(viewDate),
     getFlags(viewDate),
     prisma.nutritionLog.findUnique({
-      where: { day: viewDate },
+      where: { userId_day: { userId: getCurrentUserId(), day: viewDate } },
       include: { entries: { orderBy: { eatenAt: "asc" } } },
     }),
     prisma.lifeContextDef.findMany({
@@ -97,6 +100,9 @@ export default async function MindPage({
       where: { day: lifeContextDay },
     }),
   ]);
+
+  // Backward meal->GI analysis (null-safe: fails quietly if gi* not migrated yet).
+  const mealGi = await analyzeMealGi().catch(() => null);
 
   const active = experiments.filter((e) => e.status === "active");
   const others = experiments.filter((e) => e.status !== "active");
@@ -215,6 +221,9 @@ export default async function MindPage({
 
           {/* Insights feed with filter bar + featured finding */}
           <InsightsFeed insights={insights} calibration={hrvCalibration} />
+
+          {/* Pre-workout meal -> GI patterns (backward analyzer + "test this") */}
+          {mealGi && <GiPatternsCard result={mealGi} />}
 
           {/* Active Experiments + Environment — side by side tiles per design */}
           <div className="grid grid-cols-2 gap-[14px] mt-[14px]">

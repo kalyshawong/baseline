@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { experimentTemplates, type ExperimentTemplate } from "@/lib/experiment-templates";
 
@@ -10,6 +10,30 @@ export default function NewExperimentPage() {
   const [mode, setMode] = useState<"templates" | "custom">("templates");
   const [form, setForm] = useState<Partial<ExperimentTemplate>>({});
   const [error, setError] = useState<string | null>(null);
+
+  // Deep-link prefill (e.g. "Test this" on a meal->GI pattern). Read from the
+  // URL via window.location to avoid the useSearchParams Suspense requirement.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    if (Array.from(sp.keys()).length === 0) return;
+    const get = (k: string) => sp.get(k) ?? undefined;
+    const prefill: Record<string, unknown> = {
+      title: get("title"),
+      hypothesis: get("hypothesis"),
+      independentVariable: get("independentVariable"),
+      dependentVariable: get("dependentVariable"),
+      dependentMetric: get("dependentMetric"),
+      metricSource: get("metricSource"),
+      lagDays: sp.get("lagDays") ? Number(sp.get("lagDays")) : undefined,
+    };
+    const cleaned = Object.fromEntries(
+      Object.entries(prefill).filter(([, v]) => v !== undefined),
+    );
+    if (Object.keys(cleaned).length > 0) {
+      setForm((prev) => ({ ...prev, ...(cleaned as Partial<ExperimentTemplate>) }));
+      setMode("custom");
+    }
+  }, []);
 
   function selectTemplate(template: ExperimentTemplate) {
     setForm(template);

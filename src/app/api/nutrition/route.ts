@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { getLocalDay } from "@/lib/date-utils";
 import { estimateMacros } from "@/lib/usda";
 import { apiError } from "@/lib/utils";
@@ -81,11 +82,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Upsert day's NutritionLog
-    let log = await prisma.nutritionLog.findUnique({ where: { day: logDay } });
+    let log = await prisma.nutritionLog.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: logDay } } });
 
     if (!log) {
       log = await prisma.nutritionLog.create({
-        data: { day: logDay, calories: 0, protein: 0, carbs: 0, fat: 0 },
+        data: { userId: getCurrentUserId(), day: logDay, calories: 0, protein: 0, carbs: 0, fat: 0 },
       });
     }
 
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
     for (const est of estimates) {
       await prisma.nutritionEntry.create({
         data: {
+          userId: getCurrentUserId(),
           nutritionLogId: log.id,
           description: est.description,
           foodName: est.foodName,
@@ -138,6 +140,7 @@ export async function POST(request: NextRequest) {
       : `${eatenHour > 12 ? eatenHour - 12 : eatenHour}:${String(eatenTime.getMinutes()).padStart(2, "0")}${eatenHour >= 12 ? "pm" : "am"}`;
     await prisma.activityTag.create({
       data: {
+        userId: getCurrentUserId(),
         tag: meal,
         category: "nutrition",
         timestamp: eatenTime,
@@ -218,7 +221,7 @@ export async function GET() {
     const today = getLocalDay();
 
     const log = await prisma.nutritionLog.findUnique({
-      where: { day: today },
+      where: { userId_day: { userId: getCurrentUserId(), day: today } },
       include: { entries: { orderBy: { createdAt: "desc" } } },
     });
 

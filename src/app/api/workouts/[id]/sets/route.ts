@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { estimate1RM } from "@/lib/training";
 import { apiError } from "@/lib/utils";
 
@@ -46,6 +47,7 @@ export async function POST(
 
     const set = await prisma.workoutSet.create({
       data: {
+        userId: getCurrentUserId(),
         sessionId,
         exerciseId,
         setNumber: setNumber ?? 1,

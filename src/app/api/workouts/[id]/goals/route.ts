@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { apiError } from "@/lib/utils";
 
 // GET: list goals tagged to this workout
@@ -55,7 +56,7 @@ export async function PUT(
     await prisma.$transaction([
       prisma.goalWorkoutTag.deleteMany({ where: { sessionId: id } }),
       ...goalIds.map((goalId: string) =>
-        prisma.goalWorkoutTag.create({ data: { goalId, sessionId: id } })
+        prisma.goalWorkoutTag.create({ data: { userId: getCurrentUserId(), goalId, sessionId: id } })
       ),
     ]);
 

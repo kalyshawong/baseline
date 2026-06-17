@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { ouraFetch, OuraScopeError } from "./oura";
+import { getCurrentUserId } from "./current-user";
 
 function formatDate(d: Date): string {
   return d.toISOString().split("T")[0];
@@ -196,7 +197,7 @@ function avgFromSamples(obj: { items: number[] } | null): number | null {
 export async function syncPersonalInfo(): Promise<void> {
   const info = await ouraFetch<OuraPersonalInfo>("personal_info", {});
   await prisma.userProfile.upsert({
-    where: { id: 1 },
+    where: { userId: getCurrentUserId() },
     update: {
       ...(info.weight != null && { bodyWeightKg: info.weight }),
       ...(info.height != null && { heightCm: Math.round(info.height * 100) }),
@@ -204,7 +205,7 @@ export async function syncPersonalInfo(): Promise<void> {
       ...(info.biological_sex != null && { sex: info.biological_sex }),
     },
     create: {
-      id: 1,
+      userId: getCurrentUserId(),
       bodyWeightKg: info.weight,
       heightCm: info.height ? Math.round(info.height * 100) : undefined,
       age: info.age ?? undefined,
@@ -273,6 +274,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
           activityBalance: r.contributors.activity_balance,
         },
         create: {
+          userId: getCurrentUserId(),
           id: r.id,
           day: new Date(r.day),
           score: r.score,
@@ -382,6 +384,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
           ...periodFields,
         },
         create: {
+          userId: getCurrentUserId(),
           id: s.id,
           day: new Date(s.day),
           score: s.score,
@@ -411,6 +414,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
           daySummary: s.day_summary,
         },
         create: {
+          userId: getCurrentUserId(),
           id: s.id,
           day: new Date(s.day),
           stressHigh: s.stress_high,
@@ -439,13 +443,15 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       try {
         await prisma.heartRateSample.upsert({
           where: {
-            timestamp_source: {
+            userId_timestamp_source: {
+              userId: getCurrentUserId(),
               timestamp: new Date(hr.timestamp),
               source: hr.source,
             },
           },
           update: { bpm: hr.bpm },
           create: {
+            userId: getCurrentUserId(),
             bpm: hr.bpm,
             source: hr.source,
             timestamp: new Date(hr.timestamp),
@@ -492,6 +498,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
           metMinutes,
         },
         create: {
+          userId: getCurrentUserId(),
           id: a.id,
           day: new Date(a.day),
           score: a.score,
@@ -523,6 +530,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
         where: { id: r.id },
         update: { avgSpO2: r.spo2_percentage?.average ?? null },
         create: {
+          userId: getCurrentUserId(),
           id: r.id,
           day: new Date(r.day),
           avgSpO2: r.spo2_percentage?.average ?? null,
@@ -546,7 +554,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     const tags = await ouraFetch<OuraListResponse<OuraEnhancedTag>>("enhanced_tag", params);
     for (const t of tags.data) {
       // Skip if already ingested
-      const existing = await prisma.activityTag.findUnique({ where: { ouraTagId: t.id } });
+      const existing = await prisma.activityTag.findUnique({ where: { userId_ouraTagId: { userId: getCurrentUserId(), ouraTagId: t.id } } });
       if (existing) { tagsCount++; continue; }
 
       const mapped = TAG_MAP[t.tag_type_code];
@@ -554,6 +562,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
 
       await prisma.activityTag.create({
         data: {
+          userId: getCurrentUserId(),
           tag: mapped.tag,
           category: mapped.category,
           timestamp: new Date(t.start_time),
@@ -600,7 +609,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
         // Bridge into HealthKitWorkout so the dashboard surfaces it
         const bridgedSource = `oura-${w.source ?? "unknown"}`;
         await prisma.healthKitWorkout.upsert({
-          where: { externalId: `oura-${w.id}` },
+          where: { userId_externalId: { userId: getCurrentUserId(), externalId: `oura-${w.id}` } },
           update: {
             name: w.activity,
             startedAt,
@@ -612,6 +621,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
             source: bridgedSource,
           },
           create: {
+            userId: getCurrentUserId(),
             externalId: `oura-${w.id}`,
             name: w.activity,
             startedAt,
@@ -643,6 +653,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
           durationSeconds,
         },
         create: {
+          userId: getCurrentUserId(),
           id: w.id,
           day: new Date(w.day),
           activity: w.activity,
@@ -689,6 +700,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
           mood: s.mood,
         },
         create: {
+          userId: getCurrentUserId(),
           id: s.id,
           day: new Date(s.day),
           type: s.type,
@@ -726,6 +738,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
           status: st.status,
         },
         create: {
+          userId: getCurrentUserId(),
           id: st.id,
           day: new Date(st.day),
           optimalBedtimeStart: st.optimal_bedtime?.start_offset ?? null,
@@ -760,6 +773,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
           stress: r.contributors.stress,
         },
         create: {
+          userId: getCurrentUserId(),
           id: r.id,
           day: new Date(r.day),
           level: r.level,
@@ -821,6 +835,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
 
   await prisma.syncLog.create({
     data: {
+      userId: getCurrentUserId(),
       status,
       details: JSON.stringify({
         readiness: readinessCount,

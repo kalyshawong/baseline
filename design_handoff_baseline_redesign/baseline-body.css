@@ -1,0 +1,130 @@
+/* ============================================================
+   BASELINE — Body screen modules (built on baseline.css)
+   Shared by every Body layout option so only arrangement varies.
+   ============================================================ */
+
+/* hyrox strip */
+.hyroxbar{display:flex;align-items:center;justify-content:space-between;border-left:4px solid var(--amber);background:var(--surf);background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 50%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000;padding:16px 22px;cursor:pointer}
+.hyroxbar .l{display:flex;align-items:center;gap:14px}
+.hyroxbar .badge{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--amber);padding:4px 9px;clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)}
+.hyroxbar .ttl{font-family:var(--disp);font-size:24px;letter-spacing:.02em}
+.hyroxbar .meta{font-size:12.5px;font-weight:600;color:var(--dim);display:flex;gap:10px}
+.hyroxbar .meta .sep{opacity:.4}
+.hyroxbar .meta b{color:var(--ink)}
+.hyroxbar .go{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber)}
+
+/* readiness hero band (the training call) */
+.rband{display:grid;grid-template-columns:1fr 300px;border-left:6px solid var(--amber);background:var(--surf);background-image:linear-gradient(135deg,color-mix(in oklch,var(--amber),transparent 80%),transparent 55%);box-shadow:0 0 60px -22px var(--amber),inset 0 1px 0 oklch(1 0 0/.05)}
+.rband .l{padding:26px 30px}
+.rband .top{display:flex;align-items:center;justify-content:space-between}
+.rband .verdict{font-family:var(--disp);font-size:108px;line-height:.82;color:var(--amber);margin:6px 0 2px}
+.rband .read{font-size:17px;font-weight:500;max-width:520px}
+.rband .read b{color:var(--gold)}
+.rband .rec{font-size:15px;font-weight:700;color:var(--amber);margin-top:9px;text-transform:uppercase;letter-spacing:.02em}
+.rband .down{font-size:13px;color:var(--dim);margin-top:14px;max-width:520px;line-height:1.5}
+.rband .down b{color:var(--ink);font-weight:700}
+.rband .mods{background:var(--surf2);padding:22px 24px;display:flex;flex-direction:column;justify-content:center;gap:16px}
+.rband .mods .mrow{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:12px}
+.rband .mods .mrow:last-child{border-bottom:none;padding-bottom:0}
+.rband .mods .mk{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.rband .mods .mv{font-family:var(--disp);font-size:34px;line-height:.85}
+.rband .mods .mv.warn{color:var(--amber)}
+.rband .mods .mv.g{color:var(--green)}
+
+/* metric card (recovery signals + running grid) */
+.mcard{background:var(--surf);background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 50%);box-shadow:inset 0 1px 0 oklch(1 0 0/.04),0 10px 26px -18px #000;padding:16px 18px}
+.mcard .k{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.mcard .v{font-family:var(--disp);font-size:40px;line-height:.85;margin-top:6px}
+.mcard .v small{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--faint)}
+.mcard .t{font-size:11.5px;color:var(--faint);margin-top:5px}
+.mcard .v.warn{color:var(--amber)}
+
+/* cycle guidance + selector */
+.cyclecard{background:var(--surf);background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 50%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000;border-left:4px solid var(--red);padding:20px 24px}
+.cyclecard .hd{font-family:var(--disp);font-size:26px;color:var(--red);letter-spacing:.01em}
+.cyclecard .note{font-size:13.5px;color:var(--dim);margin-top:6px;line-height:1.5}
+.phasepick{display:flex;gap:8px;margin-top:14px}
+.phasepick .opt{flex:1;text-align:center;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);background:var(--surf2);padding:10px 6px;cursor:pointer}
+.phasepick .opt.on{background:var(--red);color:var(--ink)}
+
+/* fatigue card */
+.fatigue{background:color-mix(in oklch,var(--amber),var(--surf) 88%);border:1px solid color-mix(in oklch,var(--amber),transparent 60%);padding:20px 24px}
+.fatigue .top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.fatigue .rectext{font-size:15px;font-weight:700;margin-top:4px}
+.fatigue .score{text-align:right;flex:none}
+.fatigue .score b{font-family:var(--disp);font-size:48px;line-height:.8;color:var(--amber)}
+.fatigue .score span{display:block;font-size:10px;color:var(--faint);margin-top:2px}
+.fatigue ul{list-style:none;margin-top:14px;display:flex;flex-direction:column;gap:5px}
+.fatigue li{font-size:12.5px;color:var(--amber)}
+.fatigue li.red{color:var(--red);font-weight:600}
+.fatigue .deload{margin-top:14px;background:var(--surf2);padding:12px 14px;font-size:12.5px;color:var(--dim);line-height:1.5}
+.fatigue .deload b{color:var(--ink)}
+
+/* volume zones */
+.volcard{background:var(--surf);background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 45%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000;padding:22px 24px}
+.volcard .sub{font-size:12px;color:var(--faint);margin-top:2px}
+.volalert{font-size:12px;font-weight:600;padding:8px 12px;margin-top:12px}
+.volalert.red{color:var(--red);background:color-mix(in oklch,var(--red),transparent 88%);border:1px solid color-mix(in oklch,var(--red),transparent 70%)}
+.volalert.warn{color:var(--amber);background:color-mix(in oklch,var(--amber),transparent 88%);border:1px solid color-mix(in oklch,var(--amber),transparent 70%)}
+.volalert b{text-transform:capitalize}
+.volrows{margin-top:16px;display:flex;flex-direction:column;gap:13px}
+.volrow .hd{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;margin-bottom:5px}
+.volrow .hd .g{font-weight:600;text-transform:capitalize}
+.volrow .hd .r{display:flex;gap:9px;align-items:center}
+.volrow .hd .sets{font-family:var(--mono,monospace);font-variant-numeric:tabular-nums;color:var(--dim)}
+.volrow .hd .st{font-size:10.5px;font-weight:700;white-space:nowrap}
+.volrow .track{position:relative;height:9px;background:var(--surf2);border-radius:5px;overflow:hidden}
+.volrow .track .mav{position:absolute;top:0;height:100%;left:44%;width:26%;background:color-mix(in oklch,var(--green),transparent 78%)}
+.volrow .track .mk{position:absolute;top:-2px;height:13px;width:5px;border-radius:2px}
+.st.g{color:var(--green)}.st.a{color:var(--amber)}.st.r{color:var(--red)}.st.y{color:oklch(0.85 0.15 95)}.st.b{color:var(--blue)}
+.mk.g{background:var(--green)}.mk.a{background:var(--amber)}.mk.r{background:var(--red)}.mk.y{background:oklch(0.85 0.15 95)}.mk.b{background:var(--blue)}
+.vollegend{margin-top:16px;display:flex;gap:18px;font-size:10.5px;color:var(--faint)}
+
+/* PR + workout lists */
+.listcard{background:var(--surf);background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 50%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000;padding:22px 24px}
+.lrow{display:flex;align-items:center;justify-content:space-between;background:var(--surf2);padding:11px 14px;font-size:13px}
+.lrow + .lrow{margin-top:7px}
+.lrow .nm{font-weight:600}
+.lrow .dt{font-size:11.5px;color:var(--faint);margin-top:2px}
+.lrow .rt{text-align:right;font-variant-numeric:tabular-nums}
+.lrow .rt .big{font-family:var(--disp);font-size:20px;letter-spacing:.02em}
+.lrow .rt .sm{font-size:11px;color:var(--faint)}
+.wstatus{font-size:10px;font-weight:700;text-transform:uppercase;padding:3px 9px;border-radius:20px}
+.wstatus.done{background:color-mix(in oklch,var(--green),transparent 80%);color:var(--green)}
+.wstatus.active{background:color-mix(in oklch,var(--amber),transparent 80%);color:var(--amber)}
+
+/* sleep breakdown */
+.sleepbreak{background:var(--surf);background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 50%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000;padding:22px 24px}
+.sb3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);margin-top:6px}
+.sb3 .c{background:var(--surf);padding:16px;text-align:center}
+.sb3 .v{font-family:var(--disp);font-size:38px;line-height:.85}
+.sb3 .v.deep{color:var(--blue)}.sb3 .v.rem{color:var(--gold)}
+.sb3 .k{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-top:5px}
+.sbfoot{text-align:center;font-size:12.5px;color:var(--faint);margin-top:12px}
+
+/* nutrition check */
+.nutricard{background:var(--surf);background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 50%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000;padding:22px 24px}
+.nbar{margin-top:14px}
+.nbar .lab{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim);margin-bottom:6px}
+.nbar .lab .v{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+.nbar .track{height:8px;background:var(--surf2);border-radius:5px;overflow:hidden}
+.nbar .track i{display:block;height:100%;border-radius:5px}
+.nbar .track i.prot{background:var(--blue)}
+.nbar .track i.cal{background:var(--amber)}
+.permeal{margin-top:16px}
+.permeal .ttl{font-size:12px;color:var(--faint);margin-bottom:7px}
+.permeal .m{display:flex;justify-content:space-between;background:var(--surf2);padding:8px 13px;font-size:12.5px}
+.permeal .m + .m{margin-top:6px}
+.permeal .m .amt{font-variant-numeric:tabular-nums}
+.permeal .m .amt.ok{color:var(--green)}.permeal .m .amt.ex{color:var(--amber)}.permeal .m .amt.low{color:oklch(0.85 0.15 95)}
+
+/* weight + tdee */
+.compcard{background:var(--surf);background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 50%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000;padding:22px 24px}
+.wgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);margin-top:6px}
+.wgrid .c{background:var(--surf);padding:15px 16px}
+.wgrid .k{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:5px}
+.wgrid .v{font-family:var(--disp);font-size:36px;line-height:.82}
+.wgrid .v small{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--faint)}
+.wgrid .v.down{color:var(--green)}
+.trendph{margin-top:14px;height:120px;background:var(--surf2);position:relative;overflow:hidden}
+.trendph svg{width:100%;height:100%;display:block}

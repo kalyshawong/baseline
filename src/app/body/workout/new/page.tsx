@@ -30,7 +30,12 @@ export default function NewWorkoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isBackfill = searchParams.get("backfill") === "1";
-  const todayStr = new Date().toISOString().split("T")[0];
+  // BUG-M1: local-day string, mirroring getLocalDayStr(). A bare
+  // toISOString() gives UTC, which rolls over early for west-of-UTC users —
+  // letting the picker's max bound allow "tomorrow" and misclassifying
+  // today's session as a backfill.
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   const [isPending, startTransition] = useTransition();
   const [selected, setSelected] = useState<string | null>(null);
@@ -38,6 +43,7 @@ export default function NewWorkoutPage() {
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [showEditor, setShowEditor] = useState(false);
   const [workoutDate, setWorkoutDate] = useState(todayStr);
+  const [error, setError] = useState<string | null>(null);
 
   // Editor state
   const [newName, setNewName] = useState("");
@@ -56,6 +62,7 @@ export default function NewWorkoutPage() {
   }, []);
 
   function startWorkout(templateName: string | null) {
+    setError(null);
     startTransition(async () => {
       const payload: Record<string, unknown> = { templateName };
       if (workoutDate !== todayStr) {
@@ -66,10 +73,14 @@ export default function NewWorkoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (res.ok) {
-        const session = await res.json();
-        router.push(`/body/workout/${session.id}`);
+      if (!res.ok) {
+        // BUG-M2: surface validation/server errors instead of failing silently.
+        const data = await res.json().catch(() => ({}));
+        setError(data?.errors?.join(", ") || data?.error || "Failed to start workout");
+        return;
       }
+      const session = await res.json();
+      router.push(`/body/workout/${session.id}`);
     });
   }
 
@@ -151,6 +162,12 @@ export default function NewWorkoutPage() {
           </p>
         )}
       </div>
+
+      {error && (
+        <p className="border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+          {error}
+        </p>
+      )}
 
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium uppercase tracking-wider text-[var(--color-text-muted)]">

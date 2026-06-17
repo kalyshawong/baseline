@@ -6,7 +6,7 @@ import { maybeArchivePlan } from "@/lib/hyrox-archive";
 import { CountdownRing } from "@/components/goals/countdown-ring";
 import { StartHyroxSessionButton } from "@/components/body/start-hyrox-session-button";
 import { recommendSession } from "@/lib/hyrox-session-recommender";
-import { hrvCV } from "@/lib/training";
+import { computeHrvCvSignals } from "@/lib/hyrox-today";
 
 export const dynamic = "force-dynamic";
 
@@ -74,10 +74,7 @@ export default async function HyroxPage() {
   const blk = currentBlock(archivedPlan, today);
 
   // Fetch readiness signals for session recommendation
-  const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-  const [readinessRow, sleepRow, recentSleeps, cycleRow, lastHardSession] =
+  const [readinessRow, sleepRow, cvSignals, cycleRow, lastHardSession] =
     await Promise.all([
       prisma.dailyReadiness.findFirst({
         where: { day: { lte: today } },
@@ -87,14 +84,8 @@ export default async function HyroxPage() {
         where: { day: { lte: today }, totalSleepDuration: { not: null } },
         orderBy: { day: "desc" },
       }),
-      prisma.dailySleep.findMany({
-        where: {
-          day: { gte: sevenDaysAgo, lte: today },
-          averageHrv: { not: null },
-        },
-        orderBy: { day: "desc" },
-        take: 7,
-      }),
+      // Personal-baseline-aware CV signals (see computeHrvCvSignals).
+      computeHrvCvSignals(today),
       // Staleness-guarded — see src/lib/cycle-phase.ts.
       (async () => {
         const { resolveCyclePhase } = await import("@/lib/cycle-phase");
@@ -114,10 +105,7 @@ export default async function HyroxPage() {
   const sleepSeconds = sleepRow?.totalSleepDuration ?? null;
   const sleepHours = sleepSeconds !== null ? sleepSeconds / 3600 : null;
 
-  const hrvValues = recentSleeps
-    .map((s) => s.averageHrv)
-    .filter((v): v is number => v != null);
-  const cv = hrvValues.length >= 3 ? hrvCV(hrvValues) : null;
+  const { hrvCv: cv, hrvCvBaseline, hrvBelowBaseline } = cvSignals;
 
   const daysSinceLastHardSession: number | null = lastHardSession
     ? Math.max(
@@ -134,6 +122,8 @@ export default async function HyroxPage() {
     plan: archivedPlan,
     readiness,
     hrvCv: cv,
+    hrvCvBaseline,
+    hrvBelowBaseline,
     sleepHours,
     cyclePhase: cycleRow.phase,
     daysSinceLastHardSession,

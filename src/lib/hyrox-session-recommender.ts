@@ -8,7 +8,7 @@
  *
  * Rule precedence (spec § Daily session recommender):
  *   1. readiness < 50 OR sleep < 5h → recovery
- *   2. HRV CV > 10% → downgrade to easy_run
+ *   2. HRV CV elevated vs HER baseline AND corroborated → downgrade to easy_run
  *   3. luteal + planned intervals → swap for tempo
  *   4. ≥4 days since last hard session + transmutation → force intervals
  *   5. Otherwise → block template rotation (by weekday)
@@ -17,6 +17,11 @@
  */
 
 import { currentBlock, type Block, type PlanBlockInput } from "./hyrox-blocks";
+import {
+  isHrvCvElevated,
+  hrvCvThreshold,
+  type HrvCvBaseline,
+} from "./training";
 
 export type HyroxSessionType =
   | "easy_run"
@@ -33,6 +38,24 @@ export interface RecommendSessionInput {
   plan: PlanBlockInput;
   readiness: number | null;
   hrvCv: number | null;
+  /**
+   * Her *personal* HRV-CV baseline (rolling-window mean + SD). When present,
+   * "elevated" means "high for her," judged at mean + 1 SD via
+   * {@link hrvCvThreshold}. Null falls back to the flat Flatt & Esco 10%.
+   *
+   * This matters because her resting HRV is low (~20ms) and HR-coupled, so CV
+   * (= SD/mean) is mechanically inflated — a flat 10% reads "overreaching"
+   * almost every day. See training.ts § Personalized HRV-CV overreaching
+   * threshold.
+   */
+  hrvCvBaseline?: HrvCvBaseline | null;
+  /**
+   * Corroborating strain signal: is overnight HRV itself trending below her
+   * baseline? CV alone is NOT a reliable strain trigger on her physiology, so
+   * Rule 2 only downgrades when an elevated CV is backed by a second signal
+   * (this, or sub-par readiness/sleep). Null/false = no corroboration.
+   */
+  hrvBelowBaseline?: boolean | null;
   sleepHours: number | null;
   cyclePhase: string | null;
   /**
@@ -275,14 +298,31 @@ export function recommendSession(
       "Readiness or sleep is below threshold — back off and let the system reset before the next hard session."
     );
   }
-  // Rule 2: HRV CV > 10% → downgrade to easy_run
-  else if (input.hrvCv !== null && input.hrvCv > 10) {
-    if (HARD_SESSION_TYPES.has(planned) || planned === "strength") {
+  // Rule 2: HRV CV elevated vs HER baseline AND corroborated → easy_run.
+  //
+  // CV is deliberately NOT a solo trigger. On her low (~20ms), HR-coupled HRV
+  // the CV denominator is small enough that day-to-day CV is structurally
+  // inflated, so an elevated CV by itself is not a reliable strain signal — it
+  // only earns a downgrade when a second readiness signal agrees (overnight HRV
+  // below baseline, or sub-par readiness/sleep that hasn't already forced
+  // recovery in Rule 1). "Elevated" is judged against her personal baseline
+  // (mean + 1 SD), falling back to the flat 10% only when no baseline exists.
+  // No warning is pushed here — coaching/strain context lives on the coach
+  // surface, not the session card (cards are data-only).
+  else if (isHrvCvElevated(input.hrvCv, input.hrvCvBaseline ?? null)) {
+    const corroborated =
+      input.hrvBelowBaseline === true ||
+      (input.readiness !== null && input.readiness < 65) ||
+      (input.sleepHours !== null && input.sleepHours < 6.5);
+    if (
+      corroborated &&
+      (HARD_SESSION_TYPES.has(planned) || planned === "strength")
+    ) {
       chosen = "easy_run";
-      overrideReason = `HRV CV ${input.hrvCv.toFixed(1)}% → easy_run`;
-      warnings.push(
-        "HRV CV above 10% suggests accumulating strain. Keep it aerobic today."
-      );
+      const thr = Math.round(hrvCvThreshold(input.hrvCvBaseline ?? null));
+      overrideReason = `HRV CV ${input.hrvCv!.toFixed(
+        1
+      )}% > your ~${thr}% + corroborating signal → easy_run`;
     }
   }
   // Rule 3: luteal + planned intervals → swap for tempo

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { getLocalDay } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import { computeTrainingCall, hrvCV, rollingHrvCvBaseline, isHrvCvElevated, computeFatigueScore } from "@/lib/training";
@@ -35,7 +36,7 @@ export default async function CoachPage({
       take: 14,
       select: { averageHrv: true, score: true },
     }),
-    prisma.dailyStress.findUnique({ where: { day: localToday } }),
+    prisma.dailyStress.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: localToday } } }),
     (async () => {
       const { resolveCyclePhase } = await import("@/lib/cycle-phase");
       return resolveCyclePhase(localToday);

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baseline — Goals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="baseline.css" rel="stylesheet">
+<link href="baseline-goals.css" rel="stylesheet">
+<style>
+  .seclabel{display:flex;align-items:center;gap:12px;padding:26px 36px 12px}
+  .seclabel::after{content:"";flex:1;height:1px;background:var(--line)}
+  .seclabel .ct{color:var(--faint);font-weight:700}
+  .seclabel .t{flex:none;white-space:nowrap}
+  .gboard{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .gtile{background:var(--surf);background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 50%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000;border-top:4px solid var(--line);padding:22px;display:flex;flex-direction:column;align-items:center;text-align:center}
+  .gtile.race{border-top-color:var(--t-race)}.gtile.strength{border-top-color:var(--t-strength)}.gtile.weight{border-top-color:var(--t-weight)}.gtile.cognitive{border-top-color:var(--t-cognitive)}.gtile.health{border-top-color:var(--t-health)}
+  .gtile .title{font-family:var(--disp);font-size:26px;line-height:.95;letter-spacing:.01em;margin:14px 0 6px}
+  .gtile .tgt{font-size:12.5px;color:var(--dim)}
+  .gtile .tgt b{color:var(--ink);font-weight:600}
+  .gtile .dt{font-size:12px;color:var(--faint);margin-top:10px}
+  .gtile .dt b{color:var(--ink)}
+  .gtile .badges{display:flex;gap:7px;align-items:center;margin-top:14px}
+  .addtile{border:1px dashed var(--line);background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--dim);cursor:pointer;min-height:220px}
+  .addtile:hover{border-color:var(--gold);color:var(--gold)}
+  .addtile .plus{font-family:var(--disp);font-size:52px;line-height:1}
+  .addtile .lbl{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .gcompact{margin:0 36px}
+  .compactwrap{padding:0 36px}
+</style>
+</head>
+<body data-screen-label="Goals">
+
+  <header>
+    <div class="brand">BASELINE</div>
+    <nav>
+      <a href="Baseline Dashboard.html">Dashboard</a>
+      <a href="Baseline Mind.html">Mind</a>
+      <a href="Baseline Body.html">Body</a>
+      <a href="Baseline Coach.html">Coach</a>
+      <a href="#" class="on">Goals</a>
+    </nav>
+  </header>
+
+  <div class="pagebar" style="padding-top:26px">
+    <div>
+      <h1 style="font-family:var(--disp);font-size:46px;line-height:.9;letter-spacing:.02em;white-space:nowrap">GOALS</h1>
+      <div class="sub" style="color:var(--dim);font-size:14px;font-weight:500;margin-top:3px">Races, exams, body-composition targets — these feed your coach's context.</div>
+    </div>
+  </div>
+
+  <!-- primary featured -->
+  <div class="seclabel">Primary Focus</div>
+  <div class="pad">
+    <div class="gherom">
+      <div class="ringwrap">
+        <div class="ring" style="width:120px;height:120px">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle class="bg" cx="60" cy="60" r="56" stroke-width="6"/>
+            <circle class="fg" cx="60" cy="60" r="56" stroke-width="6" stroke="var(--t-race)" stroke-dasharray="351.9" stroke-dashoffset="18"/>
+          </svg>
+          <div class="lab"><b style="font-size:34px;color:var(--t-race)">4d</b><span>to race</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="gtop"><span class="primaryflag">★ Primary</span><span class="tbadge race">Race</span><span class="subt">Hyrox</span></div>
+        <div class="title">Sub-85 Hyrox</div>
+        <div class="tgt">Target <b>sub-85 min</b> · target pace 6:23/km</div>
+        <div class="meta"><b>Tue, Jun 2</b> · taper week 1 · plan 92% complete</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- board -->
+  <div class="seclabel"><span class="t">Active Goals <span class="ct">· 5</span></span></div>
+  <div class="pad">
+    <div class="gboard">
+
+      <div class="gtile strength">
+        <div class="ring" style="width:72px;height:72px">
+          <svg width="72" height="72" viewBox="0 0 72 72"><circle class="bg" cx="36" cy="36" r="33" stroke-width="5"/><circle class="fg" cx="36" cy="36" r="33" stroke-width="5" stroke="var(--t-strength)" stroke-dasharray="207.3" stroke-dashoffset="166"/></svg>
+          <div class="lab"><b style="font-size:19px;color:var(--t-strength)">78d</b></div>
+        </div>
+        <div class="title">Build Squat Base</div>
+        <div class="tgt">Target <b>Squat 110 × 3</b></div>
+        <div class="dt"><b>Aug 15</b> · 78 days</div>
+        <div class="badges"><span class="tbadge strength">Strength</span></div>
+      </div>
+
+      <div class="gtile weight">
+        <div class="ring" style="width:72px;height:72px">
+          <svg width="72" height="72" viewBox="0 0 72 72"><circle class="bg" cx="36" cy="36" r="33" stroke-width="5"/><circle class="fg" cx="36" cy="36" r="33" stroke-width="5" stroke="var(--t-weight)" stroke-dasharray="207.3" stroke-dashoffset="114"/></svg>
+          <div class="lab"><b style="font-size:19px;color:var(--t-weight)">33d</b></div>
+        </div>
+        <div class="title">Cut to 59 kg</div>
+        <div class="tgt">Target <b>59.0 kg</b> · −0.3 kg/wk</div>
+        <div class="dt"><b>Jul 1</b> · 33 days</div>
+        <div class="badges"><span class="tbadge weight">Weight</span></div>
+      </div>
+
+      <div class="gtile cognitive">
+        <div class="ring" style="width:72px;height:72px">
+          <svg width="72" height="72" viewBox="0 0 72 72"><circle class="bg" cx="36" cy="36" r="33" stroke-width="5"/><circle class="fg" cx="36" cy="36" r="33" stroke-width="5" stroke="var(--t-cognitive)" stroke-dasharray="207.3" stroke-dashoffset="176"/></svg>
+          <div class="lab"><b style="font-size:19px;color:var(--t-cognitive)">87d</b></div>
+        </div>
+        <div class="title">CFA Level I</div>
+        <div class="tgt">Target <b>score &gt; 70%</b></div>
+        <div class="dt"><b>Aug 24</b> · 87 days</div>
+        <div class="badges"><span class="tbadge cognitive">Cognitive</span></div>
+      </div>
+
+      <div class="gtile health">
+        <div class="ring" style="width:72px;height:72px">
+          <svg width="72" height="72" viewBox="0 0 72 72"><circle class="bg" cx="36" cy="36" r="33" stroke-width="5"/><circle class="fg" cx="36" cy="36" r="33" stroke-width="5" stroke="var(--t-health)" stroke-dasharray="207.3" stroke-dashoffset="62"/></svg>
+          <div class="lab"><b style="font-size:16px;color:var(--t-health)">38</b><span>rMSSD</span></div>
+        </div>
+        <div class="title">Raise HRV Base</div>
+        <div class="tgt">Target <b>rMSSD &gt; 45 ms</b></div>
+        <div class="dt">Ongoing · 60-day avg</div>
+        <div class="badges"><span class="tbadge health">Health</span></div>
+      </div>
+
+      <button class="addtile"><span class="plus">+</span><span class="lbl">New Goal</span></button>
+
+    </div>
+  </div>
+
+  <div class="seclabel"><span class="t">Archived <span class="ct">· 2</span></span></div>
+  <div class="compactwrap">
+    <div class="gcompact" style="margin:0"><div class="l"><span class="tbadge race">Race</span><span class="nm">Sub-50 10K</span></div><div class="r"><button>Restore</button><button>×</button></div></div>
+    <div class="gcompact" style="margin:7px 0 0"><div class="l"><span class="tbadge health">Health</span><span class="nm">Dry January</span></div><div class="r"><button>Restore</button><button>×</button></div></div>
+  </div>
+
+  <div class="seclabel"><span class="t">Completed <span class="ct">· 1</span></span></div>
+  <div class="compactwrap" style="padding-bottom:20px">
+    <div class="gcompact" style="margin:0"><div class="l"><span class="tbadge race">Race</span><span class="nm">Brooklyn Half — 1:52</span></div><div class="r"><button>×</button></div></div>
+  </div>
+
+</body>
+</html>

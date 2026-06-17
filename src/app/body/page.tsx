@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { getCurrentUserId } from "@/lib/current-user";
 import { getLocalDay } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import {
@@ -92,14 +93,14 @@ export default async function BodyPage() {
         },
       },
     }),
-    prisma.userProfile.findUnique({ where: { id: 1 } }),
+    prisma.userProfile.findUnique({ where: { userId: getCurrentUserId() } }),
     prisma.dailySleep.findMany({
       where: { day: { lte: localToday } },
       orderBy: { day: "desc" },
       take: 14,
     }),
     prisma.nutritionLog.findUnique({
-      where: { day: localToday },
+      where: { userId_day: { userId: getCurrentUserId(), day: localToday } },
       include: { entries: true },
     }),
     prisma.workoutSet.findMany({
@@ -124,9 +125,9 @@ export default async function BodyPage() {
   ]);
 
   const [dayStress, daySpO2, dayResilience] = await Promise.all([
-    prisma.dailyStress.findUnique({ where: { day: localToday } }),
-    prisma.dailySpO2.findUnique({ where: { day: localToday } }),
-    prisma.dailyResilience.findUnique({ where: { day: localToday } }),
+    prisma.dailyStress.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: localToday } } }),
+    prisma.dailySpO2.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: localToday } } }),
+    prisma.dailyResilience.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: localToday } } }),
   ]);
 
   const latestWeight = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1] : null;
