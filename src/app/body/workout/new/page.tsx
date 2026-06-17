@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { Suspense, useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { workoutTemplates as builtinTemplates } from "@/lib/exercise-library";
 
@@ -26,7 +26,7 @@ interface Exercise {
   defaultReps: number;
 }
 
-export default function NewWorkoutPage() {
+function NewWorkoutPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isBackfill = searchParams.get("backfill") === "1";
@@ -378,5 +378,15 @@ export default function NewWorkoutPage() {
         {isPending ? "Starting..." : "Start Workout"}
       </button>
     </div>
+  );
+}
+
+// useSearchParams() forces client-side rendering, which Next 15 won't
+// statically prerender without a Suspense boundary. Wrap the page in one.
+export default function NewWorkoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewWorkoutPageInner />
+    </Suspense>
   );
 }
