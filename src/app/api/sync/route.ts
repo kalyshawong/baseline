@@ -40,7 +40,21 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    // TEMP DEBUG: surface the exact failing unique constraint so we can find
+    // which sync write is throwing. Remove once the sync bug is fixed.
+    const code = (error as { code?: string })?.code;
+    if (code === "P2002") {
+      const meta = (error as { meta?: unknown }).meta;
+      const message = error instanceof Error ? error.message : String(error);
+      // Prisma error messages contain "prisma.<model>.<op>()" — pull the model.
+      const model = message.match(/prisma\.(\w+)\./)?.[1] ?? "unknown";
+      console.error("SYNC P2002:", model, JSON.stringify(meta));
+      return NextResponse.json(
+        { success: false, error: `Unique violation in ${model} (${JSON.stringify(meta)})` },
+        { status: 409 },
+      );
+    }
     const { status, body } = apiError(error);
-    return NextResponse.json(body, { status });
+    return NextResponse.json({ success: false, ...body }, { status });
   }
 }
