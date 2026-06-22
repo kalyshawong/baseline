@@ -259,37 +259,39 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       "daily_readiness",
       params
     );
-    for (const r of readiness.data) {
-      await prisma.dailyReadiness.upsert({
-        where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
-        update: {
-          score: r.score,
-          temperatureDeviation: r.temperature_deviation,
-          temperatureTrendDeviation: r.temperature_trend_deviation,
-          hrvBalance: r.contributors.hrv_balance,
-          bodyTemperature: r.contributors.body_temperature,
-          recoveryIndex: r.contributors.recovery_index,
-          restingHeartRate: r.contributors.resting_heart_rate,
-          sleepBalance: r.contributors.sleep_balance,
-          activityBalance: r.contributors.activity_balance,
-        },
-        create: {
-          userId: getCurrentUserId(),
-          id: r.id,
-          day: new Date(r.day),
-          score: r.score,
-          temperatureDeviation: r.temperature_deviation,
-          temperatureTrendDeviation: r.temperature_trend_deviation,
-          hrvBalance: r.contributors.hrv_balance,
-          bodyTemperature: r.contributors.body_temperature,
-          recoveryIndex: r.contributors.recovery_index,
-          restingHeartRate: r.contributors.resting_heart_rate,
-          sleepBalance: r.contributors.sleep_balance,
-          activityBalance: r.contributors.activity_balance,
-        },
-      });
-      readinessCount++;
-    }
+    await prisma.$transaction(
+      readiness.data.map((r) =>
+        prisma.dailyReadiness.upsert({
+          where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
+          update: {
+            score: r.score,
+            temperatureDeviation: r.temperature_deviation,
+            temperatureTrendDeviation: r.temperature_trend_deviation,
+            hrvBalance: r.contributors.hrv_balance,
+            bodyTemperature: r.contributors.body_temperature,
+            recoveryIndex: r.contributors.recovery_index,
+            restingHeartRate: r.contributors.resting_heart_rate,
+            sleepBalance: r.contributors.sleep_balance,
+            activityBalance: r.contributors.activity_balance,
+          },
+          create: {
+            userId: getCurrentUserId(),
+            id: r.id,
+            day: new Date(r.day),
+            score: r.score,
+            temperatureDeviation: r.temperature_deviation,
+            temperatureTrendDeviation: r.temperature_trend_deviation,
+            hrvBalance: r.contributors.hrv_balance,
+            bodyTemperature: r.contributors.body_temperature,
+            recoveryIndex: r.contributors.recovery_index,
+            restingHeartRate: r.contributors.resting_heart_rate,
+            sleepBalance: r.contributors.sleep_balance,
+            activityBalance: r.contributors.activity_balance,
+          },
+        }),
+      ),
+    );
+    readinessCount += readiness.data.length;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Readiness sync failed:", msg);
@@ -346,12 +348,10 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
 
     console.log(`[Sleep] daily_sleep days: ${sleep.data.map(s => s.day).join(", ")}`);
 
-    for (const s of sleep.data) {
+    // Pre-compute period fields, then batch all upserts in one transaction.
+    const sleepOps = sleep.data.map((s) => {
       const bedtimePeriod = periodByDay.get(s.day);
       const wakePeriod = periodByWakeDay.get(s.day);
-      // Prefer the bedtime-day match, but fall back to wake-day match
-      // if the bedtime match is missing or suspiciously short (< 5 min)
-      // while a longer wake-day match exists.
       const period =
         bedtimePeriod && (bedtimePeriod.total_sleep_duration ?? 0) >= 300
           ? bedtimePeriod
@@ -359,10 +359,6 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
             ? wakePeriod
             : bedtimePeriod;
 
-      // Only include period fields when we actually have period data.
-      // When period is missing (Oura hasn't finished processing yet),
-      // passing undefined causes Prisma to skip on update (leaving stale
-      // data) and store nulls/defaults on create (garbage 60s records).
       const periodFields = period
         ? {
             totalSleepDuration: period.total_sleep_duration,
@@ -377,22 +373,14 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
           }
         : {};
 
-      await prisma.dailySleep.upsert({
+      return prisma.dailySleep.upsert({
         where: { userId_day: { userId: getCurrentUserId(), day: new Date(s.day) } },
-        update: {
-          score: s.score,
-          ...periodFields,
-        },
-        create: {
-          userId: getCurrentUserId(),
-          id: s.id,
-          day: new Date(s.day),
-          score: s.score,
-          ...periodFields,
-        },
+        update: { score: s.score, ...periodFields },
+        create: { userId: getCurrentUserId(), id: s.id, day: new Date(s.day), score: s.score, ...periodFields },
       });
-      sleepCount++;
-    }
+    });
+    await prisma.$transaction(sleepOps);
+    sleepCount += sleep.data.length;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Sleep sync failed:", msg);
@@ -405,25 +393,27 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       "daily_stress",
       params
     );
-    for (const s of stress.data) {
-      await prisma.dailyStress.upsert({
-        where: { userId_day: { userId: getCurrentUserId(), day: new Date(s.day) } },
-        update: {
-          stressHigh: s.stress_high,
-          recoveryHigh: s.recovery_high,
-          daySummary: s.day_summary,
-        },
-        create: {
-          userId: getCurrentUserId(),
-          id: s.id,
-          day: new Date(s.day),
-          stressHigh: s.stress_high,
-          recoveryHigh: s.recovery_high,
-          daySummary: s.day_summary,
-        },
-      });
-      stressCount++;
-    }
+    await prisma.$transaction(
+      stress.data.map((s) =>
+        prisma.dailyStress.upsert({
+          where: { userId_day: { userId: getCurrentUserId(), day: new Date(s.day) } },
+          update: {
+            stressHigh: s.stress_high,
+            recoveryHigh: s.recovery_high,
+            daySummary: s.day_summary,
+          },
+          create: {
+            userId: getCurrentUserId(),
+            id: s.id,
+            day: new Date(s.day),
+            stressHigh: s.stress_high,
+            recoveryHigh: s.recovery_high,
+            daySummary: s.day_summary,
+          },
+        }),
+      ),
+    );
+    stressCount += stress.data.length;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Stress sync failed:", msg);
@@ -438,30 +428,34 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       "heartrate",
       { start_datetime: startDt, end_datetime: endDt }
     );
-    for (const hr of hrData.data) {
-      if (hr.source !== "rest" && hr.source !== "sleep") continue;
-      try {
-        await prisma.heartRateSample.upsert({
-          where: {
-            userId_timestamp_source: {
-              userId: getCurrentUserId(),
-              timestamp: new Date(hr.timestamp),
-              source: hr.source,
+    const hrRows = hrData.data.filter(
+      (hr) => hr.source === "rest" || hr.source === "sleep",
+    );
+    const HR_BATCH = 500;
+    for (let i = 0; i < hrRows.length; i += HR_BATCH) {
+      const batch = hrRows.slice(i, i + HR_BATCH);
+      await prisma.$transaction(
+        batch.map((hr) =>
+          prisma.heartRateSample.upsert({
+            where: {
+              userId_timestamp_source: {
+                userId: getCurrentUserId(),
+                timestamp: new Date(hr.timestamp),
+                source: hr.source,
+              },
             },
-          },
-          update: { bpm: hr.bpm },
-          create: {
-            userId: getCurrentUserId(),
-            bpm: hr.bpm,
-            source: hr.source,
-            timestamp: new Date(hr.timestamp),
-          },
-        });
-        hrCount++;
-      } catch {
-        // Skip duplicate key errors
-      }
+            update: { bpm: hr.bpm },
+            create: {
+              userId: getCurrentUserId(),
+              bpm: hr.bpm,
+              source: hr.source,
+              timestamp: new Date(hr.timestamp),
+            },
+          }),
+        ),
+      );
     }
+    hrCount += hrRows.length;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Heart rate sync failed:", msg);
@@ -474,48 +468,48 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       "daily_activity",
       params
     );
-    for (const a of activity.data) {
-      // Compute total MET minutes if available (rough: sum of items × interval / 60)
-      const metMinutes = a.met?.items
-        ? Math.round(
-            a.met.items.reduce((s, v) => s + v, 0) * ((a.met.interval ?? 60) / 60)
-          )
-        : null;
-
-      await prisma.dailyActivity.upsert({
-        where: { userId_day: { userId: getCurrentUserId(), day: new Date(a.day) } },
-        update: {
-          score: a.score,
-          activeCalories: a.active_calories,
-          totalCalories: a.total_calories,
-          steps: a.steps,
-          equivalentWalkingDistance: a.equivalent_walking_distance,
-          highActivityTime: a.high_activity_time,
-          mediumActivityTime: a.medium_activity_time,
-          lowActivityTime: a.low_activity_time,
-          sedentaryTime: a.sedentary_time,
-          restingTime: a.resting_time,
-          metMinutes,
-        },
-        create: {
-          userId: getCurrentUserId(),
-          id: a.id,
-          day: new Date(a.day),
-          score: a.score,
-          activeCalories: a.active_calories,
-          totalCalories: a.total_calories,
-          steps: a.steps,
-          equivalentWalkingDistance: a.equivalent_walking_distance,
-          highActivityTime: a.high_activity_time,
-          mediumActivityTime: a.medium_activity_time,
-          lowActivityTime: a.low_activity_time,
-          sedentaryTime: a.sedentary_time,
-          restingTime: a.resting_time,
-          metMinutes,
-        },
-      });
-      activityCount++;
-    }
+    await prisma.$transaction(
+      activity.data.map((a) => {
+        const metMinutes = a.met?.items
+          ? Math.round(
+              a.met.items.reduce((s, v) => s + v, 0) * ((a.met.interval ?? 60) / 60)
+            )
+          : null;
+        return prisma.dailyActivity.upsert({
+          where: { userId_day: { userId: getCurrentUserId(), day: new Date(a.day) } },
+          update: {
+            score: a.score,
+            activeCalories: a.active_calories,
+            totalCalories: a.total_calories,
+            steps: a.steps,
+            equivalentWalkingDistance: a.equivalent_walking_distance,
+            highActivityTime: a.high_activity_time,
+            mediumActivityTime: a.medium_activity_time,
+            lowActivityTime: a.low_activity_time,
+            sedentaryTime: a.sedentary_time,
+            restingTime: a.resting_time,
+            metMinutes,
+          },
+          create: {
+            userId: getCurrentUserId(),
+            id: a.id,
+            day: new Date(a.day),
+            score: a.score,
+            activeCalories: a.active_calories,
+            totalCalories: a.total_calories,
+            steps: a.steps,
+            equivalentWalkingDistance: a.equivalent_walking_distance,
+            highActivityTime: a.high_activity_time,
+            mediumActivityTime: a.medium_activity_time,
+            lowActivityTime: a.low_activity_time,
+            sedentaryTime: a.sedentary_time,
+            restingTime: a.resting_time,
+            metMinutes,
+          },
+        });
+      }),
+    );
+    activityCount += activity.data.length;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("Activity sync failed:", msg);
@@ -525,19 +519,21 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
   // Sync SpO2
   try {
     const spo2 = await ouraFetch<OuraListResponse<OuraSpO2>>("daily_spo2", params);
-    for (const r of spo2.data) {
-      await prisma.dailySpO2.upsert({
-        where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
-        update: { avgSpO2: r.spo2_percentage?.average ?? null },
-        create: {
-          userId: getCurrentUserId(),
-          id: r.id,
-          day: new Date(r.day),
-          avgSpO2: r.spo2_percentage?.average ?? null,
-        },
-      });
-      spo2Count++;
-    }
+    await prisma.$transaction(
+      spo2.data.map((r) =>
+        prisma.dailySpO2.upsert({
+          where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
+          update: { avgSpO2: r.spo2_percentage?.average ?? null },
+          create: {
+            userId: getCurrentUserId(),
+            id: r.id,
+            day: new Date(r.day),
+            avgSpO2: r.spo2_percentage?.average ?? null,
+          },
+        }),
+      ),
+    );
+    spo2Count += spo2.data.length;
   } catch (e) {
     if (e instanceof OuraScopeError) {
       console.warn(e.message);
@@ -552,27 +548,26 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
   // Sync Enhanced Tags → ActivityTag
   try {
     const tags = await ouraFetch<OuraListResponse<OuraEnhancedTag>>("enhanced_tag", params);
-    for (const t of tags.data) {
-      // Skip if already ingested
-      const existing = await prisma.activityTag.findUnique({ where: { userId_ouraTagId: { userId: getCurrentUserId(), ouraTagId: t.id } } });
-      if (existing) { tagsCount++; continue; }
-
-      const mapped = TAG_MAP[t.tag_type_code];
-      if (!mapped) continue; // Unknown tag type — skip
-
-      await prisma.activityTag.create({
-        data: {
-          userId: getCurrentUserId(),
-          tag: mapped.tag,
-          category: mapped.category,
-          timestamp: new Date(t.start_time),
-          metadata: t.comment ? JSON.stringify({ comment: t.comment }) : null,
-          ouraTagId: t.id,
-          source: "oura",
-        },
+    const tagOps = tags.data
+      .filter((t) => TAG_MAP[t.tag_type_code])
+      .map((t) => {
+        const mapped = TAG_MAP[t.tag_type_code]!;
+        return prisma.activityTag.upsert({
+          where: { userId_ouraTagId: { userId: getCurrentUserId(), ouraTagId: t.id } },
+          update: {}, // no-op on duplicate
+          create: {
+            userId: getCurrentUserId(),
+            tag: mapped.tag,
+            category: mapped.category,
+            timestamp: new Date(t.start_time),
+            metadata: t.comment ? JSON.stringify({ comment: t.comment }) : null,
+            ouraTagId: t.id,
+            source: "oura",
+          },
+        });
       });
-      tagsCount++;
-    }
+    if (tagOps.length > 0) await prisma.$transaction(tagOps);
+    tagsCount += tagOps.length;
   } catch (e) {
     if (e instanceof OuraScopeError) {
       console.warn(e.message);
@@ -597,6 +592,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       // Dedup: skip bridging if HealthKit already has a matching workout
       const existingHk = await prisma.healthKitWorkout.findFirst({
         where: {
+          userId: getCurrentUserId(),
           externalId: { not: `oura-${w.id}` }, // don't match our own bridge row
           startedAt: {
             gte: new Date(startedAt.getTime() - 5 * 60 * 1000),
@@ -683,37 +679,38 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
   // Sync Sessions (meditation, breathing, naps)
   try {
     const sessions = await ouraFetch<OuraListResponse<OuraSession>>("session", params);
-    for (const s of sessions.data) {
-      const startedAt = new Date(s.start_datetime);
-      const endedAt = new Date(s.end_datetime);
-      const durationSeconds = Math.round((endedAt.getTime() - startedAt.getTime()) / 1000);
-
-      await prisma.ouraSession.upsert({
-        where: { id: s.id },
-        update: {
-          type: s.type,
-          startedAt,
-          endedAt,
-          durationSeconds,
-          avgHeartRate: avgFromSamples(s.heart_rate),
-          avgHrv: avgFromSamples(s.heart_rate_variability),
-          mood: s.mood,
-        },
-        create: {
-          userId: getCurrentUserId(),
-          id: s.id,
-          day: new Date(s.day),
-          type: s.type,
-          startedAt,
-          endedAt,
-          durationSeconds,
-          avgHeartRate: avgFromSamples(s.heart_rate),
-          avgHrv: avgFromSamples(s.heart_rate_variability),
-          mood: s.mood,
-        },
-      });
-      sessionsCount++;
-    }
+    await prisma.$transaction(
+      sessions.data.map((s) => {
+        const startedAt = new Date(s.start_datetime);
+        const endedAt = new Date(s.end_datetime);
+        const durationSeconds = Math.round((endedAt.getTime() - startedAt.getTime()) / 1000);
+        return prisma.ouraSession.upsert({
+          where: { id: s.id },
+          update: {
+            type: s.type,
+            startedAt,
+            endedAt,
+            durationSeconds,
+            avgHeartRate: avgFromSamples(s.heart_rate),
+            avgHrv: avgFromSamples(s.heart_rate_variability),
+            mood: s.mood,
+          },
+          create: {
+            userId: getCurrentUserId(),
+            id: s.id,
+            day: new Date(s.day),
+            type: s.type,
+            startedAt,
+            endedAt,
+            durationSeconds,
+            avgHeartRate: avgFromSamples(s.heart_rate),
+            avgHrv: avgFromSamples(s.heart_rate_variability),
+            mood: s.mood,
+          },
+        });
+      }),
+    );
+    sessionsCount += sessions.data.length;
   } catch (e) {
     if (e instanceof OuraScopeError) {
       console.warn(e.message);
@@ -728,27 +725,29 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
   // Sync Sleep Time (bedtime recommendations)
   try {
     const sleepTime = await ouraFetch<OuraListResponse<OuraSleepTime>>("sleep_time", params);
-    for (const st of sleepTime.data) {
-      await prisma.sleepTimeRecommendation.upsert({
-        where: { userId_day: { userId: getCurrentUserId(), day: new Date(st.day) } },
-        update: {
-          optimalBedtimeStart: st.optimal_bedtime?.start_offset ?? null,
-          optimalBedtimeEnd: st.optimal_bedtime?.end_offset ?? null,
-          recommendation: st.recommendation,
-          status: st.status,
-        },
-        create: {
-          userId: getCurrentUserId(),
-          id: st.id,
-          day: new Date(st.day),
-          optimalBedtimeStart: st.optimal_bedtime?.start_offset ?? null,
-          optimalBedtimeEnd: st.optimal_bedtime?.end_offset ?? null,
-          recommendation: st.recommendation,
-          status: st.status,
-        },
-      });
-      sleepTimeCount++;
-    }
+    await prisma.$transaction(
+      sleepTime.data.map((st) =>
+        prisma.sleepTimeRecommendation.upsert({
+          where: { userId_day: { userId: getCurrentUserId(), day: new Date(st.day) } },
+          update: {
+            optimalBedtimeStart: st.optimal_bedtime?.start_offset ?? null,
+            optimalBedtimeEnd: st.optimal_bedtime?.end_offset ?? null,
+            recommendation: st.recommendation,
+            status: st.status,
+          },
+          create: {
+            userId: getCurrentUserId(),
+            id: st.id,
+            day: new Date(st.day),
+            optimalBedtimeStart: st.optimal_bedtime?.start_offset ?? null,
+            optimalBedtimeEnd: st.optimal_bedtime?.end_offset ?? null,
+            recommendation: st.recommendation,
+            status: st.status,
+          },
+        }),
+      ),
+    );
+    sleepTimeCount += sleepTime.data.length;
   } catch (e) {
     if (e instanceof OuraScopeError) {
       console.warn(e.message);
@@ -763,27 +762,29 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
   // Sync Resilience
   try {
     const resilience = await ouraFetch<OuraListResponse<OuraResilience>>("daily_resilience", params);
-    for (const r of resilience.data) {
-      await prisma.dailyResilience.upsert({
-        where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
-        update: {
-          level: r.level,
-          sleepRecovery: r.contributors.sleep_recovery,
-          daytimeRecovery: r.contributors.daytime_recovery,
-          stress: r.contributors.stress,
-        },
-        create: {
-          userId: getCurrentUserId(),
-          id: r.id,
-          day: new Date(r.day),
-          level: r.level,
-          sleepRecovery: r.contributors.sleep_recovery,
-          daytimeRecovery: r.contributors.daytime_recovery,
-          stress: r.contributors.stress,
-        },
-      });
-      resilienceCount++;
-    }
+    await prisma.$transaction(
+      resilience.data.map((r) =>
+        prisma.dailyResilience.upsert({
+          where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
+          update: {
+            level: r.level,
+            sleepRecovery: r.contributors.sleep_recovery,
+            daytimeRecovery: r.contributors.daytime_recovery,
+            stress: r.contributors.stress,
+          },
+          create: {
+            userId: getCurrentUserId(),
+            id: r.id,
+            day: new Date(r.day),
+            level: r.level,
+            sleepRecovery: r.contributors.sleep_recovery,
+            daytimeRecovery: r.contributors.daytime_recovery,
+            stress: r.contributors.stress,
+          },
+        }),
+      ),
+    );
+    resilienceCount += resilience.data.length;
   } catch (e) {
     if (e instanceof OuraScopeError) {
       console.warn(e.message);
