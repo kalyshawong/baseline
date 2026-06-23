@@ -21,6 +21,24 @@ import { getTrainingCallForDate, getHrvBaselineSummary } from "@/lib/training-ca
 import { getFlags } from "@/lib/flags";
 import { BaselineCard } from "@/components/dashboard/baseline-card";
 import { getDownsampledHrForWorkout, type HrChartPoint } from "@/lib/workout-notes";
+import { MobileDashboard } from "@/components/mobile/mobile-dashboard";
+import { unstable_cache } from "next/cache";
+
+/**
+ * Cached per-day baseline score for the mobile hero sparkline + delta.
+ * getScoreForDate is ~8 queries; the sparkline needs 8 days of it, and
+ * back-date navigation revisits the same days repeatedly. Past-day scores
+ * are effectively immutable between syncs, so cache them (10 min). Sequential
+ * date-nav then reuses 7 of 8 cached days — ~1 fresh compute per step.
+ */
+const getCachedScoreOverall = unstable_cache(
+  async (dayIso: string): Promise<number | null> => {
+    const s = await getScoreForDate(new Date(dayIso + "T00:00:00.000Z"));
+    return s?.overall ?? null;
+  },
+  ["dashboard-spark-score-v1"],
+  { revalidate: 600 },
+);
 
 /**
  * Dashboard structure (2026-05-27, post-brainstorm convergence):
@@ -293,7 +311,80 @@ export default async function Dashboard({
   }
   const workoutSummary = buildWorkoutSummary();
 
+  // Compact workout log rows for the mobile dashboard.
+  const workoutRows = todayHkWorkouts.map((w) => {
+    const time = w.startedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    const minutes = Math.round(w.durationSeconds / 60);
+    const dur = minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+    const dist =
+      w.distance != null && w.distance > 0
+        ? w.distance >= 1000 && w.distanceUnit === "m"
+          ? `${(w.distance / 1000).toFixed(2)} km`
+          : w.distanceUnit === "km"
+            ? `${w.distance.toFixed(2)} km`
+            : `${Math.round(w.distance)} ${w.distanceUnit}`
+        : null;
+    const cal = w.activeCalories != null ? `${Math.round(w.activeCalories)} cal` : null;
+    return {
+      time,
+      name: w.name,
+      detail: [dur, dist, cal].filter((b): b is string => b !== null).join(" · "),
+    };
+  });
+
+  // 7-day baseline-score trend for the mobile hero sparkline + "vs 7-day avg"
+  // delta. Real data — computes the score for each of the prior 8 days.
+  const scoreOveralls = await Promise.all(
+    Array.from({ length: 8 }, (_, i) =>
+      getCachedScoreOverall(
+        new Date(viewDate.getTime() - (7 - i) * 86_400_000)
+          .toISOString()
+          .slice(0, 10),
+      ),
+    ),
+  );
+  const scoreSeries = scoreOveralls.filter((v): v is number => v != null);
+  const priorScores = scoreOveralls
+    .slice(0, 7)
+    .filter((v): v is number => v != null);
+  const scoreDelta =
+    score?.overall != null && priorScores.length > 0
+      ? Math.round(
+          score.overall - priorScores.reduce((a, b) => a + b, 0) / priorScores.length,
+        )
+      : null;
+
   return (
+    <>
+      {/* Mobile (Baseline iOS design) — below md only */}
+      <div className="md:hidden">
+        <MobileDashboard
+          viewDate={viewDate}
+          isConnected={isConnected}
+          lastSyncIso={lastSync?.syncDate.toISOString() ?? null}
+          score={score ? { overall: score.overall, color: score.color } : null}
+          scoreSeries={scoreSeries}
+          scoreDelta={scoreDelta}
+          hrv={hrvBaseline}
+          call={todayCall}
+          readiness={dayReadiness?.score ?? null}
+          tempDeviationC={dayReadiness?.temperatureDeviation ?? null}
+          sleep={daySleep}
+          hyrox={hyroxToday}
+          cyclePhase={cyclePhase}
+          cycleDayNumber={cycleDayNumber}
+          activity={dayActivity}
+          caloriesIn={nutritionCalories}
+          workoutRows={workoutRows}
+          trainingCount={trainingWorkouts.length}
+          sleepTargetTime={sleepTargetTime}
+          mealCount={nutritionEntryCount}
+          workoutSummary={workoutSummary}
+        />
+      </div>
+
+      {/* Desktop — unchanged, md and up only */}
+      <div className="hidden md:block">
     <main>
       {/* Date / sync strip */}
       <div className="flex items-center justify-between border-b-2 border-[var(--color-border)] bg-[var(--color-surface)] px-9 py-3.5">
@@ -543,5 +634,7 @@ export default async function Dashboard({
       />
       </div>
     </main>
+      </div>
+    </>
   );
 }

@@ -18,7 +18,17 @@ import { MacroSummary } from "@/components/dashboard/macro-summary";
 import { NutritionLog } from "@/components/mind/nutrition-log";
 import { LifeContextCard } from "@/components/mind/life-context-card";
 import { DateNav } from "@/components/date-nav";
+import { MobileDateNav } from "@/components/mobile/mobile-date-nav";
+import { MobileQuickTag } from "@/components/mobile/mobile-quick-tag";
+import { MobileLogFood } from "@/components/mobile/mobile-log-food";
 import { getDateFromParams, getLocalDayBounds } from "@/lib/date-utils";
+
+const PHASE_NOTE: Record<string, string> = {
+  menstrual: "Energy lowest — prioritize recovery experiments, not high-load interventions.",
+  follicular: "Energy rising — a good window for higher-load interventions.",
+  ovulation: "Peak output — strength and power experiments land best now.",
+  luteal: "Energy tapering — favor steady, lower-intensity protocols.",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +66,7 @@ export default async function MindPage({
     nutritionLog,
     lifeContextDefs,
     lifeContextLogs,
+    mealGi,
   ] = await Promise.all([
     prisma.experiment.findMany({
       include: { _count: { select: { logs: true } } },
@@ -99,16 +110,156 @@ export default async function MindPage({
     prisma.lifeContextLog.findMany({
       where: { day: lifeContextDay },
     }),
+    // Backward meal->GI analysis (null-safe: fails quietly if gi* not migrated
+    // yet). Folded into the batch so its ~6 queries run alongside the rest
+    // instead of adding a serial round-trip to the remote DB.
+    analyzeMealGi().catch(() => null),
   ]);
-
-  // Backward meal->GI analysis (null-safe: fails quietly if gi* not migrated yet).
-  const mealGi = await analyzeMealGi().catch(() => null);
 
   const active = experiments.filter((e) => e.status === "active");
   const others = experiments.filter((e) => e.status !== "active");
 
+  const slSec = daySleep?.totalSleepDuration ?? null;
+  const sleepLabel = slSec != null ? `${Math.floor(slSec / 3600)}h ${Math.floor((slSec % 3600) / 60)}m` : "—";
+  const phaseNote = cyclePhase.phase ? PHASE_NOTE[cyclePhase.phase] ?? null : null;
+
   return (
-    <div>
+    <>
+      {/* ═══════════ MOBILE (Baseline iOS — Mind) ═══════════ */}
+      <div className="md:hidden">
+        <div className="bl-m">
+          <div className="appbar">
+            <div>
+              <h1>MIND MODE</h1>
+              <div className="sub">Structured self-experimentation</div>
+            </div>
+            <Suspense>
+              <MobileDateNav basePath="/mind" />
+            </Suspense>
+          </div>
+
+          <div className="ctxbar">
+            <div className="c">
+              <div className="k">Readiness</div>
+              <div className="v num">{dayReadiness?.score ?? "—"}</div>
+            </div>
+            <div className="c">
+              <div className="k">Sleep</div>
+              <div className="v num">{sleepLabel}</div>
+            </div>
+            <div className="c">
+              <div className="k">HRV</div>
+              <div className="v num">
+                {daySleep?.averageHrv ?? "—"}
+                <small> ms</small>
+              </div>
+            </div>
+          </div>
+
+          {cyclePhase.phase && (
+            <div className="phasebox">
+              <span className="p">{cyclePhase.phase}</span>
+              {phaseNote && <span className="note">{phaseNote}</span>}
+            </div>
+          )}
+
+          <div className="g-sec">Inputs · Log</div>
+          <div className="wrap">
+            <div className="stack-lg">
+              <MobileQuickTag dateStr={viewDateStr} />
+              <MobileLogFood dateStr={viewDateStr} />
+              <MacroSummary
+                data={
+                  nutritionLog
+                    ? {
+                        calories: nutritionLog.calories,
+                        protein: nutritionLog.protein,
+                        carbs: nutritionLog.carbs,
+                        fat: nutritionLog.fat,
+                        entryCount: nutritionLog.entries.length,
+                      }
+                    : null
+                }
+              />
+              <NutritionLog
+                entries={(nutritionLog?.entries ?? []).map((e) => ({
+                  id: e.id,
+                  description: e.description,
+                  foodName: e.foodName,
+                  calories: e.calories,
+                  protein: e.protein,
+                  carbs: e.carbs,
+                  fat: e.fat,
+                  mealType: e.mealType,
+                  source: e.source,
+                  eatenAt: e.eatenAt.toISOString(),
+                  timeUnknown: e.timeUnknown,
+                }))}
+              />
+              <LifeContextCard
+                key={`m-${viewDateStr}`}
+                dateStr={viewDateStr}
+                defs={lifeContextDefs.map((d) => ({
+                  id: d.id,
+                  label: d.label,
+                  category: d.category,
+                  emoji: d.emoji ?? null,
+                  color: d.color ?? null,
+                  groupKey: d.groupKey ?? null,
+                  archived: d.archived,
+                }))}
+                todayLogs={lifeContextLogs.map((l) => ({
+                  id: l.id,
+                  defId: l.defId,
+                  day: typeof l.day === "string" ? l.day : (l.day as unknown as Date).toISOString(),
+                }))}
+              />
+              <TagTimeline
+                tags={dayTags.map((t) => ({
+                  id: t.id,
+                  tag: t.tag,
+                  category: t.category,
+                  timestamp: t.timestamp.toISOString(),
+                  metadata: t.metadata ?? null,
+                  experiment: t.experiment ? { id: t.experiment.id, title: t.experiment.title } : null,
+                }))}
+              />
+            </div>
+          </div>
+
+          <div className="g-sec">Findings</div>
+          <div className="wrap">
+            <div className="stack-lg">
+              {flags.length > 0 && <FlagsFeed flags={flags} />}
+              <InsightsFeed insights={insights} calibration={hrvCalibration} />
+              {mealGi && <GiPatternsCard result={mealGi} />}
+              {active.length > 0 && (
+                <div className="panel">
+                  <p className="ov" style={{ marginBottom: 12 }}>Active Experiments</p>
+                  <div className="stack">
+                    {active.map((exp) => {
+                      const treatmentDays = exp._count.logs;
+                      const progress = Math.min(100, Math.round((treatmentDays / (exp.minDays * 2)) * 100));
+                      return (
+                        <Link key={exp.id} href={`/mind/experiments/${exp.id}`} className="lrow">
+                          <div>
+                            <div className="nm">{exp.title}</div>
+                            <div className="dt">{treatmentDays} days logged · {progress}%</div>
+                          </div>
+                          <span className={statusColors[exp.status]}>{exp.status}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════ DESKTOP (unchanged) ═══════════ */}
+      <div className="hidden md:block">
       {/* ── Page header ── */}
       <div className="flex items-center justify-between" style={{ paddingTop: "26px" }}>
         <div>
@@ -316,7 +467,8 @@ export default async function MindPage({
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

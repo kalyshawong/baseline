@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
@@ -38,12 +39,21 @@ import {
   movingAverage,
 } from "@/lib/tdee";
 import { DateNav } from "@/components/date-nav";
+import { MobileDateNav } from "@/components/mobile/mobile-date-nav";
+import { MCard } from "@/components/mobile/mobile-metric-card";
+import { MobileTrainingTier } from "@/components/mobile/mobile-training-tier";
+import { MobileCycleCard } from "@/components/mobile/mobile-cycle-card";
+import { kgToLb } from "@/lib/tdee";
 
 function formatDuration(seconds: number | null): string {
   if (seconds == null) return "—";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   return `${h}h ${m}m`;
+}
+
+function cap(s: string | null | undefined): string | null {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : null;
 }
 
 export const dynamic = "force-dynamic";
@@ -318,8 +328,282 @@ export default async function BodyPage() {
     ? computeEA(todayNutrition.calories, todaysExerciseCal, ffm)
     : null;
 
+  // --- Mobile card values (nutrition / weight / TDEE) ---
+  const proteinTargetG = weightKg ? Math.round(weightKg * 1.6) : null;
+  const calTargetG = profile?.dailyCalorieTarget ?? null;
+  const nProtein = todayNutrition?.protein ?? null;
+  const nCals = todayNutrition?.calories ?? null;
+  const proteinPct = proteinTargetG && nProtein != null ? Math.min(100, (nProtein / proteinTargetG) * 100) : 0;
+  const calPct = calTargetG && nCals != null ? Math.min(100, (nCals / calTargetG) * 100) : 0;
+  const perMealArr = Array.from(perMealProtein.entries()).map(([mealType, protein]) => ({ mealType, protein }));
+  const weightDisp = weightKg != null ? (unit === "lb" ? `${kgToLb(weightKg)}` : weightKg.toFixed(1)) : "—";
+  const trendLabel = weightTrend === "down" ? "−0.3" : weightTrend === "up" ? "+0.3" : "0.0";
+  const tdeeCalPct = goalCals && nCals != null ? Math.min(100, (nCals / goalCals) * 100) : 0;
+
   return (
-    <div>
+    <>
+      {/* ═══════════ MOBILE (Baseline iOS — Body) ═══════════ */}
+      <div className="md:hidden">
+        <div className="bl-m">
+          <div className="appbar">
+            <div>
+              <h1>BODY</h1>
+              <div className="sub">Readiness, recovery &amp; composition</div>
+            </div>
+            <Suspense>
+              <MobileDateNav basePath="/body" />
+            </Suspense>
+          </div>
+
+          <div className="wrap" style={{ marginTop: 8 }}>
+            <div className="stack-lg">
+              <HyroxSummaryCard />
+              <MobileTrainingTier
+                call={trainingCall}
+                baselineScore={score?.overall ?? null}
+                hrvCv={cv}
+                hrvCvElevated={hrvCvElevated}
+              />
+            </div>
+          </div>
+
+          <div className="g-sec">Recovery Signals</div>
+          <div className="wrap">
+            <div className="mgrid">
+              <MCard
+                label="HRV (overnight)"
+                value={todaySleep?.averageHrv != null ? Math.round(todaySleep.averageHrv) : "—"}
+                unit="ms"
+                detail="Avg overnight"
+              />
+              <MCard
+                label="Stress"
+                value={
+                  cap(dayStress?.daySummary) ??
+                  (dayStress?.stressHigh != null ? `${Math.round(dayStress.stressHigh / 60)}m high` : "—")
+                }
+                detail={dayStress?.recoveryHigh != null ? `${Math.round(dayStress.recoveryHigh / 60)}m recovery` : undefined}
+              />
+              <MCard
+                label="SpO₂"
+                value={daySpO2?.avgSpO2 != null ? Math.round(daySpO2.avgSpO2) : "—"}
+                unit="%"
+                detail="Blood oxygen"
+              />
+              <MCard
+                label="Resilience"
+                value={cap(dayResilience?.level) ?? "—"}
+                detail={
+                  dayResilience?.sleepRecovery != null
+                    ? `Sleep: ${dayResilience.sleepRecovery >= 50 ? "good" : "low"} · Recovery: ${(dayResilience.daytimeRecovery ?? 0) >= 50 ? "high" : "low"}`
+                    : undefined
+                }
+              />
+            </div>
+          </div>
+
+          <div className="wrap" style={{ marginTop: 14 }}>
+            <div className="stack-lg">
+              {guidance && (
+                <MobileCycleCard phase={phaseLog.phase} headline={guidance.headline} note={guidance.note} />
+              )}
+              {fatigue.score > 0 && (
+                <div className="fatigue">
+                  <div className="top">
+                    <div>
+                      <div className="ov">
+                        Fatigue Signal <span style={{ textTransform: "none", letterSpacing: 0 }}>(Pritchard 2024)</span>
+                      </div>
+                      <div className="rectext">{fatigue.recommendation}</div>
+                    </div>
+                    <div className="score"><b className="num">{fatigue.score}</b><span>/8 composite</span></div>
+                  </div>
+                  <ul>
+                    {weeksSinceDeload >= 5 && <li>{weeksSinceDeload} consecutive training weeks (deload every 5–6)</li>}
+                    {hrvCvElevated && (
+                      <li>
+                        HRV CV elevated: {cv?.toFixed(1)}%
+                        {hrvCvBaseline ? ` (your normal ~${Math.round(hrvCvThreshold(hrvCvBaseline))}%)` : " (Flatt threshold 10%)"}
+                      </li>
+                    )}
+                    {anyRpeCreep && <li className="red">RPE creep: +1 pt at same loads over recent sessions</li>}
+                    {volumeApproachingMRV && <li>Volume approaching MRV in 1+ muscle groups</li>}
+                  </ul>
+                  {fatigue.score >= 3 && (
+                    <div className="deload">
+                      <b>Deload protocol:</b> Reduce volume 40–60% for 1 week. Keep frequency &amp; loads, fewer sets. Resume after 7 days.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="g-sec">Running &amp; Cardio</div>
+          <div className="wrap">
+            <div className="mgrid c3">
+              <MCard label="Run Speed" value={todayRunning?.runningSpeed != null ? todayRunning.runningSpeed.toFixed(1) : "—"} unit="km/h" />
+              <MCard label="Run Power" value={todayRunning?.runningPower != null ? Math.round(todayRunning.runningPower) : "—"} unit="W" />
+              <MCard label="VO₂ Max" value={latestVO2Max?.vo2Max != null ? latestVO2Max.vo2Max.toFixed(1) : "—"} detail={latestVO2Max?.day ? `Updated ${latestVO2Max.day.toLocaleDateString()}` : undefined} />
+              <MCard label="Gnd Contact" value={todayRunning?.groundContactTime != null ? Math.round(todayRunning.groundContactTime) : "—"} unit="ms" />
+              <MCard label="Vert. Osc." value={todayRunning?.verticalOscillation != null ? todayRunning.verticalOscillation.toFixed(1) : "—"} unit="cm" />
+              <MCard label="Stride" value={todayRunning?.strideLength != null ? todayRunning.strideLength.toFixed(2) : "—"} unit="m" />
+              <MCard label="Cardio Rec." value={todayRunning?.cardioRecovery != null ? Math.round(todayRunning.cardioRecovery) : "—"} unit="bpm" />
+              <MCard label="Effort" value={todayRunning?.physicalEffort != null ? todayRunning.physicalEffort.toFixed(1) : "—"} />
+              <MCard label="Distance" value={todayRunning?.walkingRunningDistance != null ? (todayRunning.walkingRunningDistance / 1000).toFixed(1) : "—"} unit="km" />
+            </div>
+            {todayRunning?.respiratoryRate != null && (
+              <p style={{ fontSize: 11, color: "var(--faint)", marginTop: 10 }}>
+                Respiratory rate: {todayRunning.respiratoryRate.toFixed(1)} breaths/min
+              </p>
+            )}
+          </div>
+
+          <div className="g-sec">Strength Training</div>
+          <div className="wrap">
+            <div className="stack-lg">
+              <div className="addbtns">
+                <Link href="/body/workout/new" className="btn">+ Add Workout</Link>
+                <Link href="/body/workout/new?backfill=1" className="linklike">Log past workout</Link>
+              </div>
+              <VolumeZones data={weeklyVolumeData} />
+              {prs.length > 0 && (
+                <div className="listcard">
+                  <div className="ov" style={{ marginBottom: 12 }}>Recent PRs</div>
+                  {prs.map((pr) => (
+                    <div className="lrow" key={pr.id}>
+                      <div>
+                        <div className="nm">{pr.exercise.name}</div>
+                        <div className="dt">{pr.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                      </div>
+                      <div className="rt">
+                        <div className="big num">{pr.weight} × {pr.reps}</div>
+                        <div className="sm">e1RM {Math.round(estimate1RM(pr.weight, pr.reps))}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="listcard">
+                <div className="ov" style={{ marginBottom: 12 }}>Recent Workouts</div>
+                {recentSessions.length === 0 ? (
+                  <p style={{ fontSize: 12.5, color: "var(--dim)" }}>
+                    No workouts logged yet. <Link href="/body/workout/new" className="linklike">Start your first session</Link>.
+                  </p>
+                ) : (
+                  recentSessions.map((session) => (
+                    <Link key={session.id} href={`/body/workout/${session.id}`} className="lrow">
+                      <div>
+                        <div className="nm">{session.templateName ?? "Freestyle"}</div>
+                        <div className="dt">
+                          {session.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                          {" · "}{session.sets.length} sets
+                          {session.completedAt && session.sessionVolume != null && <> · {Math.round(session.sessionVolume).toLocaleString()} vol</>}
+                        </div>
+                      </div>
+                      <span className={`wstatus ${session.completedAt ? "done" : "active"}`}>{session.completedAt ? "done" : "active"}</span>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="g-sec">Recovery</div>
+          <div className="wrap">
+            <div className="stack-lg">
+              {todaySleep && (
+                <div className="sleepbreak">
+                  <div className="ov">Sleep Breakdown</div>
+                  <div className="sb3">
+                    <div className="c"><div className="v deep num">{formatDuration(todaySleep.deepSleepDuration)}</div><div className="k">Deep</div></div>
+                    <div className="c"><div className="v rem num">{formatDuration(todaySleep.remSleepDuration)}</div><div className="k">REM</div></div>
+                    <div className="c"><div className="v num">{formatDuration(todaySleep.lightSleepDuration)}</div><div className="k">Light</div></div>
+                  </div>
+                  {todaySleep.lowestHeartRate && (
+                    <div className="sbfoot">Lowest HR: <b>{todaySleep.lowestHeartRate} bpm</b></div>
+                  )}
+                </div>
+              )}
+              <div className="nutricard">
+                <div className="ov">Nutrition Check</div>
+                {!todayNutrition ? (
+                  <p style={{ marginTop: 8, fontSize: 12.5, color: "var(--dim)" }}>No food logged today.</p>
+                ) : (
+                  <>
+                    <div className="nbar">
+                      <div className="lab">
+                        <span>Protein{proteinTargetG ? ` (target ${proteinTargetG}g)` : ""}</span>
+                        <span className="v num">{Math.round(nProtein ?? 0)}{proteinTargetG ? ` / ${proteinTargetG}g` : "g"}</span>
+                      </div>
+                      <div className="track"><i className="prot" style={{ width: `${proteinPct}%` }} /></div>
+                    </div>
+                    <div className="nbar">
+                      <div className="lab">
+                        <span>Calories{calTargetG ? ` (target ${calTargetG})` : ""}</span>
+                        <span className="v num">{Math.round(nCals ?? 0)}{calTargetG ? ` / ${calTargetG}` : ""}</span>
+                      </div>
+                      <div className="track"><i className="cal" style={{ width: `${calPct}%` }} /></div>
+                    </div>
+                    {perMealArr.length > 0 && (
+                      <div className="permeal">
+                        <div className="ttl">Per meal (MPS plateaus at ~25g — Moore 2009)</div>
+                        {perMealArr.map((m, i) => {
+                          const cls = m.protein > 30 ? "ex" : m.protein < 20 ? "low" : "ok";
+                          return (
+                            <div className="m" key={i}>
+                              <span>{cap(m.mealType)}</span>
+                              <span className={`amt num ${cls}`}>{Math.round(m.protein)}g{m.protein > 30 ? " (excess)" : m.protein < 20 ? " (low)" : ""}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="g-sec">Composition &amp; Energy</div>
+          <div className="wrap" style={{ paddingBottom: 8 }}>
+            <div className="stack-lg">
+              <div className="compcard">
+                <div className="ov">Weight &amp; Body Composition</div>
+                <div className="wgrid">
+                  <div className="c"><div className="k">Weight</div><div className="v num">{weightDisp}<small> {unit}</small></div></div>
+                  <div className="c"><div className="k">Body Fat</div><div className="v num">{latestBodyFat != null ? latestBodyFat.toFixed(1) : "—"}<small> %</small></div></div>
+                  <div className="c"><div className="k">Trend</div><div className={`v num ${weightTrend === "down" ? "down" : ""}`}>{trendLabel}<small> {unit}/wk</small></div></div>
+                </div>
+                <WeightTrendChart logs={weightChartData} unit={unit} targetWeightKg={profile?.targetWeightKg ?? null} />
+              </div>
+              {tdee != null && (
+                <div className="compcard">
+                  <div className="ov">TDEE &amp; Targets</div>
+                  <div className="nbar"><div className="lab"><span>TDEE (maintenance)</span><span className="v num">{tdee.toLocaleString()} kcal</span></div></div>
+                  {goalCals != null && (
+                    <div className="nbar"><div className="lab"><span>Goal</span><span className="v num">{goalCals.toLocaleString()} kcal</span></div></div>
+                  )}
+                  <div className="nbar">
+                    <div className="lab"><span>Today&apos;s intake</span><span className="v num">{Math.round(nCals ?? 0).toLocaleString()} kcal</span></div>
+                    <div className="track"><i className="cal" style={{ width: `${tdeeCalPct}%` }} /></div>
+                  </div>
+                  {proteinTargetG != null && (
+                    <div className="nbar">
+                      <div className="lab"><span>Protein (1.6 g/kg)</span><span className="v num">{Math.round(nProtein ?? 0)} / {proteinTargetG}g</span></div>
+                      <div className="track"><i className="prot" style={{ width: `${proteinPct}%` }} /></div>
+                    </div>
+                  )}
+                  <Link href="/goals" className="linklike" style={{ display: "inline-block", marginTop: 14 }}>Edit goal &amp; profile</Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════ DESKTOP (unchanged) ═══════════ */}
+      <div className="hidden md:block">
       {/* ─── PAGE HEADER ─── */}
       <div className="flex items-center justify-between" style={{ paddingTop: "26px" }}>
         <div>
@@ -683,7 +967,8 @@ export default async function BodyPage() {
 
       {/* bottom spacing */}
       <div className="h-8" />
-    </div>
+      </div>
+    </>
   );
 }
 

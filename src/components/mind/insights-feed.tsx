@@ -249,7 +249,7 @@ export function InsightsFeed({
 
       {/* 2-column grid — design: .findgrid */}
       {rest.length > 0 && (
-        <div className="grid grid-cols-2 gap-[14px] mt-[14px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-[14px] mt-[14px]">
           {rest.map((insight) => (
             <div
               key={`${insight.tag}-${insight.direction}`}
@@ -311,7 +311,7 @@ function FeaturedFinding({ insight }: { insight: Insight }) {
 
   return (
     <div
-      className="grid grid-cols-[1fr_232px]"
+      className="grid grid-cols-1 md:grid-cols-[1fr_232px]"
       style={{
         borderLeft: "5px solid var(--color-green)",
         background: "var(--color-surface)",

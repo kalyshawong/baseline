@@ -154,7 +154,7 @@ Keep it under 250 words. Be direct and specific with numbers.`
       response = await withAnthropicRetry(
         () =>
           client.messages.create({
-            model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514",
+            model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
             max_tokens: 2048,
             system: systemPrompt,
             tools: COACH_TOOLS,

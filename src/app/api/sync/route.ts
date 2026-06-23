@@ -11,7 +11,13 @@ export async function POST(request: NextRequest) {
 
     // Allow from browser (no key needed for on-demand button) or with API key (for cron)
     const referer = request.headers.get("referer");
-    const isFromApp = referer?.includes(process.env.NEXT_PUBLIC_APP_URL || "localhost");
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const isFromApp =
+      !!referer &&
+      ((appUrl ? referer.includes(appUrl) : false) ||
+        // Any localhost referer counts as the app (local dev on any port).
+        referer.includes("localhost") ||
+        referer.includes("127.0.0.1"));
 
     if (!isFromApp && authHeader !== `Bearer ${apiKey}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

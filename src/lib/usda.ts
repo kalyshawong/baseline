@@ -21,7 +21,7 @@ export async function estimateMacros(rawInput: string): Promise<MacroEstimate[]>
   const message = await withAnthropicRetry(
     () =>
       client.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 1024,
         temperature: 0,
         messages: [

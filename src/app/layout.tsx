@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Archivo } from "next/font/google";
 import "./globals.css";
+import "./mobile.css";
 import { Nav } from "@/components/nav";
 import { PwaRegister } from "@/components/pwa-register";
+import { MobileTabBar } from "@/components/mobile/mobile-tab-bar";
 
 const bebasNeue = Bebas_Neue({
   weight: "400",
@@ -54,8 +56,11 @@ export default function RootLayout({
     <html lang="en" className={`${bebasNeue.variable} ${archivo.variable}`}>
       <body className="min-h-screen antialiased">
         <PwaRegister />
-        <Nav />
+        <div className="hidden md:block">
+          <Nav />
+        </div>
         {children}
+        <MobileTabBar />
       </body>
     </html>
   );

@@ -85,7 +85,7 @@ export function GiPatternsCard({ result }: { result: MealGiResult }) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-[14px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-[14px]">
           {result.patterns.map((p) => (
             <PatternCard key={p.factor} p={p} />
           ))}
