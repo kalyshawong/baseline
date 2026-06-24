@@ -9,15 +9,28 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
     const apiKey = process.env.SYNC_API_KEY;
 
-    // Allow from browser (no key needed for on-demand button) or with API key (for cron)
+    // Allow from browser (no key needed for on-demand button) or with API key (for cron).
+    // Trust same-origin requests: if the page that triggered the sync is served
+    // from this same deployment, the referer host equals our own host. This works
+    // automatically on prod, every Vercel preview URL, and localhost — without
+    // hardcoding a domain in NEXT_PUBLIC_APP_URL.
     const referer = request.headers.get("referer");
+    const host = request.headers.get("host");
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    const isFromApp =
-      !!referer &&
-      ((appUrl ? referer.includes(appUrl) : false) ||
-        // Any localhost referer counts as the app (local dev on any port).
-        referer.includes("localhost") ||
-        referer.includes("127.0.0.1"));
+    let isFromApp = false;
+    if (referer) {
+      try {
+        const refHost = new URL(referer).host;
+        isFromApp =
+          (!!host && refHost === host) ||
+          (appUrl ? referer.includes(appUrl) : false) ||
+          refHost.endsWith(".vercel.app") ||
+          referer.includes("localhost") ||
+          referer.includes("127.0.0.1");
+      } catch {
+        isFromApp = false;
+      }
+    }
 
     if (!isFromApp && authHeader !== `Bearer ${apiKey}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
