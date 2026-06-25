@@ -16,9 +16,13 @@ export async function POST(request: NextRequest) {
     // hardcoding a domain in NEXT_PUBLIC_APP_URL.
     const referer = request.headers.get("referer");
     const host = request.headers.get("host");
+    const secFetchSite = request.headers.get("sec-fetch-site");
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    let isFromApp = false;
-    if (referer) {
+    // The in-app Sync button is a same-origin browser fetch. Sec-Fetch-Site is
+    // sent by every modern browser even when the Referer is stripped (which
+    // happens inside an installed PWA / Add-to-Home-Screen), so trust it first.
+    let isFromApp = secFetchSite === "same-origin" || secFetchSite === "same-site";
+    if (!isFromApp && referer) {
       try {
         const refHost = new URL(referer).host;
         isFromApp =
