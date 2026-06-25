@@ -5,6 +5,7 @@ import { getScoreForDate } from "@/lib/baseline-score";
 import { computeTrainingCall, hrvCV, rollingHrvCvBaseline, isHrvCvElevated, computeFatigueScore } from "@/lib/training";
 import { getHrvBaselineChoice } from "@/lib/training-call";
 import { ChatInterface } from "@/components/coach/chat-interface";
+import { MobileCoach } from "@/components/mobile/mobile-coach";
 import { buildWorkoutDiscussionStarter } from "@/lib/workout-discussion";
 
 export const dynamic = "force-dynamic";
@@ -128,8 +129,38 @@ export default async function CoachPage({
     }),
   ]);
 
+  const mobileMessages = (currentSession?.messages ?? []).map((m) => ({
+    id: m.id,
+    role: m.role as "user" | "assistant",
+    content: m.content,
+    createdAt: m.createdAt.toISOString(),
+  }));
+  const mobileGoals = activeGoals.map((g) => ({
+    id: g.id,
+    title: g.title,
+    type: g.type,
+    subtype: g.subtype,
+    isPrimary: g.isPrimary,
+    deadline: g.deadline?.toISOString() ?? null,
+  }));
+
   return (
-    <div className="mx-auto max-w-[1000px] pt-[18px]">
+    <>
+      {/* ═══════════ MOBILE (Baseline iOS — Coach) ═══════════ */}
+      <div className="md:hidden">
+        <MobileCoach
+          initialSession={currentSession ? { id: currentSession.id, title: currentSession.title } : null}
+          initialMessages={mobileMessages}
+          sessions={sessions.map((s) => ({ id: s.id, title: s.title, updatedAt: s.updatedAt.toISOString() }))}
+          goals={mobileGoals}
+          initialInput={workoutStarter}
+          dailyBrief={{ title: briefTitle, body: briefBody }}
+        />
+      </div>
+
+      {/* ═══════════ DESKTOP (unchanged) ═══════════ */}
+      <div className="hidden md:block">
+      <div className="mx-auto max-w-[1000px] pt-[18px]">
       {/* Header — centered */}
       <div className="text-center pt-[14px] pb-1">
         <h1 className="disp text-[46px] leading-[0.9] tracking-[0.02em]">BASELINE COACH</h1>
@@ -180,5 +211,7 @@ export default async function CoachPage({
         dailyBrief={{ title: briefTitle, body: briefBody }}
       />
     </div>
+      </div>
+    </>
   );
 }

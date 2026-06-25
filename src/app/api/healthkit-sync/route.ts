@@ -124,75 +124,77 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
         break;
       }
 
-      case "step_count":
-        for (const d of metric.data) {
-          if (!d.qty || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
-          // Check if Oura already has this day — only overwrite steps (Apple Watch more accurate)
-          const existing = await prisma.dailyActivity.findUnique({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
-          });
-          if (existing) {
-            await prisma.dailyActivity.update({
-              where: { userId_day: { userId: getCurrentUserId(), day } },
-              data: { steps: Math.round(d.qty) },
-            });
-          }
-          count++;
+      case "step_count": {
+        // Batch: only update rows that already exist (Oura creates the day).
+        const stepRows = metric.data.filter((d) => d.qty && d.date);
+        if (stepRows.length > 0) {
+          await prisma.$transaction(
+            stepRows.map((d) => {
+              const day = dateStrToUTC(d.date.substring(0, 10));
+              return prisma.dailyActivity.updateMany({
+                where: { userId: getCurrentUserId(), day },
+                data: { steps: Math.round(d.qty!) },
+              });
+            }),
+          );
         }
+        count += stepRows.length;
         break;
+      }
 
-      case "active_energy":
-        for (const d of metric.data) {
-          if (!d.qty || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
-          const existing = await prisma.dailyActivity.findUnique({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
-          });
-          if (existing) {
-            await prisma.dailyActivity.update({
-              where: { userId_day: { userId: getCurrentUserId(), day } },
-              data: { activeCalories: Math.round(d.qty) },
-            });
-          }
-          count++;
+      case "active_energy": {
+        const energyRows = metric.data.filter((d) => d.qty && d.date);
+        if (energyRows.length > 0) {
+          await prisma.$transaction(
+            energyRows.map((d) => {
+              const day = dateStrToUTC(d.date.substring(0, 10));
+              return prisma.dailyActivity.updateMany({
+                where: { userId: getCurrentUserId(), day },
+                data: { activeCalories: Math.round(d.qty!) },
+              });
+            }),
+          );
         }
+        count += energyRows.length;
         break;
+      }
 
-      case "weight_body_mass":
-        for (const d of metric.data) {
-          if (!d.qty || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
-          const weightKg = d.qty * 0.453592;
-          await prisma.weightLog.upsert({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
-            update: { weightKg },
-            create: { userId: getCurrentUserId(), day, weightKg },
-          });
-          count++;
+      case "weight_body_mass": {
+        const weightRows = metric.data.filter((d) => d.qty && d.date);
+        if (weightRows.length > 0) {
+          await prisma.$transaction(
+            weightRows.map((d) => {
+              const day = dateStrToUTC(d.date.substring(0, 10));
+              const weightKg = d.qty! * 0.453592;
+              return prisma.weightLog.upsert({
+                where: { userId_day: { userId: getCurrentUserId(), day } },
+                update: { weightKg },
+                create: { userId: getCurrentUserId(), day, weightKg },
+              });
+            }),
+          );
         }
+        count += weightRows.length;
         break;
+      }
 
-      case "body_fat_percentage":
-        for (const d of metric.data) {
-          if (!d.qty || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
-          const existing = await prisma.weightLog.findUnique({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
-          });
-          if (existing) {
-            await prisma.weightLog.update({
-              where: { userId_day: { userId: getCurrentUserId(), day } },
-              data: { bodyFatPct: d.qty },
-            });
-          } else {
-            await prisma.weightLog.create({
-              data: { userId: getCurrentUserId(), day, weightKg: 0, bodyFatPct: d.qty },
-            });
-          }
-          count++;
+      case "body_fat_percentage": {
+        const bfRows = metric.data.filter((d) => d.qty && d.date);
+        if (bfRows.length > 0) {
+          await prisma.$transaction(
+            bfRows.map((d) => {
+              const day = dateStrToUTC(d.date.substring(0, 10));
+              return prisma.weightLog.upsert({
+                where: { userId_day: { userId: getCurrentUserId(), day } },
+                update: { bodyFatPct: d.qty },
+                create: { userId: getCurrentUserId(), day, weightKg: 0, bodyFatPct: d.qty },
+              });
+            }),
+          );
         }
+        count += bfRows.length;
         break;
+      }
 
       // --- Apple Watch running & fitness metrics (via Health Auto Export) ---
 

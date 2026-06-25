@@ -48,7 +48,7 @@ export function ReadinessTierCard({
 
   return (
     <div
-      className="grid grid-cols-[1fr_300px]"
+      className="grid grid-cols-1 md:grid-cols-[1fr_300px]"
       style={{
         borderLeft: "6px solid var(--color-yellow)",
         background: "var(--color-surface)",

@@ -31,7 +31,7 @@ export function RecoverySignalsRow({ hrv, stress, spO2, resilience }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-4 gap-[14px]">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-[14px]">
       <MetricCard
         label="HRV (overnight)"
         value={hrv != null ? Math.round(hrv) : null}

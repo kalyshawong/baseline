@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "./db";
 import { getCurrentUserId } from "./current-user";
 
@@ -163,7 +164,7 @@ function utcDaysAgo(from: Date, n: number): Date {
   return d;
 }
 
-export async function getScoreForDate(forDate?: Date): Promise<BaselineScore | null> {
+async function getScoreForDateUncached(forDate?: Date): Promise<BaselineScore | null> {
   const today = forDate ?? utcToday();
 
   const readiness = await prisma.dailyReadiness.findUnique({
@@ -225,6 +226,11 @@ export async function getScoreForDate(forDate?: Date): Promise<BaselineScore | n
     cycle.phase
   );
 }
+
+// Request-level memoization: the dashboard computes the same date's score
+// from several call sites (hero, training call, flags). cache() dedupes them
+// to a single ~8-query computation per server request (same Date instance).
+export const getScoreForDate = cache(getScoreForDateUncached);
 
 export async function getWeekSnapshots(forDate?: Date): Promise<DaySnapshot[]> {
   const today = forDate ?? utcToday();
