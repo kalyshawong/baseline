@@ -100,8 +100,10 @@ function sparkPoints(series: number[]): string {
 }
 
 export function MobileDashboard(p: MobileDashboardProps) {
+  // viewDate is a UTC-midnight Date; format it in UTC so it doesn't roll back a
+  // day when the server timezone is behind UTC (e.g. Eastern → "Jul 5").
   const dateLabel = p.viewDate
-    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })
     .toUpperCase()
     .replace(",", " ·");
   const lastSyncLabel = p.lastSyncIso
@@ -260,7 +262,7 @@ export function MobileDashboard(p: MobileDashboardProps) {
               <div className="big num">{daysToRace}</div>
               <div className="lbl">days to race</div>
               <div className="meta">
-                {p.hyrox.raceDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase()}
+                {p.hyrox.raceDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).toUpperCase()}
                 {targetMin != null && <> · TARGET SUB-{targetMin}</>}
               </div>
             </div>
