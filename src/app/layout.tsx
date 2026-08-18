@@ -4,6 +4,7 @@ import "./globals.css";
 import "./mobile.css";
 import { Nav } from "@/components/nav";
 import { PwaRegister } from "@/components/pwa-register";
+import { NativeHealthInit } from "@/components/native/native-health-init";
 import { MobileTabBar } from "@/components/mobile/mobile-tab-bar";
 
 const bebasNeue = Bebas_Neue({
@@ -56,6 +57,7 @@ export default function RootLayout({
     <html lang="en" className={`${bebasNeue.variable} ${archivo.variable}`}>
       <body className="min-h-screen antialiased">
         <PwaRegister />
+        <NativeHealthInit />
         <div className="hidden md:block">
           <Nav />
         </div>
