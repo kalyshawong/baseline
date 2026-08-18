@@ -25,6 +25,14 @@ export function middleware(req: NextRequest) {
 
   if (isExempt(req.nextUrl.pathname)) return NextResponse.next();
 
+  // Native iOS shell: WKWebView can't answer Basic Auth dialogs, so the
+  // Capacitor app appends a secret token to its User-Agent (see
+  // capacitor.config.ts appendUserAgent). Interim until real auth lands.
+  const uaToken = process.env.NATIVE_APP_UA_TOKEN;
+  if (uaToken && (req.headers.get("user-agent") ?? "").includes(uaToken)) {
+    return NextResponse.next();
+  }
+
   const auth = req.headers.get("authorization");
   if (auth?.startsWith("Basic ")) {
     try {
