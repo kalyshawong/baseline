@@ -99,10 +99,26 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         Task {
             do {
                 let n = try await self.collectAndPost()
-                call.resolve(["posted": n])
+                // Diagnostic probe: how many workouts are VISIBLE in the last
+                // 7 days, ignoring anchors. Distinguishes "permission/data
+                // problem" (0) from "anchor already consumed them" (>0).
+                let visible = (try? await self.probeWorkouts()) ?? -1
+                call.resolve(["posted": n, "workoutsVisible7d": visible])
             } catch {
                 call.reject(error.localizedDescription)
             }
+        }
+    }
+
+    private func probeWorkouts() async throws -> Int {
+        try await withCheckedThrowingContinuation { cont in
+            let start = Calendar.current.date(byAdding: .day, value: -7, to: Date())
+            let pred = HKQuery.predicateForSamples(withStart: start, end: nil)
+            let q = HKSampleQuery(sampleType: HKObjectType.workoutType(), predicate: pred,
+                                  limit: 100, sortDescriptors: nil) { _, samples, err in
+                if let err = err { cont.resume(throwing: err) } else { cont.resume(returning: samples?.count ?? 0) }
+            }
+            store.execute(q)
         }
     }
 
