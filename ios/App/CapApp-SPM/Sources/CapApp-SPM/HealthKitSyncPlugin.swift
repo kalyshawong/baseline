@@ -99,10 +99,26 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         Task {
             do {
                 let n = try await self.collectAndPost()
-                call.resolve(["posted": n])
+                // Diagnostic probe: how many workouts are VISIBLE in the last
+                // 7 days, ignoring anchors. Distinguishes "permission/data
+                // problem" (0) from "anchor already consumed them" (>0).
+                let visible = (try? await self.probeWorkouts()) ?? -1
+                call.resolve(["posted": n, "workoutsVisible7d": visible])
             } catch {
                 call.reject(error.localizedDescription)
             }
+        }
+    }
+
+    private func probeWorkouts() async throws -> Int {
+        try await withCheckedThrowingContinuation { cont in
+            let start = Calendar.current.date(byAdding: .day, value: -7, to: Date())
+            let pred = HKQuery.predicateForSamples(withStart: start, end: nil)
+            let q = HKSampleQuery(sampleType: HKObjectType.workoutType(), predicate: pred,
+                                  limit: 100, sortDescriptors: nil) { _, samples, err in
+                if let err = err { cont.resume(throwing: err) } else { cont.resume(returning: samples?.count ?? 0) }
+            }
+            store.execute(q)
         }
     }
 
@@ -119,9 +135,46 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         store.enableBackgroundDelivery(for: type, frequency: .hourly) { _, _ in }
     }
 
-    // MARK: - Collect new samples since anchors → POST in HAE envelope
+    // MARK: - Sync serialization
+    //
+    // Registering ~17 observers fires them all at once on startup; without a
+    // gate that's ~17 concurrent POSTs stampeding the server (connection-pool
+    // exhaustion, client timeouts). The gate allows ONE in-flight sync and
+    // coalesces every request that arrives meanwhile into a single follow-up.
+    private actor SyncGate {
+        private var inFlight = false
+        private var queued = false
+        func begin() -> Bool {
+            if inFlight { queued = true; return false }
+            inFlight = true
+            return true
+        }
+        func end() -> Bool {
+            inFlight = false
+            if queued { queued = false; return true }
+            return false
+        }
+    }
+    private let gate = SyncGate()
 
     private func collectAndPost() async throws -> Int {
+        guard await gate.begin() else { return 0 } // coalesced into in-flight sync
+        var total: Int
+        do {
+            total = try await performSync()
+        } catch {
+            _ = await gate.end()
+            throw error
+        }
+        if await gate.end() {
+            total += (try? await collectAndPost()) ?? 0 // one follow-up for coalesced requests
+        }
+        return total
+    }
+
+    // MARK: - Collect new samples since anchors → POST in HAE envelope
+
+    private func performSync() async throws -> Int {
         guard let server = UserDefaults.standard.string(forKey: "bl_server"),
               let key = UserDefaults.standard.string(forKey: "bl_key") else { return 0 }
 
@@ -215,20 +268,21 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         if let data = UserDefaults.standard.data(forKey: anchorKey) {
             anchor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
         }
-        // First sync (no anchor yet): limit to the last 30 days. Without this,
-        // the anchored query returns the ENTIRE Health history — a payload big
-        // enough to fail the POST. Incremental syncs thereafter use the anchor.
+        // First sync (no anchor yet): limit to the last 7 days. Health Auto
+        // Export already backfilled the deep history, and an unbounded anchored
+        // query would return the ENTIRE Health archive. Incremental syncs
+        // thereafter use the anchor.
         var predicate: NSPredicate? = nil
         if anchor == nil {
-            let start = Calendar.current.date(byAdding: .day, value: -30, to: Date())
+            let start = Calendar.current.date(byAdding: .day, value: -7, to: Date())
             predicate = HKQuery.predicateForSamples(withStart: start, end: nil)
         }
         return try await withCheckedThrowingContinuation { cont in
-            // 10k cap per type per sync keeps each POST under Vercel's body
-            // limit; the anchor advances past returned samples, so successive
-            // syncs (hourly observers or manual) drain the backlog in chunks.
+            // 4k cap per type per sync keeps each POST light on the server's
+            // DB pool; the anchor advances past returned samples, so successive
+            // syncs (hourly observers or manual) drain any backlog in chunks.
             let q = HKAnchoredObjectQuery(type: type, predicate: predicate, anchor: anchor,
-                                          limit: 10_000) { [weak self] _, samples, _, newAnchor, err in
+                                          limit: 4_000) { [weak self] _, samples, _, newAnchor, err in
                 if let err = err { cont.resume(throwing: err); return }
                 if let newAnchor = newAnchor { self?.pendingAnchors[anchorKey] = newAnchor }
                 cont.resume(returning: samples ?? [])

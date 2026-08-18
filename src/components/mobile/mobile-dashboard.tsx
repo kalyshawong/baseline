@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import type { HrvBaselineSummary } from "@/lib/training-call";
 import type { TrainingCall } from "@/lib/training";
 import { SyncButton } from "@/components/dashboard/sync-button";
+import { MobileDateNav } from "@/components/mobile/mobile-date-nav";
 
 /**
  * Mobile "Today" screen — implements the Claude Design "Baseline iOS"
@@ -148,9 +150,9 @@ export function MobileDashboard(p: MobileDashboardProps) {
       </div>
 
       <div className="datestrip">
-        <div className="datenav">
-          <span className="d">{dateLabel}</span>
-        </div>
+        <Suspense fallback={<div className="datenav"><span className="d">{dateLabel}</span></div>}>
+          <MobileDateNav basePath="/" />
+        </Suspense>
         {p.isConnected ? (
           <SyncButton />
         ) : (
