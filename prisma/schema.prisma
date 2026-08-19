@@ -891,6 +891,14 @@ model WorkoutNote {
   workoutDate    DateTime
   narrative      String
   analysis       String?
+  // Runner GI context: did she empty her stomach (bowel movement) before the
+  // run? Null = not answered. Feeds the meal→GI analyzer as a factor once n
+  // is sufficient.
+  preRunBowel    Boolean?
+  // Explicit fasted answer. An empty fuel window is NOT evidence of fasting
+  // (unlogged ≠ didn't eat) — the analyzer only treats a run as fasted when
+  // this is true. Logged food in the window overrides a stale "true" here.
+  preRunFasted   Boolean?
   signalSnapshot String?
 
   // --- GI outcome (meal->GI backward analyzer; see docs/meal-gi-analyzer-spec.md) ---
