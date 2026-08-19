@@ -4,6 +4,7 @@ import type { HrvBaselineSummary } from "@/lib/training-call";
 import type { TrainingCall } from "@/lib/training";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { MobileDateNav } from "@/components/mobile/mobile-date-nav";
+import { WorkoutCard } from "@/components/dashboard/workout-card";
 
 /**
  * Mobile "Today" screen — implements the Claude Design "Baseline iOS"
@@ -61,6 +62,20 @@ export type MobileDashboardProps = {
   caloriesIn: number | null;
   workoutRows: { time: string; name: string; detail: string }[];
   trainingCount: number;
+  /** Full-treatment training workouts (HR chart + notes/GI editor), same data
+   * the desktop WorkoutCards receive. */
+  trainingWorkouts: {
+    id: string;
+    name: string;
+    startedAt: string;
+    endedAt: string;
+    durationSeconds: number;
+    activeCalories: number | null;
+    avgHeartRate: number | null;
+    maxHeartRate: number | null;
+    minHeartRate: number | null;
+  }[];
+  hrCharts: Record<string, { t: number; bpm: number }[]>;
   sleepTargetTime: string | null;
   mealCount: number;
   workoutSummary: string | null;
@@ -352,7 +367,13 @@ export function MobileDashboard(p: MobileDashboardProps) {
             </div>
           )}
 
-          {/* Workout */}
+          {/* Training workouts — full desktop treatment: HR chart + notes/GI
+              editor + discuss-with-coach, one card per workout. */}
+          {p.trainingWorkouts.map((w) => (
+            <WorkoutCard key={w.id} workout={w} hrChart={p.hrCharts[w.id] ?? []} />
+          ))}
+
+          {/* Ambient activity list (walks etc.) + manual-log entry point */}
           <div className="panel wk">
             <span className="ov">Workout</span>
             {p.workoutRows.length === 0 ? (
