@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 function isExempt(pathname: string): boolean {
   if (pathname.startsWith("/_next")) return true;
   if (pathname.startsWith("/api/healthkit-sync")) return true; // key-authed, external
+  if (pathname === "/api/keepalive") return true; // Vercel cron; leaks nothing
   // PWA + static files (sw.js, icons, manifest, fonts, favicon)
   if (/\.(?:png|svg|ico|webmanifest|js|txt|woff2?|json)$/.test(pathname)) return true;
   return false;
