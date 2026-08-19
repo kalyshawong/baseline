@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
-import { getLocalDay } from "@/lib/date-utils";
+import { getLocalDay, getRequestTz } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
 
 export async function GET(
@@ -37,7 +37,7 @@ export async function POST(
       return NextResponse.json({ error: "independentValue is required" }, { status: 400 });
     }
 
-    const dayDate = day ? new Date(day) : getLocalDay();
+    const dayDate = day ? new Date(day) : getLocalDay(await getRequestTz());
 
     // Upsert log (one per experiment per day)
     const log = await prisma.experimentLog.upsert({

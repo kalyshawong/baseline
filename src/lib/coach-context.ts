@@ -1,6 +1,6 @@
 import { prisma } from "./db";
 import { getCurrentUserId } from "./current-user";
-import { getLocalDay } from "./date-utils";
+import { getLocalDay, getRequestTz } from "./date-utils";
 import { getScoreForDate } from "./baseline-score";
 import {
   readinessTier,
@@ -539,7 +539,7 @@ function buildHyroxPaceGapSection(
 export async function buildCoachContext(focusGoalId?: string | null): Promise<string> {
   try {
   const now = new Date();
-  const localToday = getLocalDay();
+  const localToday = getLocalDay(await getRequestTz());
 
   // BUG-006 fix: use Promise.allSettled so partial failures don't crash the whole context
   function val<T>(r: PromiseSettledResult<T>, fallback: T): T {

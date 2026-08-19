@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/db";
 import { hrvCV } from "@/lib/training";
-import { dateStrToUTC, getLocalDayBounds } from "@/lib/date-utils";
+import { dateStrToUTC, getLocalDayBounds, getRequestTz } from "@/lib/date-utils";
 import { computePaceBudget, formatKmPace } from "@/lib/hyrox-pace";
 import { getHyroxToday } from "@/lib/hyrox-today";
 import { getPreWorkoutFuel } from "@/lib/pre-workout-fuel";
@@ -227,11 +227,12 @@ const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
  * user's local day — not UTC's day (which would slice a workout that
  * started at 8:33 PM EDT into the NEXT UTC day's bucket).
  */
-function parseLocalDayBounds(
+async function parseLocalDayBounds(
   input: DateRangeInput,
-): { gte: Date; lt: Date } | null {
+): Promise<{ gte: Date; lt: Date } | null> {
+  const tz = await getRequestTz(); // viewer's day boundaries
   if (typeof input.date === "string" && YMD_RE.test(input.date)) {
-    const { start, end } = getLocalDayBounds(input.date);
+    const { start, end } = getLocalDayBounds(input.date, tz);
     return { gte: start, lt: end };
   }
   if (
@@ -240,8 +241,8 @@ function parseLocalDayBounds(
     YMD_RE.test(input.start_date) &&
     YMD_RE.test(input.end_date)
   ) {
-    const { start } = getLocalDayBounds(input.start_date);
-    const { end } = getLocalDayBounds(input.end_date);
+    const { start } = getLocalDayBounds(input.start_date, tz);
+    const { end } = getLocalDayBounds(input.end_date, tz);
     return { gte: start, lt: end };
   }
   return null;
@@ -322,7 +323,7 @@ async function handleFoodLog(input: DateRangeInput): Promise<unknown> {
 async function handleWorkouts(input: DateRangeInput): Promise<unknown> {
   // HealthKitWorkout.startedAt is a real timestamp — use local-day
   // bounds so the day param matches the user's calendar day, not UTC's.
-  const bounds = parseLocalDayBounds(input);
+  const bounds = await parseLocalDayBounds(input);
   if (!bounds) {
     return {
       error:
@@ -744,7 +745,7 @@ async function handleHyroxToday(): Promise<unknown> {
 }
 
 async function handleHyroxSessions(input: DateRangeInput): Promise<unknown> {
-  const bounds = parseLocalDayBounds(input);
+  const bounds = await parseLocalDayBounds(input);
   if (!bounds) {
     return {
       error:

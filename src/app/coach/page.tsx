@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
-import { getLocalDay } from "@/lib/date-utils";
+import { getLocalDay, getRequestTz } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import { computeTrainingCall, hrvCV, rollingHrvCvBaseline, isHrvCvElevated, computeFatigueScore } from "@/lib/training";
 import { getHrvBaselineChoice } from "@/lib/training-call";
@@ -28,7 +28,7 @@ export default async function CoachPage({
       : null;
 
   // Build daily brief summary from real data
-  const localToday = getLocalDay();
+  const localToday = getLocalDay(await getRequestTz());
   const [score, recentSleep, dayStress, cyclePhase] = await Promise.all([
     getScoreForDate(localToday),
     prisma.dailySleep.findMany({

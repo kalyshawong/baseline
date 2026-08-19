@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getLocalDay } from "@/lib/date-utils";
+import { getLocalDay, getRequestTz } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
 import { getCurrentUserId } from "@/lib/current-user";
 
 export async function GET() {
   try {
-    const today = getLocalDay();
+    const today = getLocalDay(await getRequestTz());
 
     const phase = await prisma.cyclePhaseLog.findUnique({
       where: { userId_day: { userId: getCurrentUserId(), day: today } },
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const today = getLocalDay();
+    const today = getLocalDay(await getRequestTz());
 
     const result = await prisma.cyclePhaseLog.upsert({
       where: { userId_day: { userId: getCurrentUserId(), day: today } },

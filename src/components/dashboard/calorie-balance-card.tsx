@@ -37,9 +37,12 @@ const barClass: Record<string, string> = {
 export function CalorieBalanceCard({ caloriesIn, caloriesOut, goal }: Props) {
   if (caloriesOut == null) return null;
 
-  const cIn = caloriesIn ?? 0;
-  const net = cIn - caloriesOut;
-  const classification = classifyBalance(net, goal ?? "maintain");
+  // No intake logged ≠ ate nothing. Never compute a "deficit" from an
+  // absent log — same rule as the GI analyzer's fasted factor.
+  const hasIntake = caloriesIn != null;
+  const net = hasIntake ? caloriesIn - caloriesOut : null;
+  const classification =
+    net != null ? classifyBalance(net, goal ?? "maintain") : null;
 
   return (
     <div className="panel">
@@ -49,7 +52,7 @@ export function CalorieBalanceCard({ caloriesIn, caloriesOut, goal }: Props) {
         <div className="bg-[var(--color-surface-2)] p-3 text-center">
           <div className="ov">In</div>
           <div className="disp num text-[40px] leading-[0.9] text-[var(--color-green)]">
-            {Math.round(cIn)}
+            {hasIntake ? Math.round(caloriesIn) : "—"}
           </div>
         </div>
         <div className="bg-[var(--color-surface-2)] p-3 text-center">
@@ -61,16 +64,22 @@ export function CalorieBalanceCard({ caloriesIn, caloriesOut, goal }: Props) {
         <div className="bg-[var(--color-surface-2)] p-3 text-center">
           <div className="ov">Net</div>
           <div className={`disp num text-[40px] leading-[0.9] ${
-            net > 0 ? "text-[var(--color-green)]" : net < 0 ? "text-[var(--color-yellow)]" : "text-[var(--color-text)]"
+            net == null ? "text-[var(--color-text-muted)]" : net > 0 ? "text-[var(--color-green)]" : net < 0 ? "text-[var(--color-yellow)]" : "text-[var(--color-text)]"
           }`}>
-            {net > 0 ? "+" : ""}{Math.round(net)}
+            {net == null ? "—" : `${net > 0 ? "+" : ""}${Math.round(net)}`}
           </div>
         </div>
       </div>
 
-      <div className={`mt-3 ${barClass[classification.status]} py-2.5 text-center text-xs font-extrabold uppercase tracking-[0.08em] text-[var(--color-bg)] angled-clip`}>
-        {classification.message}
-      </div>
+      {classification ? (
+        <div className={`mt-3 ${barClass[classification.status]} py-2.5 text-center text-xs font-extrabold uppercase tracking-[0.08em] text-[var(--color-bg)] angled-clip`}>
+          {classification.message}
+        </div>
+      ) : (
+        <div className="mt-3 py-2.5 text-center text-xs uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+          No intake logged — net unknown
+        </div>
+      )}
     </div>
   );
 }

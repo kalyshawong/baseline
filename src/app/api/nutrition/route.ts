@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
-import { getLocalDay } from "@/lib/date-utils";
+import { getLocalDay, getRequestTz } from "@/lib/date-utils";
 import { estimateMacros } from "@/lib/usda";
 import { apiError } from "@/lib/utils";
 
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
       logDay = new Date(date + "T00:00:00.000Z");
     } else {
-      logDay = getLocalDay();
+      logDay = getLocalDay(await getRequestTz());
     }
 
     // Upsert day's NutritionLog
@@ -218,7 +218,7 @@ export async function DELETE(request: NextRequest) {
 
 export async function GET() {
   try {
-    const today = getLocalDay();
+    const today = getLocalDay(await getRequestTz());
 
     const log = await prisma.nutritionLog.findUnique({
       where: { userId_day: { userId: getCurrentUserId(), day: today } },

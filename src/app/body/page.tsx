@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
-import { getLocalDay } from "@/lib/date-utils";
+import { getLocalDay, getRequestTz } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import {
   cyclePhaseGuidance,
@@ -63,7 +63,7 @@ function cap(s: string | null | undefined): string | null {
 export const dynamic = "force-dynamic";
 
 export default async function BodyPage() {
-  const localToday = getLocalDay();
+  const localToday = getLocalDay(await getRequestTz());
 
   // Week window (Monday-Sunday)
   const weekStart = new Date(localToday);

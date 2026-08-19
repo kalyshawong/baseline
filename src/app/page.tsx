@@ -16,7 +16,7 @@ import { HyroxCountdownCard } from "@/components/dashboard/hyrox-countdown-card"
 import { getHyroxToday } from "@/lib/hyrox-today";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { DateNav } from "@/components/date-nav";
-import { getDateFromParams, getDateStrFromParams, getLocalDay, getLocalDayBounds } from "@/lib/date-utils";
+import { getDateFromParams, getDateStrFromParams, getLocalDay, getLocalDayBounds, getRequestTz } from "@/lib/date-utils";
 import { getTrainingCallForDate, getHrvBaselineSummary } from "@/lib/training-call";
 import { getFlags } from "@/lib/flags";
 import { BaselineCard } from "@/components/dashboard/baseline-card";
@@ -104,7 +104,8 @@ export default async function Dashboard({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const viewDate = getDateFromParams(params);
+  const tz = await getRequestTz(); // viewer's day, not the server's
+  const viewDate = getDateFromParams(params, tz);
 
   let score = null;
   let daySleep = null;
@@ -129,8 +130,8 @@ export default async function Dashboard({
     // Use local-timezone day bounds for timestamp-based queries (e.g.
     // HealthKitWorkout.startedAt). UTC midnight skews late-evening local
     // workouts into the next day's bucket.
-    const viewDateStr = getDateStrFromParams(params);
-    const { start: viewDayStart, end: viewDayEnd } = getLocalDayBounds(viewDateStr);
+    const viewDateStr = getDateStrFromParams(params, tz);
+    const { start: viewDayStart, end: viewDayEnd } = getLocalDayBounds(viewDateStr, tz);
 
     const [
       scoreResult,
@@ -232,7 +233,7 @@ export default async function Dashboard({
 
   // Training call — computed for every viewed date so the dashboard
   // always shows the hero band (past dates show what the call *was*).
-  const isToday = isSameLocalDay(viewDate, getLocalDay());
+  const isToday = isSameLocalDay(viewDate, getLocalDay(tz));
   const todayCall = await getTrainingCallForDate(viewDate);
 
   // Flags for the viewed day — reuse the call we just computed so getFlags
