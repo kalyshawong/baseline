@@ -42,7 +42,7 @@ export interface MealGiResult {
   patterns: GiPattern[];
   /** GI failures (moderate|vomited) among analyzable sessions. */
   positiveEvents: number;
-  /** Labeled sessions we could actually assess (had logged pre-workout food). */
+  /** Labeled sessions with a resolvable workout start (assessability is per-factor). */
   analyzedSessions: number;
   /** True once we have enough events to call patterns. */
   sufficient: boolean;
@@ -55,49 +55,73 @@ const MIN_EVENTS = 6;
 const FAILURE_OUTCOMES = new Set(["moderate", "vomited"]);
 
 // ── Factor definitions ─────────────────────────────────────────────────────
+/** Context beyond the fuel window that factors may draw on. */
+interface NoteContext {
+  preRunBowel: boolean | null;
+}
+
 interface FactorDef {
   key: string;
   factor: string; // display label
   controlLabel: string;
-  test: (f: PreWorkoutFuel) => boolean;
+  /**
+   * Tri-state: true = factor present, false = absent, undefined = NOT
+   * ASSESSABLE for this session (excluded from this factor's 2×2 — e.g.
+   * meal-composition factors on a day with no logged food, or the bowel
+   * factor on runs where the tickbox was never answered). This is what
+   * makes "fasted" reachable: fasted-looking sessions stay in the pool
+   * instead of being dropped wholesale.
+   */
+  test: (f: PreWorkoutFuel, n: NoteContext) => boolean | undefined;
   /** Independent-variable label pre-filled into a Mind experiment. */
   iv: string;
 }
 
+// Meal-composition factors can't be judged on unlogged days (a missing log
+// is not "no red meat") — they return undefined when nothing was logged.
 const FACTORS: FactorDef[] = [
   {
     key: "low_carb",
     factor: "low carbs pre-workout (<15g in 4h)",
     controlLabel: "sessions with more pre-workout carbs",
-    test: (f) => f.items.length > 0 && f.totals.carbs < 15,
+    test: (f) => (f.items.length === 0 ? undefined : f.totals.carbs < 15),
     iv: "Eat <15g carbs in the 4h before training",
   },
   {
     key: "short_gap",
     factor: "short last-meal gap (<2h)",
     controlLabel: "sessions with a >=2h gap",
-    test: (f) => f.lastMealGapHours != null && f.lastMealGapHours < 2,
+    test: (f) =>
+      f.items.length === 0
+        ? undefined
+        : f.lastMealGapHours != null && f.lastMealGapHours < 2,
     iv: "Eat within 2h before training",
   },
   {
     key: "red_meat",
     factor: "red meat within 4h",
     controlLabel: "sessions without red meat in the 4h band",
-    test: (f) => f.items.some((i) => i.tags.includes("red_meat")),
+    test: (f) =>
+      f.items.length === 0
+        ? undefined
+        : f.items.some((i) => i.tags.includes("red_meat")),
     iv: "Eat red meat in the 4h before training",
   },
   {
     key: "high_fat",
     factor: "high fat (>=25g in 4h)",
     controlLabel: "sessions with <25g fat in the band",
-    test: (f) => f.totals.fat >= 25,
+    test: (f) => (f.items.length === 0 ? undefined : f.totals.fat >= 25),
     iv: "Eat >=25g fat in the 4h before training",
   },
   {
     key: "eating_out",
     factor: "restaurant/takeout meal",
     controlLabel: "home-cooked sessions",
-    test: (f) => f.items.some((i) => i.source === "restaurant" || i.source === "takeout"),
+    test: (f) =>
+      f.items.length === 0
+        ? undefined
+        : f.items.some((i) => i.source === "restaurant" || i.source === "takeout"),
     iv: "Eat restaurant/takeout food before training",
   },
   {
@@ -110,6 +134,16 @@ const FACTORS: FactorDef[] = [
     controlLabel: "sessions with pre-workout fuel",
     test: (f) => f.items.length === 0,
     iv: "Train fasted (no food in the 4h before)",
+  },
+  {
+    // Runner GI classic: running on a full colon. Only assessable on runs
+    // where she answered the post-run tickbox; unanswered runs are excluded
+    // rather than assumed either way.
+    key: "no_prerun_bowel",
+    factor: "no bowel movement before the run",
+    controlLabel: "runs where you'd emptied your stomach first",
+    test: (_f, n) => (n.preRunBowel == null ? undefined : !n.preRunBowel),
+    iv: "Run without a bowel movement beforehand",
   },
 ];
 
@@ -176,17 +210,23 @@ export async function analyzeMealGi(): Promise<MealGiResult> {
   // Labeled, confidently — skip needsReview rows (unconfirmed positives).
   const notes = await prisma.workoutNote.findMany({
     where: { userId, giOutcome: { not: null }, giNeedsReview: false },
-    select: { workoutSource: true, workoutId: true, giOutcome: true },
+    select: {
+      workoutSource: true,
+      workoutId: true,
+      giOutcome: true,
+      preRunBowel: true,
+    },
   });
 
   const startMap = await resolveStarts(notes, userId);
 
-  // Build the analyzable session list: those with a resolvable start AND
-  // logged pre-workout food (can't assess meal factors on unlogged days —
-  // a missing log is not the same as a fasted session).
+  // Build the analyzable session list: those with a resolvable start.
+  // Assessability is now PER-FACTOR (test returns undefined to sit a
+  // session out of that factor's 2×2) — the old wholesale skip of
+  // no-food sessions made the "fasted" factor unreachable.
   interface Session {
     failed: boolean;
-    present: Record<string, boolean>;
+    present: Record<string, boolean | undefined>;
   }
   const sessions: Session[] = [];
 
@@ -194,10 +234,10 @@ export async function analyzeMealGi(): Promise<MealGiResult> {
     const start = startMap.get(`${n.workoutSource}:${n.workoutId}`);
     if (!start) continue;
     const fuel = await getPreWorkoutFuel(start, 4);
-    if (fuel.items.length === 0) continue; // nothing logged -> can't assess
+    const ctx: NoteContext = { preRunBowel: n.preRunBowel };
 
-    const present: Record<string, boolean> = {};
-    for (const f of FACTORS) present[f.key] = f.test(fuel);
+    const present: Record<string, boolean | undefined> = {};
+    for (const f of FACTORS) present[f.key] = f.test(fuel, ctx);
     sessions.push({ failed: FAILURE_OUTCOMES.has(n.giOutcome as string), present });
   }
 
@@ -213,6 +253,7 @@ export async function analyzeMealGi(): Promise<MealGiResult> {
     let a = 0, b = 0, c = 0, d = 0; // present-failed, present-clean, absent-failed, absent-clean
     for (const s of sessions) {
       const p = s.present[f.key];
+      if (p === undefined) continue; // not assessable for this factor
       if (p && s.failed) a++;
       else if (p && !s.failed) b++;
       else if (!p && s.failed) c++;
@@ -229,7 +270,7 @@ export async function analyzeMealGi(): Promise<MealGiResult> {
     const pValue = fisherExactTwoTailed(a, b, c, d);
 
     // Confounders: other factors present on >=60% of THIS factor's failure days.
-    const failureDays = sessions.filter((s) => s.present[f.key] && s.failed);
+    const failureDays = sessions.filter((s) => s.present[f.key] === true && s.failed);
     const confounders: string[] = [];
     if (failureDays.length > 0) {
       for (const other of FACTORS) {

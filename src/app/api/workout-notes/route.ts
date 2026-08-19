@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/workout-notes
- * body: { source, workoutId, narrative }
+ * body: { source, workoutId, narrative, preRunBowel? }
  *
  * Creates a note for a workout. Captures a signal snapshot at create
  * time so future analysis reasons over data as-it-was, not as-it-is.
@@ -68,7 +68,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { source, workoutId, narrative } = body ?? {};
+    const { source, workoutId, narrative, preRunBowel } = body ?? {};
+
+    if (preRunBowel != null && typeof preRunBowel !== "boolean") {
+      return NextResponse.json(
+        { error: "preRunBowel must be a boolean or null" },
+        { status: 400 },
+      );
+    }
 
     if (!isValidWorkoutSource(source)) {
       return NextResponse.json(
@@ -119,6 +126,7 @@ export async function POST(request: NextRequest) {
         workoutId,
         workoutDate: workout.workoutDate,
         narrative: narrative.trim(),
+        preRunBowel: preRunBowel ?? null,
         signalSnapshot: JSON.stringify(signals),
         ...gi,
       },

@@ -39,6 +39,8 @@ interface WorkoutNoteData {
   narrative: string;
   /** Reserved for future use (unused in UI as of 2026-05-27 — see header comment). */
   analysis: string | null;
+  /** Runner GI factor: emptied stomach (bowel movement) before the run. Null = not answered. */
+  preRunBowel: boolean | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -55,6 +57,9 @@ export function WorkoutNotesBlock({ source, workoutId }: Props) {
   const [note, setNote] = useState<WorkoutNoteData | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState("");
+  // Tri-state: null = unanswered, true/false = answered. Feeds the meal→GI
+  // analyzer as a factor once enough runs carry an answer.
+  const [bowel, setBowel] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +76,7 @@ export function WorkoutNotesBlock({ source, workoutId }: Props) {
           const data: WorkoutNoteData = await res.json();
           setNote(data);
           setDraft(data.narrative);
+          setBowel(data.preRunBowel ?? null);
         }
       } catch {
         // Network failure — treat as no note; user can still try to create.
@@ -94,8 +100,8 @@ export function WorkoutNotesBlock({ source, workoutId }: Props) {
         : "/api/workout-notes";
       const method = note ? "PATCH" : "POST";
       const body = note
-        ? { narrative: trimmed }
-        : { source, workoutId, narrative: trimmed };
+        ? { narrative: trimmed, preRunBowel: bowel }
+        : { source, workoutId, narrative: trimmed, preRunBowel: bowel };
 
       const res = await fetch(url, {
         method,
@@ -111,13 +117,14 @@ export function WorkoutNotesBlock({ source, workoutId }: Props) {
       const saved: WorkoutNoteData = await res.json();
       setNote(saved);
       setDraft(saved.narrative);
+      setBowel(saved.preRunBowel ?? null);
       setExpanded(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
     }
-  }, [draft, note, source, workoutId]);
+  }, [draft, bowel, note, source, workoutId]);
 
   if (load === "loading") {
     // Render nothing while loading rather than flash an "Add notes"
@@ -161,6 +168,25 @@ export function WorkoutNotesBlock({ source, workoutId }: Props) {
             autoFocus={!note}
             maxLength={4_000}
           />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-[var(--color-text-muted)]">
+              Emptied stomach before this run?
+            </span>
+            {([true, false] as const).map((v) => (
+              <button
+                key={String(v)}
+                type="button"
+                onClick={() => setBowel(bowel === v ? null : v)}
+                className={`px-2.5 py-1 text-xs transition duration-150 ease-out-strong active:scale-[0.97] ${
+                  bowel === v
+                    ? "bg-white/20 text-[var(--color-text)]"
+                    : "bg-white/5 text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                }`}
+              >
+                {v ? "Yes" : "No"}
+              </button>
+            ))}
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -191,6 +217,11 @@ export function WorkoutNotesBlock({ source, workoutId }: Props) {
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--color-text)]">
             {note?.narrative}
           </p>
+          {note?.preRunBowel != null && (
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Emptied stomach pre-run: {note.preRunBowel ? "yes" : "no"}
+            </p>
+          )}
           <button
             type="button"
             onClick={() => setExpanded(true)}

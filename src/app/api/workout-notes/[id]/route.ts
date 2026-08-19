@@ -12,7 +12,7 @@ const NARRATIVE_MAX_LEN = 4_000;
 
 /**
  * PATCH /api/workout-notes/[id]
- * body: { narrative }
+ * body: { narrative, preRunBowel? }
  *
  * Updates the narrative AND re-captures the signal snapshot. The
  * previous design left the snapshot frozen at create-time, but a
@@ -29,8 +29,14 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { narrative } = body ?? {};
+    const { narrative, preRunBowel } = body ?? {};
 
+    if (preRunBowel !== undefined && preRunBowel !== null && typeof preRunBowel !== "boolean") {
+      return NextResponse.json(
+        { error: "preRunBowel must be a boolean or null" },
+        { status: 400 },
+      );
+    }
     if (typeof narrative !== "string") {
       return NextResponse.json(
         { error: "narrative is required and must be a string" },
@@ -74,6 +80,9 @@ export async function PATCH(
         // Editing the narrative invalidates any previous analysis —
         // null it so the UI prompts the user to re-analyze.
         analysis: null,
+        // Only touch preRunBowel when the client sent the key — an omitted
+        // field must not wipe an earlier answer.
+        ...(preRunBowel !== undefined ? { preRunBowel } : {}),
         ...(signalSnapshot ? { signalSnapshot } : {}),
         ...gi,
       },
