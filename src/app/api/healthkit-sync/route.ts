@@ -9,6 +9,19 @@ export const maxDuration = 300;
 
 // --- Processing functions per spec ---
 
+/** Sum sample quantities per YYYY-MM-DD (date strings carry the sample's local offset). */
+function sumByDay(
+  data: Array<{ date: string; qty?: number }>,
+): Map<string, number> {
+  const byDay = new Map<string, number>();
+  for (const d of data) {
+    if (!d.qty || !d.date) continue;
+    const day = d.date.substring(0, 10);
+    byDay.set(day, (byDay.get(day) ?? 0) + d.qty);
+  }
+  return byDay;
+}
+
 interface MetricEntry {
   name: string;
   units?: string;
@@ -65,7 +78,16 @@ interface CycleEntry {
   ovulationTestResult?: string | null;
 }
 
-async function processMetrics(metrics: MetricEntry[]): Promise<number> {
+async function processMetrics(
+  metrics: MetricEntry[],
+  source: "native-app" | "health-auto-export",
+): Promise<number> {
+  // Only HAE may write daily activity totals: HAE exports full-day
+  // aggregates, but the native plugin sends since-watermark samples, so
+  // any sum it computes is a PARTIAL day — writing it would clobber
+  // Oura's correct daily summary. Native's value-add is the sample-level
+  // streams (HR, running metrics, workouts, cycle), not dailies.
+  const mayWriteDailyTotals = source === "health-auto-export";
   let count = 0;
 
   for (const metric of metrics) {
@@ -75,26 +97,27 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
 
     switch (metric.name) {
       case "heart_rate": {
-        // Batch upserts inside a transaction — one DB round-trip per batch
-        // instead of one per sample. ~60x faster than sequential awaits.
+        // createMany + skipDuplicates: one INSERT per batch instead of one
+        // upsert statement per sample. HR samples are immutable once
+        // recorded, so "insert if new, ignore if seen" is the right
+        // semantic — and it's what lets a 4,000-sample native re-send fit
+        // inside the function budget (per-sample upserts were pushing
+        // syncs past maxDuration; killed functions never logged or 200'd,
+        // so the phone's watermark never advanced: 2026-08-19).
         const hrRows = metric.data
           .filter((d) => (d.Avg ?? d.qty) && d.date)
           .map((d) => ({
+            userId: getCurrentUserId(),
             bpm: Math.round((d.Avg ?? d.qty)!),
+            source: "apple-watch",
             timestamp: new Date(d.date),
           }));
-        const BATCH = 500;
+        const BATCH = 1000;
         for (let i = 0; i < hrRows.length; i += BATCH) {
-          const batch = hrRows.slice(i, i + BATCH);
-          await prisma.$transaction(
-            batch.map((r) =>
-              prisma.heartRateSample.upsert({
-                where: { userId_timestamp_source: { userId: getCurrentUserId(), timestamp: r.timestamp, source: "apple-watch" } },
-                update: { bpm: r.bpm },
-                create: { userId: getCurrentUserId(), bpm: r.bpm, source: "apple-watch", timestamp: r.timestamp },
-              }),
-            ),
-          );
+          await prisma.heartRateSample.createMany({
+            data: hrRows.slice(i, i + BATCH),
+            skipDuplicates: true,
+          });
         }
         count += hrRows.length;
         break;
@@ -125,37 +148,36 @@ async function processMetrics(metrics: MetricEntry[]): Promise<number> {
       }
 
       case "step_count": {
-        // Batch: only update rows that already exist (Oura creates the day).
-        const stepRows = metric.data.filter((d) => d.qty && d.date);
-        if (stepRows.length > 0) {
-          await prisma.$transaction(
-            stepRows.map((d) => {
-              const day = dateStrToUTC(d.date.substring(0, 10));
-              return prisma.dailyActivity.updateMany({
-                where: { userId: getCurrentUserId(), day },
-                data: { steps: Math.round(d.qty!) },
-              });
-            }),
-          );
+        // SUM per day first. HAE sends one aggregate row per day (sum of a
+        // 1-row group = same value), but the NATIVE plugin sends raw
+        // per-sample rows — writing each one directly clobbered the day's
+        // total with a single sample's count (e.g. steps=14). Only updates
+        // rows that already exist (Oura creates the day). NOTE: on days
+        // where both pipelines report, last-writer wins; Oura's daily
+        // summary re-corrects on each Oura sync.
+        if (!mayWriteDailyTotals) break;
+        const stepsByDay = sumByDay(metric.data);
+        for (const [dayStr, total] of stepsByDay) {
+          await prisma.dailyActivity.updateMany({
+            where: { userId: getCurrentUserId(), day: dateStrToUTC(dayStr) },
+            data: { steps: Math.round(total) },
+          });
         }
-        count += stepRows.length;
+        count += metric.data.length;
         break;
       }
 
       case "active_energy": {
-        const energyRows = metric.data.filter((d) => d.qty && d.date);
-        if (energyRows.length > 0) {
-          await prisma.$transaction(
-            energyRows.map((d) => {
-              const day = dateStrToUTC(d.date.substring(0, 10));
-              return prisma.dailyActivity.updateMany({
-                where: { userId: getCurrentUserId(), day },
-                data: { activeCalories: Math.round(d.qty!) },
-              });
-            }),
-          );
+        // Same per-day aggregation as step_count (same native clobber bug).
+        if (!mayWriteDailyTotals) break;
+        const energyByDay = sumByDay(metric.data);
+        for (const [dayStr, total] of energyByDay) {
+          await prisma.dailyActivity.updateMany({
+            where: { userId: getCurrentUserId(), day: dateStrToUTC(dayStr) },
+            data: { activeCalories: Math.round(total) },
+          });
         }
-        count += energyRows.length;
+        count += metric.data.length;
         break;
       }
 
@@ -567,6 +589,8 @@ async function processCycleTracking(entries: CycleEntry[]): Promise<number> {
 // --- Route handlers ---
 
 export async function POST(request: NextRequest) {
+  // Hoisted so the catch block can flip the tombstone row to "error".
+  let logRowId: string | null = null;
   try {
     // Auth
     const authHeader = request.headers.get("authorization");
@@ -605,6 +629,27 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const data = body?.data ?? body; // Support both { data: { ... } } and flat
+
+    // Which pipeline sent this? The native shell appends a UA token
+    // (capacitor.config.ts appendUserAgent); HAE doesn't.
+    const source = (request.headers.get("user-agent") ?? "").includes("BaselineNative")
+      ? "native-app"
+      : "health-auto-export";
+
+    // Tombstone-first logging: create the row BEFORE processing, update at
+    // the end. If Vercel kills the function mid-processing (timeout), the
+    // row survives as "processing" — before this, killed syncs vanished
+    // entirely (data written, no log, no 200, client watermark stuck,
+    // infinite re-send: observed 2026-08-19).
+    try {
+      const row = await prisma.healthKitSync.create({
+        data: { userId: getCurrentUserId(), status: "processing", source, metrics: 0, workouts: 0 },
+      });
+      logRowId = row.id;
+    } catch {
+      /* logging must never block the sync */
+    }
+
     console.log(`[HealthKit] payload keys: ${Object.keys(data).join(", ")}`);
     if (data.cycleTracking?.length > 0) {
       console.log(`[HealthKit] cycleTracking sample:`, JSON.stringify(data.cycleTracking.slice(0, 3)));
@@ -636,7 +681,7 @@ export async function POST(request: NextRequest) {
     let cycleCount = 0;
 
     try {
-      metricsCount = await processMetrics(data.metrics ?? []);
+      metricsCount = await processMetrics(data.metrics ?? [], source);
     } catch (e) {
       errors.push(`metrics: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -697,15 +742,19 @@ export async function POST(request: NextRequest) {
         ? JSON.stringify(cycleEntries[0]).slice(0, 600)
         : "<empty>";
 
-    await prisma.healthKitSync.create({
-      data: {
-        userId: getCurrentUserId(),
-        status,
-        metrics: metricsCount,
-        workouts: workoutsCount,
-        details: `${metricsCount} metrics, ${workoutsCount} workouts, ${cycleCount} cycle entries${errors.length > 0 ? `. Errors: ${errors.join("; ")}` : ""} | shape: ${topLevelShape} | cycle_breakdown: ${cycleBreakdown || "<empty>"} | cycle_sample: ${cycleSample} | metric_names: ${metricNamesList || "<none>"}`,
-      },
-    });
+    const finalLog = {
+      status,
+      metrics: metricsCount,
+      workouts: workoutsCount,
+      details: `${metricsCount} metrics, ${workoutsCount} workouts, ${cycleCount} cycle entries${errors.length > 0 ? `. Errors: ${errors.join("; ")}` : ""} | shape: ${topLevelShape} | cycle_breakdown: ${cycleBreakdown || "<empty>"} | cycle_sample: ${cycleSample} | metric_names: ${metricNamesList || "<none>"}`,
+    };
+    if (logRowId) {
+      await prisma.healthKitSync.update({ where: { id: logRowId }, data: finalLog });
+    } else {
+      await prisma.healthKitSync.create({
+        data: { userId: getCurrentUserId(), ...finalLog },
+      });
+    }
 
     return NextResponse.json({
       ok: true,
@@ -721,15 +770,17 @@ export async function POST(request: NextRequest) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[HealthKit] sync handler crashed:", message);
     try {
-      await prisma.healthKitSync.create({
-        data: {
-          userId: getCurrentUserId(),
-          status: "error",
-          metrics: 0,
-          workouts: 0,
-          details: `Handler crashed: ${message.slice(0, 400)}`,
-        },
-      });
+      const errLog = {
+        status: "error",
+        details: `Handler crashed: ${message.slice(0, 400)}`,
+      };
+      if (logRowId) {
+        await prisma.healthKitSync.update({ where: { id: logRowId }, data: errLog });
+      } else {
+        await prisma.healthKitSync.create({
+          data: { userId: getCurrentUserId(), metrics: 0, workouts: 0, ...errLog },
+        });
+      }
     } catch {
       // Logging failures shouldn't mask the original error.
     }
