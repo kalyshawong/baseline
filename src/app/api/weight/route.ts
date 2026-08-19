@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
-import { getLocalDay } from "@/lib/date-utils";
+import { getLocalDay, getRequestTz } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
       day = new Date(date + "T00:00:00.000Z");
     } else {
-      day = getLocalDay();
+      day = getLocalDay(await getRequestTz());
     }
 
     const log = await prisma.weightLog.upsert({

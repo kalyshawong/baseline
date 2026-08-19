@@ -21,7 +21,7 @@ import { DateNav } from "@/components/date-nav";
 import { MobileDateNav } from "@/components/mobile/mobile-date-nav";
 import { MobileQuickTag } from "@/components/mobile/mobile-quick-tag";
 import { MobileLogFood } from "@/components/mobile/mobile-log-food";
-import { getDateFromParams, getLocalDayBounds } from "@/lib/date-utils";
+import { getDateFromParams, getLocalDayBounds, getRequestTz } from "@/lib/date-utils";
 
 const PHASE_NOTE: Record<string, string> = {
   menstrual: "Energy lowest — prioritize recovery experiments, not high-load interventions.",
@@ -45,10 +45,11 @@ export default async function MindPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const viewDate = getDateFromParams(params);
+  const tz = await getRequestTz();
+  const viewDate = getDateFromParams(params, tz);
   const viewDateStr = viewDate.toISOString().split("T")[0];
 
-  const { start: dayStart, end: dayEnd } = getLocalDayBounds(viewDateStr);
+  const { start: dayStart, end: dayEnd } = getLocalDayBounds(viewDateStr, tz);
 
   const lifeContextDay = new Date(viewDateStr + "T00:00:00.000Z");
 

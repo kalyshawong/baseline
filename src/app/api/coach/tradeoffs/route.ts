@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
 import { detectTradeoffs } from "@/lib/coach-context";
-import { getLocalDay } from "@/lib/date-utils";
+import { getLocalDay, getRequestTz } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import { energyAvailability, ffmFromBodyComposition } from "@/lib/training";
 import { computeHrvCvSignals } from "@/lib/training-call";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const localToday = getLocalDay();
+    const localToday = getLocalDay(await getRequestTz());
 
     const { resolveCyclePhase } = await import("@/lib/cycle-phase");
     const [goals, score, cycle, cvSignals, nutrition, activity, profile, weight, running] =

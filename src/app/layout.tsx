@@ -5,6 +5,7 @@ import "./mobile.css";
 import { Nav } from "@/components/nav";
 import { PwaRegister } from "@/components/pwa-register";
 import { NativeHealthInit } from "@/components/native/native-health-init";
+import { TzCookie } from "@/components/tz-cookie";
 import { MobileTabBar } from "@/components/mobile/mobile-tab-bar";
 
 const bebasNeue = Bebas_Neue({
@@ -58,6 +59,7 @@ export default function RootLayout({
       <body className="min-h-screen antialiased">
         <PwaRegister />
         <NativeHealthInit />
+        <TzCookie />
         <div className="hidden md:block">
           <Nav />
         </div>

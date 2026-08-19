@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
-import { getLocalDay, getLocalDayStr, dateStrToUTC } from "@/lib/date-utils";
+import { getLocalDay, getLocalDayStr, dateStrToUTC, getRequestTz } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import { apiError, parseIntInRange, validateString } from "@/lib/utils";
 
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         errors.push("date must be a YYYY-MM-DD string");
       } else if (Number.isNaN(dateStrToUTC(date).getTime())) {
         errors.push("date must be a valid calendar date");
-      } else if (date > getLocalDayStr()) {
+      } else if (date > getLocalDayStr(await getRequestTz())) {
         // Lexicographic compare is chronological for YYYY-MM-DD.
         errors.push("date cannot be in the future");
       }
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     const isBackfill = !!date;
-    const sessionDate = isBackfill ? dateStrToUTC(date) : getLocalDay();
+    const sessionDate = isBackfill ? dateStrToUTC(date) : getLocalDay(await getRequestTz());
 
     // For backfilled sessions, anchor startedAt at noon on the chosen date
     // so it doesn't look like a workout that happened just now.
