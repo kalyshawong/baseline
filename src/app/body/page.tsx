@@ -43,6 +43,7 @@ import { MobileDateNav } from "@/components/mobile/mobile-date-nav";
 import { MCard } from "@/components/mobile/mobile-metric-card";
 import { MobileTrainingTier } from "@/components/mobile/mobile-training-tier";
 import { SorenessCard } from "@/components/body/soreness-card";
+import { QuickWorkoutLog } from "@/components/body/quick-workout-log";
 import { getSorenessForDay, BODY_PARTS } from "@/lib/soreness";
 import { analyzeSoreness } from "@/lib/soreness-analysis";
 import { MobileCycleCard } from "@/components/mobile/mobile-cycle-card";
@@ -482,6 +483,7 @@ export default async function BodyPage() {
                 <Link href="/body/workout/new" className="btn">+ Add Workout</Link>
                 <Link href="/body/workout/new?backfill=1" className="linklike">Log past workout</Link>
               </div>
+              <QuickWorkoutLog />
               <VolumeZones data={weeklyVolumeData} />
               {prs.length > 0 && (
                 <div className="listcard">
@@ -788,6 +790,8 @@ export default async function BodyPage() {
             Log past workout
           </Link>
         </div>
+
+        <div className="mb-[14px]"><QuickWorkoutLog /></div>
 
         {/* Two-column: VolumeZones left (1.5fr), PRs + Workouts right (1fr) */}
         <div className="grid grid-cols-[1.5fr_1fr] gap-[14px] items-stretch">
