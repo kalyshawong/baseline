@@ -312,7 +312,9 @@ export default async function Dashboard({
   const workoutSummary = buildWorkoutSummary();
 
   // Compact workout log rows for the mobile dashboard.
-  const workoutRows = todayHkWorkouts.map((w) => {
+  // Ambient sessions only (walks etc.) — training workouts get their own
+  // full WorkoutCard (HR chart + notes/GI editor) on both desktop and mobile.
+  const workoutRows = ambientWorkouts.map((w) => {
     const time = w.startedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     const minutes = Math.round(w.durationSeconds / 60);
     const dur = minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
@@ -377,6 +379,18 @@ export default async function Dashboard({
           caloriesIn={nutritionCalories}
           workoutRows={workoutRows}
           trainingCount={trainingWorkouts.length}
+          trainingWorkouts={trainingWorkouts.map((w) => ({
+            id: w.id,
+            name: w.name,
+            startedAt: w.startedAt.toISOString(),
+            endedAt: w.endedAt.toISOString(),
+            durationSeconds: w.durationSeconds,
+            activeCalories: w.activeCalories,
+            avgHeartRate: w.avgHeartRate,
+            maxHeartRate: w.maxHeartRate,
+            minHeartRate: w.minHeartRate,
+          }))}
+          hrCharts={hrChartsByWorkoutId}
           sleepTargetTime={sleepTargetTime}
           mealCount={nutritionEntryCount}
           workoutSummary={workoutSummary}
