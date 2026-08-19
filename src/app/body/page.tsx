@@ -42,6 +42,9 @@ import { DateNav } from "@/components/date-nav";
 import { MobileDateNav } from "@/components/mobile/mobile-date-nav";
 import { MCard } from "@/components/mobile/mobile-metric-card";
 import { MobileTrainingTier } from "@/components/mobile/mobile-training-tier";
+import { SorenessCard } from "@/components/body/soreness-card";
+import { getSorenessForDay, BODY_PARTS } from "@/lib/soreness";
+import { analyzeSoreness } from "@/lib/soreness-analysis";
 import { MobileCycleCard } from "@/components/mobile/mobile-cycle-card";
 import { kgToLb } from "@/lib/tdee";
 
@@ -328,6 +331,13 @@ export default async function BodyPage() {
     ? computeEA(todayNutrition.calories, todaysExerciseCal, ffm)
     : null;
 
+  // --- Soreness: today's entries (with streaks) + running-perf findings ---
+  const todayStr = localToday.toISOString().slice(0, 10);
+  const [sorenessEntries, sorenessFindings] = await Promise.all([
+    getSorenessForDay(todayStr).catch(() => []),
+    analyzeSoreness().catch(() => []),
+  ]);
+
   // --- Mobile card values (nutrition / weight / TDEE) ---
   const proteinTargetG = weightKg ? Math.round(weightKg * 1.6) : null;
   const calTargetG = profile?.dailyCalorieTarget ?? null;
@@ -407,6 +417,12 @@ export default async function BodyPage() {
               {guidance && (
                 <MobileCycleCard phase={phaseLog.phase} headline={guidance.headline} note={guidance.note} />
               )}
+              <SorenessCard
+                dateStr={todayStr}
+                initialEntries={sorenessEntries}
+                bodyParts={BODY_PARTS}
+                findings={sorenessFindings.map((f) => ({ line: f.line }))}
+              />
               {fatigue.score > 0 && (
                 <div className="fatigue">
                   <div className="top">
@@ -656,6 +672,16 @@ export default async function BodyPage() {
               : null
           }
         />
+      </div>
+
+      {/* ─── SORENESS ─── */}
+      <div className="mt-[14px]">
+        <SorenessCard
+                dateStr={todayStr}
+                initialEntries={sorenessEntries}
+                bodyParts={BODY_PARTS}
+                findings={sorenessFindings.map((f) => ({ line: f.line }))}
+              />
       </div>
 
       {/* ─── CYCLE + FATIGUE ─── */}

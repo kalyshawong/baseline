@@ -74,6 +74,7 @@ export type MobileDashboardProps = {
     avgHeartRate: number | null;
     maxHeartRate: number | null;
     minHeartRate: number | null;
+    fuelLine?: string | null;
   }[];
   hrCharts: Record<string, { t: number; bpm: number }[]>;
   sleepTargetTime: string | null;
@@ -370,7 +371,7 @@ export function MobileDashboard(p: MobileDashboardProps) {
           {/* Training workouts — full desktop treatment: HR chart + notes/GI
               editor + discuss-with-coach, one card per workout. */}
           {p.trainingWorkouts.map((w) => (
-            <WorkoutCard key={w.id} workout={w} hrChart={p.hrCharts[w.id] ?? []} />
+            <WorkoutCard key={w.id} workout={w} hrChart={p.hrCharts[w.id] ?? []} fuelLine={w.fuelLine} />
           ))}
 
           {/* Ambient activity list (walks etc.) + manual-log entry point */}

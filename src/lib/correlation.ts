@@ -17,7 +17,7 @@ export interface CorrelationResult {
   insight: string;
 }
 
-function welchTTest(a: number[], b: number[]): { t: number; df: number; p: number } {
+export function welchTTest(a: number[], b: number[]): { t: number; df: number; p: number } {
   const meanA = a.reduce((s, v) => s + v, 0) / a.length;
   const meanB = b.reduce((s, v) => s + v, 0) / b.length;
   const varA = a.reduce((s, v) => s + (v - meanA) ** 2, 0) / (a.length - 1);

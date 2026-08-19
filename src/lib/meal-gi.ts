@@ -100,6 +100,17 @@ const FACTORS: FactorDef[] = [
     test: (f) => f.items.some((i) => i.source === "restaurant" || i.source === "takeout"),
     iv: "Eat restaurant/takeout food before training",
   },
+  {
+    // "Didn't eat" was previously invisible to the analyzer — fasted vs fed
+    // is plausibly the largest single pre-run variable. Caveat: this reads
+    // "no meal LOGGED in the 4h window", so unlogged meals look like fasting;
+    // the workout card's fuel attribution line nudges toward complete logging.
+    key: "fasted",
+    factor: "fasted (no meal within 4h)",
+    controlLabel: "sessions with pre-workout fuel",
+    test: (f) => f.items.length === 0,
+    iv: "Train fasted (no food in the 4h before)",
+  },
 ];
 
 function classify(
