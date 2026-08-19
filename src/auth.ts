@@ -16,6 +16,11 @@ import { prisma } from "@/lib/db";
  * Auth.js supports multiple providers on the same user pool keyed by email.
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Explicit rather than auto-detected — the beta's env detection has bitten
+  // us once ("server configuration" 500 on Vercel). Behind Vercel's proxy the
+  // host header is trustworthy.
+  secret: process.env.AUTH_SECRET,
+  trustHost: true,
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 90 }, // 90 days — it's her own phone
   pages: { signIn: "/login" },
   providers: [
