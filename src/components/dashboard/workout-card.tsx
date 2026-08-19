@@ -34,6 +34,9 @@ interface Props {
   };
   /** Downsampled HR curve. Empty array when no samples exist for the window. */
   hrChart: Array<{ t: number; bpm: number }>;
+  /** Pre-run fuel attribution ("oatmeal · 1.5h before · …" or fasted note) —
+   * what the meal→GI analyzer will pair this workout's GI outcome with. */
+  fuelLine?: string | null;
 }
 
 function formatTime(iso: string): string {
@@ -51,7 +54,7 @@ function formatDuration(seconds: number): string {
   return `${h}h ${m}m`;
 }
 
-export function WorkoutCard({ workout, hrChart }: Props) {
+export function WorkoutCard({ workout, hrChart, fuelLine }: Props) {
   const timeRange = `${formatTime(workout.startedAt)} – ${formatTime(workout.endedAt)}`;
   const durationStr = formatDuration(workout.durationSeconds);
   const hasHrData = workout.avgHeartRate != null;
@@ -140,6 +143,18 @@ export function WorkoutCard({ workout, hrChart }: Props) {
               </ResponsiveContainer>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Pre-run fuel attribution — context for the GI outcome logged below */}
+      {fuelLine && (
+        <div className="mt-4 border-t border-[var(--color-border)] pt-3">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)]">
+            Pre-run fuel
+          </p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-[var(--color-text-muted)]">
+            {fuelLine}
+          </p>
         </div>
       )}
 

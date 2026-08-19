@@ -71,6 +71,7 @@ model User {
   chatSessions             ChatSession[]
   chatMessages             ChatMessage[]
   weightLogs               WeightLog[]
+  sorenessLogs             SorenessLog[]
   healthKitSyncs           HealthKitSync[]
   healthKitWorkouts        HealthKitWorkout[]
   heartRateZoneSummaries   HeartRateZoneSummary[]
@@ -903,4 +904,21 @@ model WorkoutNote {
   @@unique([userId, workoutSource, workoutId])
   @@index([userId])
   @@index([workoutDate])
+}
+
+// Muscle soreness log — one row per (day, body part). Severity 1-10.
+// Day-streaks ("quads · day 3") are computed at read time from consecutive
+// prior days, never stored. Feeds the soreness→running-performance analyzer.
+model SorenessLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       DateTime
+  bodyPart  String
+  severity  Int
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, day, bodyPart])
+  @@index([userId, bodyPart, day])
 }

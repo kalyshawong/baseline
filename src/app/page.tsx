@@ -268,14 +268,40 @@ export default async function Dashboard({
   // Downsampled HR curves only for the training workouts — ambient
   // sessions don't render a chart so we skip those queries.
   const hrChartsByWorkoutId: Record<string, HrChartPoint[]> = {};
+  // Pre-run fuel attribution line per workout — shows the GI analyzer's
+  // pairing ("what will this outcome be attributed to?") right where the
+  // outcome is logged. "Fasted" mirrors the analyzer's fasted factor.
+  const fuelLineByWorkoutId: Record<string, string> = {};
   if (trainingWorkouts.length > 0) {
-    const chartResults = await Promise.all(
-      trainingWorkouts.map((w) =>
-        getDownsampledHrForWorkout(w.startedAt, w.endedAt),
+    const { getPreWorkoutFuel } = await import("@/lib/pre-workout-fuel");
+    const [chartResults, fuelResults] = await Promise.all([
+      Promise.all(
+        trainingWorkouts.map((w) =>
+          getDownsampledHrForWorkout(w.startedAt, w.endedAt),
+        ),
       ),
-    );
+      Promise.all(
+        trainingWorkouts.map((w) =>
+          getPreWorkoutFuel(w.startedAt, 4).catch(() => null),
+        ),
+      ),
+    ]);
     trainingWorkouts.forEach((w, i) => {
       hrChartsByWorkoutId[w.id] = chartResults[i];
+      const fuel = fuelResults[i];
+      if (fuel) {
+        if (fuel.items.length === 0) {
+          fuelLineByWorkoutId[w.id] = "Fasted — no meal logged within 4h of this workout";
+        } else {
+          const first = fuel.items[0];
+          const gap =
+            first.gapHours.min === first.gapHours.max
+              ? `${first.gapHours.min.toFixed(1)}h before`
+              : `${first.gapHours.min.toFixed(1)}–${first.gapHours.max.toFixed(1)}h before`;
+          fuelLineByWorkoutId[w.id] =
+            `${first.description} · ${gap} · ${fuel.totals.carbs}g C / ${fuel.totals.protein}g P / ${fuel.totals.fat}g F in window`;
+        }
+      }
     });
   }
 
@@ -389,6 +415,7 @@ export default async function Dashboard({
             avgHeartRate: w.avgHeartRate,
             maxHeartRate: w.maxHeartRate,
             minHeartRate: w.minHeartRate,
+            fuelLine: fuelLineByWorkoutId[w.id] ?? null,
           }))}
           hrCharts={hrChartsByWorkoutId}
           sleepTargetTime={sleepTargetTime}
@@ -562,6 +589,7 @@ export default async function Dashboard({
                 minHeartRate: w.minHeartRate,
               }}
               hrChart={hrChartsByWorkoutId[w.id] ?? []}
+              fuelLine={fuelLineByWorkoutId[w.id] ?? null}
             />
           ))
         ) : (
