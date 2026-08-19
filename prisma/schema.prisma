@@ -35,6 +35,9 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
+  // bcrypt hash — credentials auth (Auth.js v5, JWT sessions). Null = account
+  // exists but can't log in yet (e.g. pre-auth data-only user).
+  passwordHash String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
