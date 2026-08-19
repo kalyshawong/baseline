@@ -58,6 +58,7 @@ const FAILURE_OUTCOMES = new Set(["moderate", "vomited"]);
 /** Context beyond the fuel window that factors may draw on. */
 interface NoteContext {
   preRunBowel: boolean | null;
+  preRunFasted: boolean | null;
 }
 
 interface FactorDef {
@@ -125,14 +126,18 @@ const FACTORS: FactorDef[] = [
     iv: "Eat restaurant/takeout food before training",
   },
   {
-    // "Didn't eat" was previously invisible to the analyzer — fasted vs fed
-    // is plausibly the largest single pre-run variable. Caveat: this reads
-    // "no meal LOGGED in the 4h window", so unlogged meals look like fasting;
-    // the workout card's fuel attribution line nudges toward complete logging.
+    // Fasted vs fed is plausibly the largest single pre-run variable, but an
+    // empty fuel window is NOT evidence of fasting — "nothing logged" just
+    // means she didn't log (2026-08-19). So: logged food in the window =>
+    // fed, definitively. Empty window => only her explicit answer counts;
+    // unanswered runs sit out of this factor entirely.
     key: "fasted",
-    factor: "fasted (no meal within 4h)",
+    factor: "fasted (no food within 4h)",
     controlLabel: "sessions with pre-workout fuel",
-    test: (f) => f.items.length === 0,
+    test: (f, n) => {
+      if (f.items.length > 0) return false; // positive log evidence wins
+      return n.preRunFasted == null ? undefined : n.preRunFasted;
+    },
     iv: "Train fasted (no food in the 4h before)",
   },
   {
@@ -215,6 +220,7 @@ export async function analyzeMealGi(): Promise<MealGiResult> {
       workoutId: true,
       giOutcome: true,
       preRunBowel: true,
+      preRunFasted: true,
     },
   });
 
@@ -234,7 +240,10 @@ export async function analyzeMealGi(): Promise<MealGiResult> {
     const start = startMap.get(`${n.workoutSource}:${n.workoutId}`);
     if (!start) continue;
     const fuel = await getPreWorkoutFuel(start, 4);
-    const ctx: NoteContext = { preRunBowel: n.preRunBowel };
+    const ctx: NoteContext = {
+      preRunBowel: n.preRunBowel,
+      preRunFasted: n.preRunFasted,
+    };
 
     const present: Record<string, boolean | undefined> = {};
     for (const f of FACTORS) present[f.key] = f.test(fuel, ctx);

@@ -270,7 +270,8 @@ export default async function Dashboard({
   const hrChartsByWorkoutId: Record<string, HrChartPoint[]> = {};
   // Pre-run fuel attribution line per workout — shows the GI analyzer's
   // pairing ("what will this outcome be attributed to?") right where the
-  // outcome is logged. "Fasted" mirrors the analyzer's fasted factor.
+  // outcome is logged. An empty window renders as "no meal logged", never
+  // "fasted" — fasted is her explicit tickbox answer, not inferred.
   const fuelLineByWorkoutId: Record<string, string> = {};
   if (trainingWorkouts.length > 0) {
     const { getPreWorkoutFuel } = await import("@/lib/pre-workout-fuel");
@@ -291,7 +292,9 @@ export default async function Dashboard({
       const fuel = fuelResults[i];
       if (fuel) {
         if (fuel.items.length === 0) {
-          fuelLineByWorkoutId[w.id] = "Fasted — no meal logged within 4h of this workout";
+          // Not "Fasted" — an empty log window only proves nothing was
+          // LOGGED. Fasted is her explicit call (notes tickbox).
+          fuelLineByWorkoutId[w.id] = "No meal logged within 4h of this workout";
         } else {
           const first = fuel.items[0];
           const gap =
