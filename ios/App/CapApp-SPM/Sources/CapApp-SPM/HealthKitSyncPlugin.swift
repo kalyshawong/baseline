@@ -97,15 +97,16 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func syncNow(_ call: CAPPluginCall) {
         Task {
+            // Diagnostic probe first, so it reports even if the POST fails:
+            // workouts VISIBLE in the last 7 days, ignoring anchors. 0 =
+            // permission/data problem; >0 = anchors already consumed them.
+            let visible = (try? await self.probeWorkouts()) ?? -1
             do {
                 let n = try await self.collectAndPost()
-                // Diagnostic probe: how many workouts are VISIBLE in the last
-                // 7 days, ignoring anchors. Distinguishes "permission/data
-                // problem" (0) from "anchor already consumed them" (>0).
-                let visible = (try? await self.probeWorkouts()) ?? -1
                 call.resolve(["posted": n, "workoutsVisible7d": visible])
             } catch {
-                call.reject(error.localizedDescription)
+                call.resolve(["posted": 0, "workoutsVisible7d": visible,
+                              "error": error.localizedDescription])
             }
         }
     }
@@ -178,6 +179,7 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         guard let server = UserDefaults.standard.string(forKey: "bl_server"),
               let key = UserDefaults.standard.string(forKey: "bl_key") else { return 0 }
 
+        let syncStart = Date() // watermark candidate; committed only on success
         var metrics: [[String: Any]] = []
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd HH:mm:ss Z"
@@ -247,6 +249,7 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
+        req.timeoutInterval = 180 // server can take minutes on big batches
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         req.httpBody = try JSONSerialization.data(withJSONObject: envelope)
@@ -254,50 +257,43 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
             throw NSError(domain: "bl", code: 1, userInfo: [NSLocalizedDescriptionKey: "sync POST failed"])
         }
-        commitAnchors() // only advance anchors after a successful POST
+        commitWatermark(syncStart) // only advance the watermark after a successful POST
         return total
     }
 
-    // MARK: - Anchored queries (per-type incremental fetch)
+    // MARK: - Timestamp-window incremental fetch
+    //
+    // HKQueryAnchor persistence proved unreliable across dev installs and
+    // background wakes, causing full 7-day re-sends every sync (heavy POSTs
+    // that time out). Instead: a plain watermark date in UserDefaults. Each
+    // sync fetches samples since (watermark − 2h overlap); the watermark
+    // advances only after a successful POST. Server upserts make the overlap
+    // harmless. First sync: last 7 days.
+    private var sinceDate: Date {
+        let last = UserDefaults.standard.object(forKey: "bl_last_sync") as? Date
+        let overlap = last?.addingTimeInterval(-2 * 3600)
+        let floor = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
+        return max(overlap ?? floor, floor)
+    }
 
-    private var pendingAnchors: [String: HKQueryAnchor] = [:]
+    private func commitWatermark(_ d: Date) {
+        UserDefaults.standard.set(d, forKey: "bl_last_sync")
+    }
 
     private func newSamples(for type: HKSampleType) async throws -> [HKSample] {
-        let anchorKey = "bl_anchor_\(type.identifier)"
-        var anchor: HKQueryAnchor? = nil
-        if let data = UserDefaults.standard.data(forKey: anchorKey) {
-            anchor = try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
-        }
-        // First sync (no anchor yet): limit to the last 7 days. Health Auto
-        // Export already backfilled the deep history, and an unbounded anchored
-        // query would return the ENTIRE Health archive. Incremental syncs
-        // thereafter use the anchor.
-        var predicate: NSPredicate? = nil
-        if anchor == nil {
-            let start = Calendar.current.date(byAdding: .day, value: -7, to: Date())
-            predicate = HKQuery.predicateForSamples(withStart: start, end: nil)
-        }
+        // strictStartDate: only samples that BEGIN in the window — otherwise
+        // long-running samples (e.g. a years-old contraceptive record) match
+        // every window and re-send ~1.5k cycle entries on every single sync.
+        let predicate = HKQuery.predicateForSamples(withStart: sinceDate, end: nil,
+                                                    options: .strictStartDate)
         return try await withCheckedThrowingContinuation { cont in
-            // 4k cap per type per sync keeps each POST light on the server's
-            // DB pool; the anchor advances past returned samples, so successive
-            // syncs (hourly observers or manual) drain any backlog in chunks.
-            let q = HKAnchoredObjectQuery(type: type, predicate: predicate, anchor: anchor,
-                                          limit: 4_000) { [weak self] _, samples, _, newAnchor, err in
-                if let err = err { cont.resume(throwing: err); return }
-                if let newAnchor = newAnchor { self?.pendingAnchors[anchorKey] = newAnchor }
-                cont.resume(returning: samples ?? [])
+            // 4k cap per type keeps each POST light on the server's DB pool.
+            let q = HKSampleQuery(sampleType: type, predicate: predicate,
+                                  limit: 4_000, sortDescriptors: nil) { _, samples, err in
+                if let err = err { cont.resume(throwing: err) } else { cont.resume(returning: samples ?? []) }
             }
             store.execute(q)
         }
-    }
-
-    private func commitAnchors() {
-        for (k, a) in pendingAnchors {
-            if let data = try? NSKeyedArchiver.archivedData(withRootObject: a, requiringSecureCoding: true) {
-                UserDefaults.standard.set(data, forKey: k)
-            }
-        }
-        pendingAnchors.removeAll()
     }
 }
 

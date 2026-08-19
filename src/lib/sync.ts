@@ -230,12 +230,17 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
   needsReauth: boolean;
 }> {
   const startDate = formatDate(daysAgo(lookbackDays));
-  const endDate = formatDate(new Date());
+  // End date padded +2 days: the server clock (Eastern) can be a calendar day
+  // BEHIND the user (e.g. traveling in Asia), and Oura excludes same-day data
+  // for some endpoints when end_date == "today". Future dates are harmless —
+  // there's simply no data there yet. Fixes workouts recorded "tomorrow"
+  // relative to the server never syncing.
+  const endPad = new Date();
+  endPad.setDate(endPad.getDate() + 2);
+  const endDate = formatDate(endPad);
   // Extend sleep period query by +1 day — Oura sometimes keys the period
   // to the next day when bedtime crosses midnight.
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const sleepEndDate = formatDate(tomorrow);
+  const sleepEndDate = endDate;
   const params = { start_date: startDate, end_date: endDate };
 
   let readinessCount = 0;
