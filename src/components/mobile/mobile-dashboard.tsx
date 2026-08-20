@@ -44,6 +44,8 @@ type HyroxData = {
 } | null;
 
 export type MobileDashboardProps = {
+  /** Viewer IANA timezone — clock times render in HER day, not the server's. */
+  tz?: string;
   viewDate: Date;
   isConnected: boolean;
   lastSyncIso: string | null;
@@ -125,7 +127,7 @@ export function MobileDashboard(p: MobileDashboardProps) {
     .toUpperCase()
     .replace(",", " ·");
   const lastSyncLabel = p.lastSyncIso
-    ? new Date(p.lastSyncIso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+    ? new Date(p.lastSyncIso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: p.tz })
     : null;
 
   // baseline reference (Your Normal)

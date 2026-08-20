@@ -23,6 +23,7 @@ interface AmbientSession {
 }
 
 interface ActivityCardProps {
+  tz?: string;
   activity: ActivityData | null;
   lastHkSync: SyncData | null;
   lastOuraSync: Date | null;
@@ -46,11 +47,12 @@ function formatMinutes(seconds: number | null): string {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
-function formatTime(date: Date | string): string {
+function formatTime(date: Date | string, tz?: string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return d.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: tz, // server component — default clock is Eastern, not hers
   });
 }
 
@@ -63,6 +65,7 @@ const statusDot: Record<string, string> = {
 function mostRecentTimestamp(
   lastOuraSync: Date | null,
   lastHkSync: SyncData | null,
+  tz?: string,
 ): { time: string; dotClass: string } | null {
   const candidates: { date: Date; dotClass: string }[] = [];
   if (lastOuraSync) {
@@ -76,11 +79,11 @@ function mostRecentTimestamp(
   }
   if (candidates.length === 0) return null;
   candidates.sort((a, b) => b.date.getTime() - a.date.getTime());
-  return { time: formatTime(candidates[0].date), dotClass: candidates[0].dotClass };
+  return { time: formatTime(candidates[0].date, tz), dotClass: candidates[0].dotClass };
 }
 
-export function ActivityCard({ activity, lastHkSync, lastOuraSync, ambientSessions = [] }: ActivityCardProps) {
-  const ts = mostRecentTimestamp(lastOuraSync, lastHkSync);
+export function ActivityCard({ activity, lastHkSync, lastOuraSync, ambientSessions = [], tz }: ActivityCardProps) {
+  const ts = mostRecentTimestamp(lastOuraSync, lastHkSync, tz);
 
   const hasOuraData = !!activity;
   const activeTime = hasOuraData
