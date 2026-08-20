@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Insight, InsightMetric } from "@/lib/insights";
 import type { HrvCvCalibration } from "@/lib/training-call";
@@ -170,17 +170,39 @@ export function InsightsFeed({
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
   const [showArchived, setShowArchived] = useState(false);
 
+  // Per-finding hide (2026-08-20, her ask): hide SPECIFIC findings (e.g.
+  // the "sex" one when showing the app around) without touching the rest.
+  // Keyed by tag so every finding about that tag hides together. Persisted
+  // in localStorage; "N hidden" reveals them for unhiding.
+  const [hiddenTags, setHiddenTags] = useState<string[]>([]);
+  const [showHidden, setShowHidden] = useState(false);
+  useEffect(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem("bl_hidden_findings") ?? "[]");
+      if (Array.isArray(v)) setHiddenTags(v.filter((x) => typeof x === "string"));
+    } catch { /* ignore */ }
+  }, []);
+  function toggleHide(tag: string) {
+    setHiddenTags((prev) => {
+      const next = prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag];
+      try { localStorage.setItem("bl_hidden_findings", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }
+  const isHidden = (tag: string) => hiddenTags.includes(tag);
+  const pool = showHidden ? insights : insights.filter((i) => !isHidden(i.tag));
+
   const counts = {
-    all: insights.length,
-    significant: insights.filter((i) => i.significance === "significant").length,
-    suggestive: insights.filter((i) => i.significance === "suggestive").length,
-    watching: insights.filter((i) => i.significance === "watching").length,
+    all: pool.length,
+    significant: pool.filter((i) => i.significance === "significant").length,
+    suggestive: pool.filter((i) => i.significance === "suggestive").length,
+    watching: pool.filter((i) => i.significance === "watching").length,
   };
 
   const filtered =
     activeFilter === "all"
-      ? insights
-      : insights.filter((i) => i.significance === activeFilter);
+      ? pool
+      : pool.filter((i) => i.significance === activeFilter);
 
   if (insights.length === 0) {
     return (
@@ -244,7 +266,11 @@ export function InsightsFeed({
 
       {/* Featured top finding — design: .ffeat */}
       {featured && (
-        <FeaturedFinding insight={featured} />
+        <FeaturedFinding
+          insight={featured}
+          hidden={isHidden(featured.tag)}
+          onToggleHide={() => toggleHide(featured.tag)}
+        />
       )}
 
       {/* 2-column grid — design: .findgrid */}
@@ -259,8 +285,18 @@ export function InsightsFeed({
                 <p className="text-[14px] font-medium">
                   Days with <b>&ldquo;{insight.tag}&rdquo;</b>: {insight.direction}
                 </p>
-                <span className={tierToPill[insight.significance]}>
-                  {tierLabel[insight.significance]}
+                <span className="flex items-center gap-2">
+                  <span className={tierToPill[insight.significance]}>
+                    {tierLabel[insight.significance]}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleHide(insight.tag)}
+                    className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-[var(--color-faint)] hover:text-[var(--color-text)]"
+                    aria-label={`${isHidden(insight.tag) ? "Unhide" : "Hide"} findings about ${insight.tag}`}
+                  >
+                    {isHidden(insight.tag) ? "Unhide" : "Hide"}
+                  </button>
                 </span>
               </div>
               {insight.metrics.map((m) => (
@@ -292,6 +328,19 @@ export function InsightsFeed({
           : `Show archived & low-confidence signals (${insights.length}) \u2192`}
       </button>
 
+      {hiddenTags.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowHidden((v) => !v)}
+          className="mt-3 w-full text-center py-2 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-[var(--color-faint)] hover:text-[var(--color-text)]"
+          style={{ background: "transparent", border: "none", cursor: "pointer" }}
+        >
+          {showHidden
+            ? "Conceal hidden findings"
+            : `${hiddenTags.length} hidden finding${hiddenTags.length === 1 ? "" : "s"} · show`}
+        </button>
+      )}
+
       <p className="mt-4 text-[12.5px] text-[var(--color-faint)] leading-relaxed">
         Correlations are personal observations, not medical advice &mdash; limited sample sizes
         mean these are hypotheses.
@@ -301,7 +350,15 @@ export function InsightsFeed({
 }
 
 /** Featured top finding hero card — design: .ffeat */
-function FeaturedFinding({ insight }: { insight: Insight }) {
+function FeaturedFinding({
+  insight,
+  hidden,
+  onToggleHide,
+}: {
+  insight: Insight;
+  hidden?: boolean;
+  onToggleHide?: () => void;
+}) {
   const m = insight.metrics[0];
   if (!m) return null;
 
@@ -324,6 +381,17 @@ function FeaturedFinding({ insight }: { insight: Insight }) {
         <div className="flex items-center gap-[11px] mb-3">
           <span className="ov" style={{ color: "var(--color-green)" }}>Top finding</span>
           <span className="pill pill-g">Strong signal</span>
+          {onToggleHide && (
+            <button
+              type="button"
+              onClick={onToggleHide}
+              className="ml-auto text-[10.5px] font-bold uppercase tracking-[0.08em] text-[var(--color-faint)] hover:text-[var(--color-text)]"
+              style={{ background: "transparent", border: "none", cursor: "pointer" }}
+              aria-label={`${hidden ? "Unhide" : "Hide"} findings about ${insight.tag}`}
+            >
+              {hidden ? "Unhide" : "Hide"}
+            </button>
+          )}
         </div>
         <h2 className="disp text-[42px] leading-[0.88] tracking-[0.01em] max-w-[430px]">
           Days with <em className="not-italic" style={{ color: "var(--color-green)" }}>

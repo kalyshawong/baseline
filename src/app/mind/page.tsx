@@ -8,7 +8,6 @@ import { getFlags } from "@/lib/flags";
 import { FlagsFeed } from "@/components/mind/flags-feed";
 import { QuickTag } from "@/components/mind/quick-tag";
 import { TagTimeline } from "@/components/mind/tag-timeline";
-import { MinCard } from "@/components/min-card";
 import { TodayContext } from "@/components/mind/today-context";
 import { InsightsFeed } from "@/components/mind/insights-feed";
 import { GiPatternsCard } from "@/components/mind/gi-patterns-card";
@@ -216,8 +215,7 @@ export default async function MindPage({
                   day: typeof l.day === "string" ? l.day : (l.day as unknown as Date).toISOString(),
                 }))}
               />
-              <MinCard id="tags-mind-1" label="Tag Log">
-<TagTimeline
+              <TagTimeline
                 tags={dayTags.map((t) => ({
                   id: t.id,
                   tag: t.tag,
@@ -227,7 +225,6 @@ export default async function MindPage({
                   experiment: t.experiment ? { id: t.experiment.id, title: t.experiment.title } : null,
                 }))}
               />
-</MinCard>
             </div>
           </div>
 
@@ -235,11 +232,7 @@ export default async function MindPage({
           <div className="wrap">
             <div className="stack-lg">
               {flags.length > 0 && <FlagsFeed flags={flags} />}
-              <MinCard id="findings-mind-m" label="Findings">
-                <MinCard id="findings-mind-d" label="Findings">
-            <InsightsFeed insights={insights} calibration={hrvCalibration} />
-          </MinCard>
-              </MinCard>
+              <InsightsFeed insights={insights} calibration={hrvCalibration} />
               {mealGi && <GiPatternsCard result={mealGi} />}
               {active.length > 0 && (
                 <div className="panel">
@@ -354,8 +347,7 @@ export default async function MindPage({
               }))}
             />
 
-            <MinCard id="tags-mind-2" label="Tag Log">
-<TagTimeline
+            <TagTimeline
               tags={dayTags.map((t) => ({
                 id: t.id,
                 tag: t.tag,
@@ -365,7 +357,6 @@ export default async function MindPage({
                 experiment: t.experiment ? { id: t.experiment.id, title: t.experiment.title } : null,
               }))}
             />
-</MinCard>
           </div>
         </div>
 
