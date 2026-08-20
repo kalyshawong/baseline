@@ -3,10 +3,11 @@
 import { useState } from "react";
 
 /**
- * Soreness logger — tap a body part, pick severity 1-10, done. The day-streak
- * ("quads · day 3") is computed server-side from consecutive logged days.
- * Findings (soreness vs running performance) come from soreness-analysis.ts
- * and are passed in by the page.
+ * Soreness logger — EPISODE model: tap a body part, pick severity 1-10, and
+ * it stays ("day N" keeps counting) until ✕ clears it. Tapping a logged
+ * part again updates today's severity mid-episode. Streaks/carry-forward
+ * are computed server-side (lib/soreness.ts). Findings come from
+ * soreness-analysis.ts via the page.
  */
 
 interface Entry {
@@ -15,6 +16,7 @@ interface Entry {
   severity: number;
   note: string | null;
   streak: number;
+  carried: boolean;
 }
 
 interface Props {
@@ -54,8 +56,14 @@ export function SorenessCard({ dateStr, initialEntries, bodyParts, findings }: P
     }
   }
 
-  async function remove(id: string) {
-    const res = await fetch(`/api/soreness?id=${encodeURIComponent(id)}&date=${dateStr}`, { method: "DELETE" });
+  // ✕ = "not sore anymore": ends the episode as of today (today becomes the
+  // first not-sore day). History is kept — this is not a delete.
+  async function clearPart(bodyPart: string) {
+    const res = await fetch("/api/soreness", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: dateStr, bodyPart, clear: true }),
+    });
     if (res.ok) {
       const data = await res.json();
       if (data.entries) setEntries(data.entries);
@@ -74,13 +82,15 @@ export function SorenessCard({ dateStr, initialEntries, bodyParts, findings }: P
               key={e.id}
               className="flex items-center justify-between bg-[var(--color-surface-2)] px-3 py-2 text-[12.5px]"
             >
-              <span className="capitalize font-semibold">{e.bodyPart}</span>
+              <button className="capitalize font-semibold" onClick={() => setPicking(picking === e.bodyPart ? null : e.bodyPart)} title="Update today's severity">
+                {e.bodyPart}
+              </button>
               <span className="flex items-center gap-3">
                 <span className="text-[var(--color-text-muted)]">day {e.streak}</span>
                 <span className="num font-bold" style={{ color: e.severity >= 7 ? "var(--color-red)" : e.severity >= 4 ? "var(--color-yellow)" : "var(--color-green)" }}>
                   {e.severity}/10
                 </span>
-                <button onClick={() => remove(e.id)} className="text-[var(--color-faint)] hover:text-[var(--color-text)]" aria-label={`Remove ${e.bodyPart}`}>
+                <button onClick={() => clearPart(e.bodyPart)} className="text-[var(--color-faint)] hover:text-[var(--color-text)]" aria-label={`${e.bodyPart} not sore anymore`} title="Not sore anymore">
                   ×
                 </button>
               </span>

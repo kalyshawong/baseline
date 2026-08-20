@@ -926,8 +926,14 @@ model SorenessLog {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   day       DateTime
   bodyPart  String
+  // severity 0 + cleared=true = "stopped being sore on this day" marker.
   severity  Int
   note      String?
+  // Episode model (2026-08-20, her call: "sore until i clear it"): a
+  // non-cleared log OPENS/CONTINUES an episode that carries forward day by
+  // day with no further logging; a cleared row ENDS it (that day is the
+  // first not-sore day). Streaks + sore-day sets are derived at read time.
+  cleared   Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@unique([userId, day, bodyPart])

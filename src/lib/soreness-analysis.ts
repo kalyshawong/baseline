@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
 import { welchTTest } from "@/lib/correlation";
+import { getSoreDaySetsByPart } from "@/lib/soreness";
 
 /**
  * Soreness → running-performance analyzer.
@@ -40,21 +41,17 @@ const METRICS: {
 
 export async function analyzeSoreness(): Promise<SorenessFinding[]> {
   const userId = getCurrentUserId();
-  const [logs, running] = await Promise.all([
-    prisma.sorenessLog.findMany({ where: { userId }, select: { day: true, bodyPart: true } }),
+  // Episode-expanded sore days (2026-08-20): a day counts as sore if it
+  // falls inside an episode (logged once, carried until cleared), not just
+  // on days she happened to log.
+  const [soreDaysByPart, running] = await Promise.all([
+    getSoreDaySetsByPart(),
     prisma.dailyRunningMetrics.findMany({
       where: { userId },
       select: { day: true, runningSpeed: true, cardioRecovery: true, physicalEffort: true },
     }),
   ]);
-  if (logs.length === 0 || running.length === 0) return [];
-
-  const soreDaysByPart = new Map<string, Set<string>>();
-  for (const l of logs) {
-    const set = soreDaysByPart.get(l.bodyPart) ?? new Set<string>();
-    set.add(l.day.toISOString().slice(0, 10));
-    soreDaysByPart.set(l.bodyPart, set);
-  }
+  if (soreDaysByPart.size === 0 || running.length === 0) return [];
 
   const findings: SorenessFinding[] = [];
 
