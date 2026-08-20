@@ -6,6 +6,7 @@ import { Nav } from "@/components/nav";
 import { PwaRegister } from "@/components/pwa-register";
 import { NativeHealthInit } from "@/components/native/native-health-init";
 import { TzCookie } from "@/components/tz-cookie";
+import { DayRollover } from "@/components/day-rollover";
 import { MobileTabBar } from "@/components/mobile/mobile-tab-bar";
 
 const bebasNeue = Bebas_Neue({
@@ -60,6 +61,7 @@ export default function RootLayout({
         <PwaRegister />
         <NativeHealthInit />
         <TzCookie />
+        <DayRollover />
         <div className="hidden md:block">
           <Nav />
         </div>
