@@ -67,7 +67,7 @@ export default function RootLayout({
         <PwaRegister />
         <NativeHealthInit />
         <TzCookie />
-        <DayRollover />
+        <DayRollover buildSha={process.env.VERCEL_GIT_COMMIT_SHA ?? "dev"} />
         <div className="hidden md:block">
           <Nav />
         </div>
