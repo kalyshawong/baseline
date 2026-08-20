@@ -207,6 +207,64 @@ export async function DELETE(request: NextRequest) {
       },
     });
 
+    // Clean up the companion "nutrition" ActivityTag that POST auto-creates
+    // for experiment integration. Before this (2026-08-20), deleting a food
+    // entry left its shadow tag in the tag timeline — "i delete things,
+    // still shows up on the recent tags and the log". One POST can cover
+    // several items, so: remove this entry's description from the tag's
+    // metadata items and decrement its macros; delete the tag outright when
+    // it was the last item.
+    try {
+      const candidates = await prisma.activityTag.findMany({
+        where: {
+          userId: getCurrentUserId(),
+          category: "nutrition",
+          tag: entry.mealType,
+          timestamp: entry.eatenAt,
+        },
+      });
+      for (const tag of candidates) {
+        let meta: {
+          items?: string[];
+          calories?: number;
+          protein?: number;
+          carbs?: number;
+          fat?: number;
+        } | null = null;
+        try {
+          meta = tag.metadata ? JSON.parse(tag.metadata) : null;
+        } catch {
+          continue; // unparseable legacy metadata — leave it alone
+        }
+        if (!meta?.items || !meta.items.includes(entry.description)) continue;
+
+        const remaining = [...meta.items];
+        remaining.splice(remaining.indexOf(entry.description), 1); // remove ONE occurrence
+
+        if (remaining.length === 0) {
+          await prisma.activityTag.delete({ where: { id: tag.id } });
+        } else {
+          await prisma.activityTag.update({
+            where: { id: tag.id },
+            data: {
+              metadata: JSON.stringify({
+                ...meta,
+                items: remaining,
+                calories: Math.max(0, (meta.calories ?? 0) - entry.calories),
+                protein: Math.max(0, (meta.protein ?? 0) - entry.protein),
+                carbs: Math.max(0, (meta.carbs ?? 0) - entry.carbs),
+                fat: Math.max(0, (meta.fat ?? 0) - entry.fat),
+              }),
+            },
+          });
+        }
+        break; // one entry cleans up at most one tag
+      }
+    } catch (e) {
+      // Tag cleanup must never block the actual deletion.
+      console.error("[nutrition] companion tag cleanup failed:", e);
+    }
+
     revalidateNutritionPages();
 
     return NextResponse.json({ success: true });

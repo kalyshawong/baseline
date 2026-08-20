@@ -47,6 +47,12 @@ export const viewport: Viewport = {
   themeColor: "#181613",
   width: "device-width",
   initialScale: 1,
+  // iOS auto-zooms onto any focused input with font-size <16px and the zoom
+  // sticks after the keyboard closes ("app zooms in and cannot zoom out",
+  // 2026-08-20). maximumScale pins it. Trade-off: also disables pinch-zoom
+  // in the native shell — acceptable for an app-shaped UI.
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
 };
 
