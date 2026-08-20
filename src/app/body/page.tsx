@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
-import { getLocalDay, getRequestTz } from "@/lib/date-utils";
+import { getDateFromParams, getRequestTz } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import {
   cyclePhaseGuidance,
@@ -62,11 +62,19 @@ function cap(s: string | null | undefined): string | null {
 
 export const dynamic = "force-dynamic";
 
-export default async function BodyPage() {
-  const localToday = getLocalDay(await getRequestTz());
+export default async function BodyPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // Date-aware (2026-08-20): the appbar's MobileDateNav navigates
+  // /body?date=YYYY-MM-DD, but this page used to render "today"
+  // unconditionally — flipping dates changed nothing on screen. Every
+  // day-anchored query below keys off the VIEWED date now.
+  const viewDate = getDateFromParams(await searchParams, await getRequestTz());
 
   // Week window (Monday-Sunday)
-  const weekStart = new Date(localToday);
+  const weekStart = new Date(viewDate);
   const dayOfWeek = weekStart.getUTCDay() || 7;
   weekStart.setUTCDate(weekStart.getUTCDate() - (dayOfWeek - 1));
 
@@ -88,10 +96,10 @@ export default async function BodyPage() {
     todaySleep,
     sleepTimeRec,
   ] = await Promise.all([
-    getScoreForDate(localToday),
+    getScoreForDate(viewDate),
     (async () => {
       const { resolveCyclePhase } = await import("@/lib/cycle-phase");
-      return resolveCyclePhase(localToday);
+      return resolveCyclePhase(viewDate);
     })(),
     prisma.workoutSet.findMany({
       where: { isWarmup: false, session: { date: { gte: weekStart } } },
@@ -109,12 +117,12 @@ export default async function BodyPage() {
     }),
     prisma.userProfile.findUnique({ where: { userId: getCurrentUserId() } }),
     prisma.dailySleep.findMany({
-      where: { day: { lte: localToday } },
+      where: { day: { lte: viewDate } },
       orderBy: { day: "desc" },
       take: 14,
     }),
     prisma.nutritionLog.findUnique({
-      where: { userId_day: { userId: getCurrentUserId(), day: localToday } },
+      where: { userId_day: { userId: getCurrentUserId(), day: viewDate } },
       include: { entries: true },
     }),
     prisma.workoutSet.findMany({
@@ -128,20 +136,20 @@ export default async function BodyPage() {
       orderBy: { day: "asc" },
     }),
     prisma.dailyRunningMetrics.findFirst({
-      where: { day: { lte: localToday } },
+      where: { day: { lte: viewDate } },
       orderBy: { day: "desc" },
     }),
     prisma.dailyVO2Max.findFirst({ orderBy: { day: "desc" } }),
     prisma.dailySleep.findFirst({
-      where: { day: localToday },
+      where: { day: viewDate },
     }),
     prisma.sleepTimeRecommendation.findFirst({ orderBy: { day: "desc" } }),
   ]);
 
   const [dayStress, daySpO2, dayResilience] = await Promise.all([
-    prisma.dailyStress.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: localToday } } }),
-    prisma.dailySpO2.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: localToday } } }),
-    prisma.dailyResilience.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: localToday } } }),
+    prisma.dailyStress.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: viewDate } } }),
+    prisma.dailySpO2.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: viewDate } } }),
+    prisma.dailyResilience.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: viewDate } } }),
   ]);
 
   const latestWeight = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1] : null;
@@ -209,7 +217,7 @@ export default async function BodyPage() {
   const cv = hrvCV(hrvValues.slice(0, 7));
 
   const hrvBaselineSleep = await prisma.dailySleep.findMany({
-    where: { day: { lte: localToday }, averageHrv: { not: null } },
+    where: { day: { lte: viewDate }, averageHrv: { not: null } },
     orderBy: { day: "desc" },
     take: 60,
     select: { averageHrv: true },
@@ -333,7 +341,7 @@ export default async function BodyPage() {
     : null;
 
   // --- Soreness: today's entries (with streaks) + running-perf findings ---
-  const todayStr = localToday.toISOString().slice(0, 10);
+  const todayStr = viewDate.toISOString().slice(0, 10);
   const [sorenessEntries, sorenessFindings] = await Promise.all([
     getSorenessForDay(todayStr).catch(() => []),
     analyzeSoreness().catch(() => []),
