@@ -9,6 +9,7 @@ import { SleepRing } from "@/components/dashboard/sleep-ring";
 import { ActivityCard } from "@/components/dashboard/activity-card";
 import { CalorieBalanceCard } from "@/components/dashboard/calorie-balance-card";
 import { CycleCard } from "@/components/dashboard/cycle-card";
+import { MinCard } from "@/components/min-card";
 import { SleepCard } from "@/components/dashboard/sleep-card";
 import { WorkoutCard } from "@/components/dashboard/workout-card";
 import { ManualWorkoutEntry } from "@/components/dashboard/manual-workout-entry";
@@ -543,11 +544,13 @@ export default async function Dashboard({
               activeCalories: w.activeCalories,
             }))}
           />
-          <CycleCard
-            phase={cyclePhase}
-            dayNumber={cycleDayNumber}
-            temperatureDeviationC={dayReadiness?.temperatureDeviation ?? null}
-          />
+          <MinCard id="cycle-today-d" label="Cycle">
+            <CycleCard
+              phase={cyclePhase}
+              dayNumber={cycleDayNumber}
+              temperatureDeviationC={dayReadiness?.temperatureDeviation ?? null}
+            />
+          </MinCard>
           <CalorieBalanceCard
             caloriesIn={nutritionCalories}
             caloriesOut={dayActivity?.totalCalories ?? null}

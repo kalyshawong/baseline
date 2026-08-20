@@ -20,7 +20,7 @@ export function QuickWorkoutLog() {
   const router = useRouter();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ date: string; templateName: string | null; summary: Summary[] } | null>(null);
+  const [result, setResult] = useState<{ date: string; templateName: string | null; summary: Summary[]; skipped?: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
@@ -78,6 +78,11 @@ export function QuickWorkoutLog() {
               </span>
             </div>
           ))}
+          {(result.skipped?.length ?? 0) > 0 && (
+            <p className="text-[11px]" style={{ color: "var(--color-yellow)" }}>
+              Skipped (no sets/reps given): {result.skipped!.join(", ")} — re-log like &quot;RDLs 3×10 @10lb&quot;
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -61,7 +61,7 @@ ${library.map((e) => e.name).join(", ")}
 Rules:
 - Resolve relative dates ("two days ago", "yesterday") against today's date; default to today.
 - Weights: assume kg unless "lb" stated (convert lb→kg, 1 decimal).
-- "3x8 @25" = 3 sets of 8 reps at 25kg. A bare weight with no reps: use reps=null→skip that entry.
+- "3x8 @25" = 3 sets of 8 reps at 25kg. If an exercise has no sets/reps, OMIT it from entries entirely (never emit null sets/reps).
 - templateName: short session label from context ("Legs", "Push", "Pull") or null.
 - Respond with ONLY the JSON, no prose:
 {"date":"YYYY-MM-DD","templateName":string|null,"entries":[{"exercise":string,"sets":n,"reps":n,"weightKg":n,"rpe":n|null}]}
@@ -73,13 +73,62 @@ Workout log: ${text.trim()}`,
     );
 
     const raw = resp.content[0]?.type === "text" ? resp.content[0].text : "";
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json({ error: "Could not parse workout text" }, { status: 422 });
+
+    // The model sometimes emits MULTIPLE json blocks with prose between
+    // (observed 2026-08-20: it wrote one answer, second-guessed itself in
+    // text, then wrote a corrected one). A greedy first-{-to-last-} regex
+    // spans all of it and JSON.parse explodes with a misleading "Invalid
+    // JSON in request body". Instead: collect every balanced {...} block
+    // and take the LAST one that parses — the model's final answer.
+    const candidates: string[] = [];
+    let depth = 0;
+    let start = -1;
+    for (let i = 0; i < raw.length; i++) {
+      if (raw[i] === "{") {
+        if (depth === 0) start = i;
+        depth++;
+      } else if (raw[i] === "}") {
+        depth--;
+        if (depth === 0 && start >= 0) candidates.push(raw.slice(start, i + 1));
+      }
     }
-    const parsed: ParsedWorkout = JSON.parse(jsonMatch[0]);
+    let parsed: ParsedWorkout | null = null;
+    for (let i = candidates.length - 1; i >= 0; i--) {
+      try {
+        parsed = JSON.parse(candidates[i]);
+        break;
+      } catch {
+        /* try the previous block */
+      }
+    }
+    if (!parsed) {
+      console.error("[workout-log] unparseable model output:", raw.slice(0, 500));
+      return NextResponse.json(
+        { error: 'Couldn\'t parse that — try the form "bulgarians 3x8 @25, RDLs 4x10 @60"' },
+        { status: 422 },
+      );
+    }
+
+    // Drop entries the model shouldn't have emitted (null/absent sets,
+    // reps, or weight) rather than crashing the set-creation loop — and
+    // tell the user what was skipped instead of silently eating it.
+    const allEntries = parsed.entries ?? [];
+    const skipped = allEntries
+      .filter((e) => !(Number(e.sets) > 0 && Number(e.reps) > 0 && Number(e.weightKg) >= 0))
+      .map((e) => e.exercise ?? "unknown");
+    parsed.entries = allEntries.filter(
+      (e) => Number(e.sets) > 0 && Number(e.reps) > 0 && Number(e.weightKg) >= 0,
+    );
     if (!parsed.entries?.length) {
-      return NextResponse.json({ error: "No exercises found in that text" }, { status: 422 });
+      return NextResponse.json(
+        {
+          error:
+            skipped.length > 0
+              ? `Couldn't log: missing sets/reps for ${skipped.join(", ")} — try "single leg RDLs 3x10 @10lb"`
+              : "No exercises found in that text",
+        },
+        { status: 422 },
+      );
     }
 
     // Resolve/create exercises.
@@ -144,6 +193,9 @@ Workout log: ${text.trim()}`,
         reps: r.p.reps,
         weightKg: r.p.weightKg,
       })),
+      // Entries dropped for missing sets/reps — surfaced so the user can
+      // re-log them with numbers instead of assuming they were saved.
+      skipped,
     });
   } catch (error) {
     const { status, body } = apiError(error);

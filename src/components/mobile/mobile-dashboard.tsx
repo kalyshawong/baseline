@@ -5,6 +5,7 @@ import type { TrainingCall } from "@/lib/training";
 import { SyncButton } from "@/components/dashboard/sync-button";
 import { MobileDateNav } from "@/components/mobile/mobile-date-nav";
 import { WorkoutCard } from "@/components/dashboard/workout-card";
+import { MinCard } from "@/components/min-card";
 
 /**
  * Mobile "Today" screen — implements the Claude Design "Baseline iOS"
@@ -307,6 +308,7 @@ export function MobileDashboard(p: MobileDashboardProps) {
           {/* Cycle + Calories row */}
           <div className="row2">
             {p.cyclePhase && (
+              <MinCard id="cycle-today-m" label="Cycle">
               <div className="panel cyc">
                 <div className="ph"><span className="ov">Cycle</span></div>
                 <div className="state"><span className="d" />{p.cyclePhase.toUpperCase()}</div>
@@ -315,6 +317,7 @@ export function MobileDashboard(p: MobileDashboardProps) {
                   {p.tempDeviationC != null && <div><div className="k">Temp</div><div className="v num blue">{p.tempDeviationC > 0 ? "+" : "−"}{Math.abs(p.tempDeviationC).toFixed(2)}°</div></div>}
                 </div>
               </div>
+              </MinCard>
             )}
             {(p.caloriesIn != null || calOut != null) && (
               <div className="panel">
