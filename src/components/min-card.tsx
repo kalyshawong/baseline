@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 
 /**
  * Minimizable card wrapper — her ask (2026-08-20): "just a button to
- * minimize, not take it away" (e.g. the cycle card when showing the app to
- * friends/family). Collapsed state is a slim labeled bar; tap to expand.
- * Remembered per-card in localStorage, so it survives reloads and app
- * relaunches until she expands it again.
+ * minimize, not take it away" (cycle cards, the Mind findings card with the
+ * sex correlation, etc. — for handing the phone to friends/family).
+ *
+ * v2: the first version hid the control in a floating 14px arrow that
+ * overlapped card content ("where is the hide?"). Now it's an always-visible
+ * slim bar: label + chevron, tap anywhere on it to toggle. Collapsed =
+ * bar only. Remembered per-card in localStorage across reloads/relaunches.
  */
 
 const STORE = "bl_min";
@@ -27,7 +30,7 @@ export function MinCard({
 }: {
   /** Stable key for persistence, e.g. "cycle-today". */
   id: string;
-  /** Shown on the collapsed bar. */
+  /** Shown on the toggle bar. */
   label: string;
   children: React.ReactNode;
 }) {
@@ -37,47 +40,58 @@ export function MinCard({
     setMin(readStore()[id] === true);
   }, [id]);
 
-  function set(next: boolean) {
-    setMin(next);
-    try {
-      const m = readStore();
-      m[id] = next;
-      localStorage.setItem(STORE, JSON.stringify(m));
-    } catch {
-      /* private mode etc. — collapse still works for this session */
-    }
-  }
-
-  if (min) {
-    return (
-      <button
-        type="button"
-        onClick={() => set(false)}
-        className="panel"
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "10px 16px", cursor: "pointer", textAlign: "left" }}
-        aria-label={`Expand ${label}`}
-      >
-        <span className="ov">{label}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--faint, var(--color-text-muted))" }}>
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
-    );
+  function toggle() {
+    setMin((prev) => {
+      const next = !prev;
+      try {
+        const m = readStore();
+        m[id] = next;
+        localStorage.setItem(STORE, JSON.stringify(m));
+      } catch {
+        /* private mode etc. — toggle still works for this session */
+      }
+      return next;
+    });
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div>
       <button
         type="button"
-        onClick={() => set(true)}
-        aria-label={`Minimize ${label}`}
-        style={{ position: "absolute", top: 10, right: 12, zIndex: 2, background: "none", border: "none", padding: 4, cursor: "pointer", color: "var(--faint, var(--color-text-muted))", lineHeight: 0 }}
+        onClick={toggle}
+        aria-label={`${min ? "Expand" : "Minimize"} ${label}`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "100%",
+          padding: "9px 14px",
+          cursor: "pointer",
+          textAlign: "left",
+          background: "var(--surf2, var(--color-surface-2))",
+          border: "none",
+          marginBottom: min ? 0 : 8,
+        }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m18 15-6-6-6 6" />
-        </svg>
+        <span className="ov">{label}</span>
+        <span className="ov" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {min ? "Show" : "Hide"}
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ transform: min ? "none" : "rotate(180deg)" }}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
       </button>
-      {children}
+      {!min && children}
     </div>
   );
 }
