@@ -8,7 +8,9 @@
  *     (they're content-hashed, so cached === correct).
  *   - Never cache non-GET or API POSTs.
  */
-const CACHE = "baseline-v1";
+// v2 (2026-08-20): version bump purges every v1 cache on activate — a stale
+// v1 worker on the phone was serving old HTML long after deploys.
+const CACHE = "baseline-v2";
 const STATIC_RE = /\/_next\/static\/|\.(?:png|svg|ico|woff2?|webmanifest)$/;
 
 self.addEventListener("install", (event) => {

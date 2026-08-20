@@ -22,24 +22,37 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { date, bodyPart, severity, note } = await request.json();
+    const { date, bodyPart, severity, note, clear } = await request.json();
     if (!DATE_RE.test(date ?? "")) {
       return NextResponse.json({ error: "date=YYYY-MM-DD required" }, { status: 400 });
     }
     if (typeof bodyPart !== "string" || !bodyPart.trim()) {
       return NextResponse.json({ error: "bodyPart required" }, { status: 400 });
     }
+    const userId = getCurrentUserId();
+    const day = dateStrToUTC(date);
+    const part = bodyPart.trim().toLowerCase();
+
+    if (clear === true) {
+      // End the episode: this day is the first NOT-sore day.
+      await prisma.sorenessLog.upsert({
+        where: { userId_day_bodyPart: { userId, day, bodyPart: part } },
+        create: { userId, day, bodyPart: part, severity: 0, cleared: true },
+        update: { severity: 0, cleared: true, note: null },
+      });
+      return NextResponse.json({ entries: await getSorenessForDay(date) });
+    }
+
     const sev = Number(severity);
     if (!Number.isInteger(sev) || sev < 1 || sev > 10) {
       return NextResponse.json({ error: "severity must be an integer 1-10" }, { status: 400 });
     }
-    const userId = getCurrentUserId();
-    const day = dateStrToUTC(date);
-    const part = bodyPart.trim().toLowerCase();
+    // Opens an episode (or updates today's severity mid-episode). cleared
+    // explicitly reset in update in case this day previously held a clear.
     await prisma.sorenessLog.upsert({
       where: { userId_day_bodyPart: { userId, day, bodyPart: part } },
       create: { userId, day, bodyPart: part, severity: sev, note: note || null },
-      update: { severity: sev, note: note || null },
+      update: { severity: sev, note: note || null, cleared: false },
     });
     return NextResponse.json({ entries: await getSorenessForDay(date) });
   } catch (error) {
