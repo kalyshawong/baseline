@@ -427,6 +427,7 @@ export default async function BodyPage({
                 <MobileCycleCard phase={phaseLog.phase} headline={guidance.headline} note={guidance.note} />
               )}
               <SorenessCard
+                key={todayStr}
                 dateStr={todayStr}
                 initialEntries={sorenessEntries}
                 bodyParts={BODY_PARTS}
@@ -687,6 +688,7 @@ export default async function BodyPage({
       {/* ─── SORENESS ─── */}
       <div className="mt-[14px]">
         <SorenessCard
+                key={todayStr}
                 dateStr={todayStr}
                 initialEntries={sorenessEntries}
                 bodyParts={BODY_PARTS}

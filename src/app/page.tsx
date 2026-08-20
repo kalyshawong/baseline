@@ -345,7 +345,7 @@ export default async function Dashboard({
   // Ambient sessions only (walks etc.) — training workouts get their own
   // full WorkoutCard (HR chart + notes/GI editor) on both desktop and mobile.
   const workoutRows = ambientWorkouts.map((w) => {
-    const time = w.startedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    const time = w.startedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
     const minutes = Math.round(w.durationSeconds / 60);
     const dur = minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
     const dist =
@@ -391,6 +391,7 @@ export default async function Dashboard({
       {/* Mobile (Baseline iOS design) — below md only */}
       <div className="md:hidden">
         <MobileDashboard
+          tz={tz}
           viewDate={viewDate}
           isConnected={isConnected}
           lastSyncIso={lastSync?.syncDate.toISOString() ?? null}
@@ -450,6 +451,7 @@ export default async function Dashboard({
               {lastSync.syncDate.toLocaleTimeString("en-US", {
                 hour: "numeric",
                 minute: "2-digit",
+                timeZone: tz, // viewer's clock, not the server's (Eastern)
               })}
             </span>
           )}
@@ -513,6 +515,7 @@ export default async function Dashboard({
         {/* Triple row: Activity / Cycle / Calories */}
         <div className="grid grid-cols-[1.4fr_1fr_1.2fr] gap-[14px]">
           <ActivityCard
+            tz={tz}
             activity={
               dayActivity
                 ? {
@@ -616,6 +619,7 @@ export default async function Dashboard({
                     const startLabel = w.startedAt.toLocaleTimeString("en-US", {
                       hour: "numeric",
                       minute: "2-digit",
+                      timeZone: tz,
                     });
                     const minutes = Math.round(w.durationSeconds / 60);
                     const durLabel =
