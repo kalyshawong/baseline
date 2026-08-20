@@ -208,10 +208,18 @@
 .bl-m .cyc .two .k {font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
 .bl-m .cyc .two .v {font-family:var(--disp);font-size:36px;line-height:.85}
 .bl-m .cyc .two .v.blue {color:var(--blue)}
-.bl-m .cal3 {display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.bl-m .cal3 {display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;
+  /* container so .v can size itself off the card's real width */
+  container-type:inline-size}
 .bl-m .cal3 .c {text-align:center;background:var(--surf2);padding:11px 4px}
 .bl-m .cal3 .c .k {font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
-.bl-m .cal3 .c .v {font-family:var(--disp);font-size:32px;line-height:.9}
+/* Design says 32px, but the mock's demo numbers were 3 digits — real values
+   ("1548", "−1162") clipped in the half-width card. Shrink uniformly with
+   the card, capped at the design size. 13cqw ≈ 5 Bebas glyphs per cell. */
+.bl-m .cal3 .c .v {font-family:var(--disp);font-size:min(32px, 13cqw);line-height:.9}
+/* When the Cycle card is absent, don't leave Calories squeezed into half a
+   row — let a lone panel span the full row2. */
+.bl-m .row2 > .panel:only-child {grid-column:1 / -1}
 .bl-m .cal3 .c .v.in {color:var(--green)}
 .bl-m .cal3 .c .v.out {color:var(--amber)}
 .bl-m .cal3 .c .v.net {color:var(--amber)}
