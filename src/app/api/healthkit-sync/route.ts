@@ -22,6 +22,21 @@ function sumByDay(
   return byDay;
 }
 
+/** Last (Avg ?? qty) value per YYYY-MM-DD — for day-granular metrics that
+ *  arrive as many per-sample rows (native pipeline). Matches the old
+ *  sequential-overwrite behavior, in one write per day instead of hundreds. */
+function lastPerDay(
+  data: Array<{ date: string; qty?: number; Avg?: number }>,
+): Map<string, number> {
+  const byDay = new Map<string, number>();
+  for (const d of data) {
+    const val = d.Avg ?? d.qty;
+    if (!val || !d.date) continue;
+    byDay.set(d.date.substring(0, 10), val);
+  }
+  return byDay;
+}
+
 interface MetricEntry {
   name: string;
   units?: string;
@@ -220,147 +235,164 @@ async function processMetrics(
 
       // --- Apple Watch running & fitness metrics (via Health Auto Export) ---
 
-      case "walking_running_distance":
-        for (const d of metric.data) {
-          const val = d.Avg ?? d.qty;
-          if (!val || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
+      case "walking_running_distance": {
+        // One write PER DAY, not per sample — run days carry hundreds of
+        // samples and the old per-sample upserts were sequential round-trips
+        // (a major cause of the killed-function watermark loop, 2026-08-20).
+        for (const [dayStr, val] of lastPerDay(metric.data)) {
+          const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
             where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { walkingRunningDistance: val },
             create: { userId: getCurrentUserId(), day, walkingRunningDistance: val },
           });
-          count++;
         }
+        count += metric.data.length;
         break;
+      }
 
-      case "physical_effort":
-        for (const d of metric.data) {
-          const val = d.Avg ?? d.qty;
-          if (!val || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
+      case "physical_effort": {
+        // One write PER DAY, not per sample — run days carry hundreds of
+        // samples and the old per-sample upserts were sequential round-trips
+        // (a major cause of the killed-function watermark loop, 2026-08-20).
+        for (const [dayStr, val] of lastPerDay(metric.data)) {
+          const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
             where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { physicalEffort: val },
             create: { userId: getCurrentUserId(), day, physicalEffort: val },
           });
-          count++;
         }
+        count += metric.data.length;
         break;
+      }
 
-      case "respiratory_rate":
-        for (const d of metric.data) {
-          const val = d.Avg ?? d.qty;
-          if (!val || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
+      case "respiratory_rate": {
+        // One write PER DAY, not per sample — run days carry hundreds of
+        // samples and the old per-sample upserts were sequential round-trips
+        // (a major cause of the killed-function watermark loop, 2026-08-20).
+        for (const [dayStr, val] of lastPerDay(metric.data)) {
+          const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
             where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { respiratoryRate: val },
             create: { userId: getCurrentUserId(), day, respiratoryRate: val },
           });
-          count++;
         }
+        count += metric.data.length;
         break;
+      }
 
-      case "vo2_max":
-        for (const d of metric.data) {
-          const val = d.Avg ?? d.qty;
-          if (!val || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
+      case "vo2_max": {
+        for (const [dayStr, val] of lastPerDay(metric.data)) {
+          const day = dateStrToUTC(dayStr);
           await prisma.dailyVO2Max.upsert({
             where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { vo2Max: val },
-            create: { id: `hae-vo2-${d.date.substring(0, 10)}`, userId: getCurrentUserId(), day, vo2Max: val },
+            create: { id: `hae-vo2-${dayStr}`, userId: getCurrentUserId(), day, vo2Max: val },
           });
-          count++;
         }
+        count += metric.data.length;
         break;
+      }
 
       // --- Placeholder cases: names are best guesses, update after a real run ---
 
-      case "running_speed":
-        for (const d of metric.data) {
-          const val = d.Avg ?? d.qty;
-          if (!val || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
+      case "running_speed": {
+        // One write PER DAY, not per sample — run days carry hundreds of
+        // samples and the old per-sample upserts were sequential round-trips
+        // (a major cause of the killed-function watermark loop, 2026-08-20).
+        for (const [dayStr, val] of lastPerDay(metric.data)) {
+          const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
             where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { runningSpeed: val },
             create: { userId: getCurrentUserId(), day, runningSpeed: val },
           });
-          count++;
         }
+        count += metric.data.length;
         break;
+      }
 
-      case "running_power":
-        for (const d of metric.data) {
-          const val = d.Avg ?? d.qty;
-          if (!val || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
+      case "running_power": {
+        // One write PER DAY, not per sample — run days carry hundreds of
+        // samples and the old per-sample upserts were sequential round-trips
+        // (a major cause of the killed-function watermark loop, 2026-08-20).
+        for (const [dayStr, val] of lastPerDay(metric.data)) {
+          const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
             where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { runningPower: val },
             create: { userId: getCurrentUserId(), day, runningPower: val },
           });
-          count++;
         }
+        count += metric.data.length;
         break;
+      }
 
-      case "ground_contact_time":
-        for (const d of metric.data) {
-          const val = d.Avg ?? d.qty;
-          if (!val || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
+      case "ground_contact_time": {
+        // One write PER DAY, not per sample — run days carry hundreds of
+        // samples and the old per-sample upserts were sequential round-trips
+        // (a major cause of the killed-function watermark loop, 2026-08-20).
+        for (const [dayStr, val] of lastPerDay(metric.data)) {
+          const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
             where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { groundContactTime: val },
             create: { userId: getCurrentUserId(), day, groundContactTime: val },
           });
-          count++;
         }
+        count += metric.data.length;
         break;
+      }
 
-      case "vertical_oscillation":
-        for (const d of metric.data) {
-          const val = d.Avg ?? d.qty;
-          if (!val || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
+      case "vertical_oscillation": {
+        // One write PER DAY, not per sample — run days carry hundreds of
+        // samples and the old per-sample upserts were sequential round-trips
+        // (a major cause of the killed-function watermark loop, 2026-08-20).
+        for (const [dayStr, val] of lastPerDay(metric.data)) {
+          const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
             where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { verticalOscillation: val },
             create: { userId: getCurrentUserId(), day, verticalOscillation: val },
           });
-          count++;
         }
+        count += metric.data.length;
         break;
+      }
 
-      case "running_stride_length":
-        for (const d of metric.data) {
-          const val = d.Avg ?? d.qty;
-          if (!val || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
+      case "running_stride_length": {
+        // One write PER DAY, not per sample — run days carry hundreds of
+        // samples and the old per-sample upserts were sequential round-trips
+        // (a major cause of the killed-function watermark loop, 2026-08-20).
+        for (const [dayStr, val] of lastPerDay(metric.data)) {
+          const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
             where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { strideLength: val },
             create: { userId: getCurrentUserId(), day, strideLength: val },
           });
-          count++;
         }
+        count += metric.data.length;
         break;
+      }
 
-      case "cardio_recovery":
-        for (const d of metric.data) {
-          const val = d.Avg ?? d.qty;
-          if (!val || !d.date) continue;
-          const day = dateStrToUTC(d.date.substring(0, 10));
+      case "cardio_recovery": {
+        // One write PER DAY, not per sample — run days carry hundreds of
+        // samples and the old per-sample upserts were sequential round-trips
+        // (a major cause of the killed-function watermark loop, 2026-08-20).
+        for (const [dayStr, val] of lastPerDay(metric.data)) {
+          const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
             where: { userId_day: { userId: getCurrentUserId(), day } },
             update: { cardioRecovery: val },
             create: { userId: getCurrentUserId(), day, cardioRecovery: val },
           });
-          count++;
         }
+        count += metric.data.length;
         break;
+      }
 
       default:
         break;
@@ -560,30 +592,51 @@ function entryDay(entry: CycleEntry): Date | null {
 }
 
 async function processCycleTracking(entries: CycleEntry[]): Promise<number> {
-  let count = 0;
+  // HAE re-sends the ENTIRE cycle history (~1,500 entries) with every
+  // export, and the old per-entry findUnique+upsert made that ~3,000
+  // sequential DB round-trips — minutes of wall clock, the single biggest
+  // contributor to killed syncs (2026-08-20). Now: dedupe to one phase per
+  // day in memory, fetch the manual-override days in ONE query, and batch
+  // the remaining upserts.
+  const userId = getCurrentUserId();
 
+  const phaseByDay = new Map<string, { day: Date; phase: string }>();
   for (const entry of entries) {
     const phase = phaseForCycleEntry(entry);
     if (!phase) continue; // Contraceptive / informational entries skipped here
-
     const day = entryDay(entry);
     if (!day) continue;
-
-    // Manual entries take priority — only write if no manual entry exists for this day
-    const existing = await prisma.cyclePhaseLog.findUnique({
-      where: { userId_day: { userId: getCurrentUserId(), day } },
-    });
-    if (!existing || existing.source !== "manual") {
-      await prisma.cyclePhaseLog.upsert({
-        where: { userId_day: { userId: getCurrentUserId(), day } },
-        update: { phase, source: "healthkit" },
-        create: { userId: getCurrentUserId(), day, phase, source: "healthkit" },
-      });
-      count++;
-    }
+    // Last entry for a day wins — same as the old sequential behavior.
+    phaseByDay.set(day.toISOString(), { day, phase });
   }
+  if (phaseByDay.size === 0) return 0;
 
-  return count;
+  const days = Array.from(phaseByDay.values()).map((v) => v.day);
+
+  // Manual entries take priority — exclude their days in one shot.
+  const manual = await prisma.cyclePhaseLog.findMany({
+    where: { userId, day: { in: days }, source: "manual" },
+    select: { day: true },
+  });
+  const manualDays = new Set(manual.map((m) => m.day.toISOString()));
+
+  const writes = Array.from(phaseByDay.values()).filter(
+    (v) => !manualDays.has(v.day.toISOString()),
+  );
+
+  const BATCH = 200;
+  for (let i = 0; i < writes.length; i += BATCH) {
+    await prisma.$transaction(
+      writes.slice(i, i + BATCH).map((v) =>
+        prisma.cyclePhaseLog.upsert({
+          where: { userId_day: { userId, day: v.day } },
+          update: { phase: v.phase, source: "healthkit" },
+          create: { userId, day: v.day, phase: v.phase, source: "healthkit" },
+        }),
+      ),
+    );
+  }
+  return writes.length;
 }
 
 // --- Route handlers ---
@@ -630,11 +683,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const data = body?.data ?? body; // Support both { data: { ... } } and flat
 
-    // Which pipeline sent this? The native shell appends a UA token
-    // (capacitor.config.ts appendUserAgent); HAE doesn't.
-    const source = (request.headers.get("user-agent") ?? "").includes("BaselineNative")
-      ? "native-app"
-      : "health-auto-export";
+    // Which pipeline sent this? The Swift plugin sets X-Baseline-Client
+    // (URLSession does NOT inherit the WebView's appended UA, which is why
+    // UA sniffing alone mislabeled every native post as HAE); the UA check
+    // stays for any fetch()es made from inside the WebView.
+    const source =
+      request.headers.get("x-baseline-client") === "native-app" ||
+      (request.headers.get("user-agent") ?? "").includes("BaselineNative")
+        ? "native-app"
+        : "health-auto-export";
 
     // Tombstone-first logging: create the row BEFORE processing, update at
     // the end. If Vercel kills the function mid-processing (timeout), the

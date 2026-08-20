@@ -252,6 +252,10 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         req.timeoutInterval = 180 // server can take minutes on big batches
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        // Label this post as the native pipeline. URLSession does NOT carry
+        // the WebView's appendUserAgent token, so without this header the
+        // server logs every native sync as "health-auto-export".
+        req.setValue("native-app", forHTTPHeaderField: "X-Baseline-Client")
         req.httpBody = try JSONSerialization.data(withJSONObject: envelope)
         let (_, resp) = try await URLSession.shared.data(for: req)
         guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
