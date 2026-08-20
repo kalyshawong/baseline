@@ -47,6 +47,7 @@ import { QuickWorkoutLog } from "@/components/body/quick-workout-log";
 import { getSorenessForDay, BODY_PARTS } from "@/lib/soreness";
 import { analyzeSoreness } from "@/lib/soreness-analysis";
 import { MobileCycleCard } from "@/components/mobile/mobile-cycle-card";
+import { MinCard } from "@/components/min-card";
 import { kgToLb } from "@/lib/tdee";
 
 function formatDuration(seconds: number | null): string {
@@ -424,7 +425,9 @@ export default async function BodyPage({
           <div className="wrap" style={{ marginTop: 14 }}>
             <div className="stack-lg">
               {guidance && (
-                <MobileCycleCard phase={phaseLog.phase} headline={guidance.headline} note={guidance.note} />
+                <MinCard id="cycle-body-m" label="Cycle">
+                  <MobileCycleCard phase={phaseLog.phase} headline={guidance.headline} note={guidance.note} />
+                </MinCard>
               )}
               <SorenessCard
                 key={todayStr}
@@ -700,8 +703,12 @@ export default async function BodyPage({
       <div className="mt-[14px] grid grid-cols-2 gap-[14px] items-stretch">
         {/* Left: Cycle Phase */}
         <div className="flex flex-col gap-[14px]">
-          {guidance && <CyclePhaseGuidanceCard guidance={guidance} />}
-          <CyclePhaseSelector currentPhase={phaseLog.phase} />
+          <MinCard id="cycle-body-d" label="Cycle">
+            <div className="space-y-6">
+              {guidance && <CyclePhaseGuidanceCard guidance={guidance} />}
+              <CyclePhaseSelector currentPhase={phaseLog.phase} />
+            </div>
+          </MinCard>
         </div>
 
         {/* Right: Fatigue Signal */}
