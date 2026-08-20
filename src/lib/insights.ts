@@ -244,6 +244,19 @@ export async function generateInsights(): Promise<Insight[]> {
 
   const allBioDays = new Set([...sleepByDay.keys(), ...readinessByDay.keys()]);
 
+  // ── JOURNALED DAYS (2026-08-20, her call) ────────────────────────────
+  // "No tag" only means "didn't happen" on days she was demonstrably
+  // logging. Oura bio days arrive automatically, so an unlogged month used
+  // to count as 30 "days without this tag" — fabricating control data
+  // ("i don't want fake data"). A day is journaled if ANY manual log
+  // exists: an activity tag (any category, nutrition included), a life-
+  // context log, or a food log. Days with bio data but no journaling are
+  // UNKNOWN and sit out of every comparison.
+  const journaledDays = new Set<string>();
+  for (const t of allTags) journaledDays.add(t.timestamp.toISOString().split("T")[0]);
+  for (const l of allLifeLogs) journaledDays.add(l.day.toISOString().split("T")[0]);
+  for (const n of nutritionLogs) journaledDays.add(n.day.toISOString().split("T")[0]);
+
   const qualifiedTags = Array.from(tagDays.entries()).filter(
     ([, v]) => v.days.size >= 5
   );
@@ -275,8 +288,22 @@ export async function generateInsights(): Promise<Insight[]> {
       }
     }
 
+    // COVERAGE ERA: absence is only meaningful while she was actively
+    // logging THIS tag. Her "sex" logging ran Mar 21 → Jun 3 then stopped
+    // cold — journaled days after that (she still logged food daily) are
+    // NOT credible "no" days. Era = [first log, last log] + 7d grace on
+    // each side. Tags in continuous use are unaffected.
+    const tagDayList = Array.from(taggedDaySet).sort();
+    const GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+    const eraStart = new Date(new Date(tagDayList[0] + "T00:00:00Z").getTime() - GRACE_MS)
+      .toISOString().split("T")[0];
+    const eraEnd = new Date(new Date(tagDayList[tagDayList.length - 1] + "T00:00:00Z").getTime() + GRACE_MS)
+      .toISOString().split("T")[0];
+
     const cleanControl = new Set<string>();
     for (const d of allBioDays) {
+      if (!journaledDays.has(d)) continue; // unlogged day = unknown, not "no"
+      if (d < eraStart || d > eraEnd) continue; // outside this tag's logging era
       if (taggedDaySet.has(d)) continue;
       if (grp && siblingDays.has(d)) continue;
       cleanControl.add(d);
@@ -285,7 +312,7 @@ export async function generateInsights(): Promise<Insight[]> {
     let controlDays = cleanControl;
     let controlLabel: string;
     if (!grp) {
-      controlLabel = "days without this tag";
+      controlLabel = "logged days without this tag (while you were tracking it)";
     } else if (cleanControl.size < 5 && siblingDays.size >= 5) {
       // Fallback: compare against siblings only. Exclude any days that also
       // carry the tag itself to keep groups disjoint at the day level.
@@ -305,7 +332,7 @@ export async function generateInsights(): Promise<Insight[]> {
         ? `days with ${siblingNames.join(" or ")}`
         : `other ${grp} days`;
     } else {
-      controlLabel = `days outside the ${grp} group`;
+      controlLabel = `logged days outside the ${grp} group`;
     }
 
     compareBuckets(tagName, category, taggedDaySet, controlDays, sleepByDay, readinessByDay, rawFindings, controlLabel);
