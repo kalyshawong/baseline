@@ -19,7 +19,10 @@ function currentTimeString(): string {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
+export function QuickTag({
+  dateStr,
+  frequentTags = [],
+}: { dateStr?: string; frequentTags?: { tag: string; category: string }[] } = {}) {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -91,6 +94,26 @@ export function QuickTag({ dateStr }: { dateStr?: string } = {}) {
       {flash && (
         <div className="mb-3 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400">
           Tagged: {flash}
+        </div>
+      )}
+
+      {/* Her own most-used tags — one tap logs immediately */}
+      {frequentTags.length > 0 && (
+        <div className="mb-3">
+          <p className="ov mb-2">Your tags</p>
+          <div className="flex flex-wrap gap-2">
+            {frequentTags.map((f) => (
+              <button
+                key={f.tag}
+                type="button"
+                onClick={() => handleTag(f.category, f.tag)}
+                disabled={isPending}
+                className="tagchip"
+              >
+                {f.tag}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

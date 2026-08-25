@@ -25,7 +25,10 @@ function currentTimeString(): string {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-export function MobileQuickTag({ dateStr }: { dateStr?: string } = {}) {
+export function MobileQuickTag({
+  dateStr,
+  frequentTags = [],
+}: { dateStr?: string; frequentTags?: { tag: string; category: string }[] } = {}) {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -82,6 +85,25 @@ export function MobileQuickTag({ dateStr }: { dateStr?: string } = {}) {
         <div className="chip" style={{ background: "color-mix(in oklch,var(--green),transparent 82%)", color: "var(--green)", marginBottom: 10 }}>
           Tagged: {flash}
         </div>
+      )}
+
+      {frequentTags.length > 0 && (
+        <>
+          <div className="ov" style={{ marginBottom: 7 }}>Your tags</div>
+          <div className="chips" style={{ marginBottom: 10 }}>
+            {frequentTags.map((f) => (
+              <button
+                key={f.tag}
+                type="button"
+                onClick={() => handleTag(f.category, f.tag)}
+                disabled={isPending}
+                className="tagchip"
+              >
+                {f.tag}
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       <div className="chips">
