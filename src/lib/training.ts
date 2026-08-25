@@ -108,13 +108,21 @@ export function detectRpeCreep(
   return weightChangePct < 5 && lastRpe - firstRpe >= 1;
 }
 
-// --- HRV Coefficient of Variation ---
-// Research: Flatt & Esco 2016 — elevated CV signals overreaching
+// --- HRV Coefficient of Variation (on lnRMSSD) ---
+// Research: Flatt & Esco 2016 — elevated CV signals overreaching.
+//
+// UNIT FIX (2026-08-26, audit §2.3): the practitioner ~10% threshold is for
+// **ln-transformed** RMSSD. Computed on RAW RMSSD, normal night-to-night
+// noise alone reads 30–40% and the flag fires permanently (observed: 55/55
+// of her windows exceeded 10%). All CV math here now ln-transforms first —
+// callers keep passing raw nightly RMSSD values; the personalized-baseline
+// machinery below automatically recomputes in the new unit too.
 export function hrvCV(values: number[] | null | undefined): number | null {
   if (!Array.isArray(values)) return null;
-  const valid = values.filter((v) => v != null && v > 0);
+  const valid = values.filter((v) => v != null && v > 0).map((v) => Math.log(v));
   if (valid.length < 3) return null;
   const mean = valid.reduce((a, b) => a + b, 0) / valid.length;
+  if (mean === 0) return null;
   const stdDev = Math.sqrt(
     valid.reduce((s, v) => s + (v - mean) ** 2, 0) / (valid.length - 1)
   );
@@ -161,7 +169,8 @@ export function rollingHrvCvBaseline(
   window = 7
 ): HrvCvBaseline | null {
   if (!Array.isArray(values)) return null;
-  const v = values.filter((x) => x != null && x > 0);
+  // Same ln transform as hrvCV — the baseline must live in the same unit.
+  const v = values.filter((x) => x != null && x > 0).map((x) => Math.log(x));
   if (v.length < window + 3) return null;
   const cvs: number[] = [];
   for (let i = 0; i + window <= v.length; i++) {

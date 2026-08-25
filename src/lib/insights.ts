@@ -26,11 +26,18 @@ export interface Insight {
   metrics: InsightMetric[];
 }
 
+// AUDIT (baseline-audit.md §2.2): deep sleep / sleep efficiency / WASO are
+// BANNED as outcomes — consumer stage detection carries −25..+73 min bias and
+// 29–52% wake specificity, so "effects" smaller than the instrument's error
+// band are noise. Approved outcomes only: total sleep time, nocturnal RHR,
+// HRV as deviation from the user's own 7-day baseline, temperature
+// deviation, and the readiness composite.
 const metricConfigs = [
-  { field: "deepSleepDuration", label: "deep sleep", source: "DailySleep", unit: "sec", higherIsBetter: true },
-  { field: "averageHrv", label: "HRV", source: "DailySleep", unit: "ms", higherIsBetter: true },
-  { field: "sleepEfficiency", label: "sleep efficiency", source: "DailySleep", unit: "%", higherIsBetter: true },
   { field: "score", label: "readiness", source: "DailyReadiness", unit: "", higherIsBetter: true },
+  { field: "totalSleepDuration", label: "total sleep", source: "DailySleep", unit: "sec", higherIsBetter: true },
+  { field: "lowestHeartRate", label: "nocturnal resting HR", source: "DailySleep", unit: "bpm", higherIsBetter: false },
+  { field: "hrvVsBaseline", label: "HRV vs 7-day baseline", source: "DailySleep", unit: "ms", higherIsBetter: true },
+  { field: "temperatureDeviation", label: "temp deviation", source: "DailyReadiness", unit: "°C", higherIsBetter: false },
 ] as const;
 
 function welchP(a: number[], b: number[]): number {
@@ -101,6 +108,7 @@ function compareBuckets(
   readinessByDay: Map<string, Record<string, unknown>>,
   out: RawFinding[],
   controlLabel: string,
+  testCounter: { tests: number },
 ) {
   for (const metric of metricConfigs) {
     const taggedValues: number[] = [];
@@ -130,11 +138,14 @@ function compareBuckets(
       if (value != null) controlValues.push(value);
     }
 
-    if (taggedValues.length < 3 || controlValues.length < 3) continue;
+    // AUDIT §2.1 (Omnio bar): fewer than 14 paired observations per side is
+    // below the publishable-correlation floor — n=4 "spirits" cards die here.
+    if (taggedValues.length < 14 || controlValues.length < 14) continue;
 
     const taggedMean = taggedValues.reduce((a, b) => a + b, 0) / taggedValues.length;
     const controlMean = controlValues.reduce((a, b) => a + b, 0) / controlValues.length;
     const pValue = welchP(taggedValues, controlValues);
+    testCounter.tests += 1; // every computed test counts toward the FDR family
 
     if (pValue >= 0.10) continue;
 
@@ -198,9 +209,31 @@ export async function generateInsights(): Promise<Insight[]> {
   ]);
 
   const sleepByDay = new Map(sleepData.map((s) => [s.day.toISOString().split("T")[0], s as unknown as Record<string, unknown>]));
+
+  // Derived metric: tonight's HRV minus the mean of the PRIOR 7 nights —
+  // the audit's "7-day-baselined HRV" (raw single nights are ~9–16% CV noise;
+  // only deviation from own baseline is signal). Needs ≥3 prior nights.
+  {
+    const sorted = [...sleepByDay.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
+    const window: { day: string; hrv: number }[] = [];
+    for (const [day, row] of sorted) {
+      const hrv = row.averageHrv as number | null;
+      const prior = window.filter((w) => w.day < day).slice(-7);
+      if (hrv != null && prior.length >= 3) {
+        const mean = prior.reduce((s2, w) => s2 + w.hrv, 0) / prior.length;
+        row.hrvVsBaseline = Math.round((hrv - mean) * 10) / 10;
+      } else {
+        row.hrvVsBaseline = null;
+      }
+      if (hrv != null) window.push({ day, hrv });
+    }
+  }
   const readinessByDay = new Map(readinessData.map((r) => [r.day.toISOString().split("T")[0], r as unknown as Record<string, unknown>]));
 
   const rawFindings: RawFinding[] = [];
+  // Total hypothesis tests actually computed — the FDR family size. ~19+
+  // uncorrected tests meant a 64% chance of a fake "finding" (audit §2.1.3).
+  const testCounter = { tests: 0 };
 
   // ─── TAG-BASED ANALYSIS ───────────────────────────────────────────────
 
@@ -258,7 +291,7 @@ export async function generateInsights(): Promise<Insight[]> {
   for (const n of nutritionLogs) journaledDays.add(n.day.toISOString().split("T")[0]);
 
   const qualifiedTags = Array.from(tagDays.entries()).filter(
-    ([, v]) => v.days.size >= 5
+    ([, v]) => v.days.size >= 14, // audit §2.1: below 14 tagged days, don't even test
   );
 
   for (const [tagName, { category, days: taggedDaySet }] of qualifiedTags) {
@@ -335,7 +368,7 @@ export async function generateInsights(): Promise<Insight[]> {
       controlLabel = `logged days outside the ${grp} group`;
     }
 
-    compareBuckets(tagName, category, taggedDaySet, controlDays, sleepByDay, readinessByDay, rawFindings, controlLabel);
+    compareBuckets(tagName, category, taggedDaySet, controlDays, sleepByDay, readinessByDay, rawFindings, controlLabel, testCounter);
   }
 
   // Collapse mirrored findings within the same group. Even after the control
@@ -395,13 +428,13 @@ export async function generateInsights(): Promise<Insight[]> {
           `high ${macro.label} days`, "nutrition:macro",
           highDays, lowDays,
           sleepByDay, readinessByDay, rawFindings,
-          `low ${macro.label} days`,
+          `low ${macro.label} days`, testCounter,
         );
         compareBuckets(
           `low ${macro.label} days`, "nutrition:macro",
           lowDays, highDays,
           sleepByDay, readinessByDay, rawFindings,
-          `high ${macro.label} days`,
+          `high ${macro.label} days`, testCounter,
         );
       }
     }
@@ -457,13 +490,13 @@ export async function generateInsights(): Promise<Insight[]> {
       "short eating window (<8h)", "nutrition:timing",
       shortWindow, longWindow,
       sleepByDay, readinessByDay, rawFindings,
-      "long eating-window days (12h+)",
+      "long eating-window days (12h+)", testCounter,
     );
     compareBuckets(
       "long eating window (12h+)", "nutrition:timing",
       longWindow, shortWindow,
       sleepByDay, readinessByDay, rawFindings,
-      "short eating-window days (<8h)",
+      "short eating-window days (<8h)", testCounter,
     );
   }
   // Compare short vs medium
@@ -472,7 +505,7 @@ export async function generateInsights(): Promise<Insight[]> {
       "short eating window (<8h)", "nutrition:timing",
       shortWindow, mediumWindow,
       sleepByDay, readinessByDay, rawFindings,
-      "medium eating-window days (8–12h)",
+      "medium eating-window days (8–12h)", testCounter,
     );
   }
   // Compare medium vs long
@@ -481,8 +514,29 @@ export async function generateInsights(): Promise<Insight[]> {
       "long eating window (12h+)", "nutrition:timing",
       longWindow, mediumWindow,
       sleepByDay, readinessByDay, rawFindings,
-      "medium eating-window days (8–12h)",
+      "medium eating-window days (8–12h)", testCounter,
     );
+  }
+
+  // ─── FDR CORRECTION (audit §2.1.3) ────────────────────────────────────
+  // Benjamini–Hochberg across the FULL family of computed tests. Survivors
+  // of the p<0.10 pre-filter are exactly the smallest p-values in the
+  // family, so their local ranks equal their global ranks and the adjustment
+  // is exact. pValue is REPLACED by the adjusted value everywhere downstream.
+  if (rawFindings.length > 0) {
+    const m = Math.max(testCounter.tests, rawFindings.length);
+    const byP = [...rawFindings].sort((a, b) => a.pValue - b.pValue);
+    let prevAdj = 1;
+    for (let i = byP.length - 1; i >= 0; i--) {
+      const rank = i + 1;
+      const adj = Math.min(prevAdj, (byP[i].pValue * m) / rank, 1);
+      byP[i].pValue = Math.round(adj * 1000) / 1000;
+      prevAdj = adj;
+    }
+    // Post-adjustment cut: anything no longer under 0.15 isn't worth showing
+    // even as "watching".
+    const keep = new Set(byP.filter((f) => f.pValue < 0.15));
+    rawFindings.splice(0, rawFindings.length, ...rawFindings.filter((f) => keep.has(f)));
   }
 
   // ─── GROUP & SORT ─────────────────────────────────────────────────────

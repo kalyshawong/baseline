@@ -37,6 +37,12 @@ const filterDefs: { id: Filter; label: string }[] = [
   { id: "watching", label: "Watching" },
 ];
 
+/** AUDIT §2.1.5: no p-value is zero — floor the display at <0.001. */
+function fmtP(p: number | undefined | null): string {
+  if (p == null) return "—";
+  return p < 0.001 ? "p<0.001" : `p=${p}`;
+}
+
 function formatMetricValue(value: number, metric: string): string {
   if (metric === "deepSleepDuration" || metric === "totalSleepDuration" || metric === "remSleepDuration") {
     const h = Math.floor(value / 3600);
@@ -303,7 +309,7 @@ export function InsightsFeed({
                 <MetricLine key={m.metric} m={m} />
               ))}
               <p className="mt-2 text-[11.5px] text-[var(--color-faint)] italic">
-                {insight.metrics[0]?.percentDiff}%, p={insight.metrics[0]?.pValue} · n={insight.taggedN} vs {insight.untaggedN}
+                {insight.metrics[0]?.percentDiff}%, {fmtP(insight.metrics[0]?.pValue)} · n={insight.taggedN} vs {insight.untaggedN}
               </p>
               <p className="mt-2 text-[14px] text-[var(--color-text-muted)]">
                 {insight.recommendation}
@@ -427,7 +433,7 @@ function FeaturedFinding({
             className="text-[12px] font-bold opacity-70"
             style={{ fontFamily: "var(--font-sans, 'Archivo', system-ui, sans-serif)" }}
           >
-            vs {formatMetricValue(m.untaggedMean, m.metric)} · p={m.pValue}
+            vs {formatMetricValue(m.untaggedMean, m.metric)} · {fmtP(m.pValue)}
           </small>
         </p>
       </div>

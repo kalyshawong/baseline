@@ -45,7 +45,7 @@ function PatternCard({ p }: { p: GiPattern }) {
         <span className="text-[11px] text-[var(--color-text-muted)]">GI-failure rate</span>
       </div>
       <p className="mt-2 text-[11.5px] text-[var(--color-faint)] italic">
-        {p.withFailures}/{p.withN} with vs {p.withoutFailures}/{p.withoutN} without · p={p.pValue}
+        {p.withFailures}/{p.withN} with vs {p.withoutFailures}/{p.withoutN} without · {p.pValue < 0.001 ? "p<0.001" : `p=${p.pValue}`}
       </p>
       {p.confounders.length > 0 && (
         <p className="mt-2 text-[11.5px] text-[var(--color-text-muted)]">
