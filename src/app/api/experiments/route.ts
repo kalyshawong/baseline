@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const experiment = await prisma.experiment.create({
       data: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         title,
         hypothesis,
         independentVariable,

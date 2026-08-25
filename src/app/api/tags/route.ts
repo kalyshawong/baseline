@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     const created = await prisma.activityTag.create({
       data: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         tag,
         category,
         metadata: metadata ? JSON.stringify(metadata) : null,

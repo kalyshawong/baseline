@@ -53,17 +53,17 @@ export async function POST(request: NextRequest) {
     }
 
     const log = await prisma.weightLog.upsert({
-      where: { userId_day: { userId: getCurrentUserId(), day } },
+      where: { userId_day: { userId: await getCurrentUserId(), day } },
       update: { weightKg, bodyFatPct, muscleMassKg, notes },
-      create: { userId: getCurrentUserId(), day, weightKg, bodyFatPct, muscleMassKg, notes },
+      create: { userId: await getCurrentUserId(), day, weightKg, bodyFatPct, muscleMassKg, notes },
     });
 
     // Also update UserProfile.bodyWeightKg to the latest for protein/TDEE calcs
     await prisma.userProfile.upsert({
-      where: { userId: getCurrentUserId() },
+      where: { userId: await getCurrentUserId() },
       update: { bodyWeightKg: weightKg, ...(bodyFatPct != null && { bodyFatPct }) },
       create: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         bodyWeightKg: weightKg,
         ...(bodyFatPct != null && { bodyFatPct }),
       },

@@ -210,7 +210,7 @@ async function resolveStarts(
 }
 
 export async function analyzeMealGi(): Promise<MealGiResult> {
-  const userId = getCurrentUserId();
+  const userId = await getCurrentUserId();
 
   // Labeled, confidently — skip needsReview rows (unconfirmed positives).
   const notes = await prisma.workoutNote.findMany({

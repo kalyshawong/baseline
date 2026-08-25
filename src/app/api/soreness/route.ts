@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (typeof bodyPart !== "string" || !bodyPart.trim()) {
       return NextResponse.json({ error: "bodyPart required" }, { status: 400 });
     }
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
     const day = dateStrToUTC(date);
     const part = bodyPart.trim().toLowerCase();
 
@@ -67,7 +67,7 @@ export async function DELETE(request: NextRequest) {
     const date = request.nextUrl.searchParams.get("date") ?? "";
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
     // Scope the delete to the current user so an id can't cross tenants.
-    await prisma.sorenessLog.deleteMany({ where: { id, userId: getCurrentUserId() } });
+    await prisma.sorenessLog.deleteMany({ where: { id, userId: await getCurrentUserId() } });
     return NextResponse.json(
       DATE_RE.test(date) ? { entries: await getSorenessForDay(date) } : { ok: true },
     );

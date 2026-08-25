@@ -41,7 +41,7 @@ export async function getTrainingCallForDate(
 
   // Acute stress for the day
   const dayStress = await prisma.dailyStress.findUnique({
-    where: { userId_day: { userId: getCurrentUserId(), day: forDate } },
+    where: { userId_day: { userId: await getCurrentUserId(), day: forDate } },
   });
 
   // Recent sleep for HRV CV + fatigue signals
@@ -219,7 +219,7 @@ export type HrvBaselineChoice = "pending" | "personalized" | "standard";
  *  (treated as personalized until she answers the prompt). */
 export async function getHrvBaselineChoice(): Promise<HrvBaselineChoice> {
   const p = await prisma.userProfile.findUnique({
-    where: { userId: getCurrentUserId() },
+    where: { userId: await getCurrentUserId() },
     select: { hrvBaselineChoice: true },
   });
   const c = p?.hrvBaselineChoice;

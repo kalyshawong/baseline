@@ -186,9 +186,9 @@ export async function captureSignalsForDate(day: Date): Promise<SignalSnapshot> 
   );
   const [sleep, readiness, stress, phase, periodDay, recentSleep] =
     await Promise.all([
-      prisma.dailySleep.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: utcDay } } }),
-      prisma.dailyReadiness.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: utcDay } } }),
-      prisma.dailyStress.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: utcDay } } }),
+      prisma.dailySleep.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: utcDay } } }),
+      prisma.dailyReadiness.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: utcDay } } }),
+      prisma.dailyStress.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: utcDay } } }),
       // Staleness-guarded — returns phase: null when the most recent
       // log is older than its phase's max-days cap. Prevents the May 27
       // bug where a 32-day-old "menstrual" log got echoed as current.

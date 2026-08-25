@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const created = await prisma.lifeContextDef.create({
       data: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         label: label.trim(),
         category: cat,
         emoji: typeof emoji === "string" && emoji.length > 0 ? emoji.slice(0, 4) : null,

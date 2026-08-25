@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       }
       const created = await tx.goal.create({
         data: {
-          userId: getCurrentUserId(),
+          userId: await getCurrentUserId(),
           title,
           type,
           subtype: subtype ?? null,

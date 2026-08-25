@@ -23,12 +23,12 @@ export async function GET() {
         resolveCyclePhase(localToday),
         // Personal-baseline-aware HRV-CV signals (see computeHrvCvSignals).
         computeHrvCvSignals(localToday),
-        prisma.nutritionLog.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: localToday } } }),
+        prisma.nutritionLog.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: localToday } } }),
         prisma.dailyActivity.findFirst({
           where: { day: { lte: localToday } },
           orderBy: { day: "desc" },
         }),
-        prisma.userProfile.findUnique({ where: { userId: getCurrentUserId() } }),
+        prisma.userProfile.findUnique({ where: { userId: await getCurrentUserId() } }),
         prisma.weightLog.findFirst({ orderBy: { day: "desc" } }),
         prisma.dailyRunningMetrics.findFirst({
           where: { day: { lte: localToday } },

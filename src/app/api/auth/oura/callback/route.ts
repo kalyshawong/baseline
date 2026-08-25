@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     } else {
       await prisma.ouraToken.create({
         data: {
-          userId: getCurrentUserId(),
+          userId: await getCurrentUserId(),
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token,
           expiresAt: new Date(Date.now() + tokens.expires_in * 1000),

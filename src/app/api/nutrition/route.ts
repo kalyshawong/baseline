@@ -82,11 +82,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Upsert day's NutritionLog
-    let log = await prisma.nutritionLog.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: logDay } } });
+    let log = await prisma.nutritionLog.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: logDay } } });
 
     if (!log) {
       log = await prisma.nutritionLog.create({
-        data: { userId: getCurrentUserId(), day: logDay, calories: 0, protein: 0, carbs: 0, fat: 0 },
+        data: { userId: await getCurrentUserId(), day: logDay, calories: 0, protein: 0, carbs: 0, fat: 0 },
       });
     }
 
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     for (const est of estimates) {
       await prisma.nutritionEntry.create({
         data: {
-          userId: getCurrentUserId(),
+          userId: await getCurrentUserId(),
           nutritionLogId: log.id,
           description: est.description,
           foodName: est.foodName,
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
       : `${eatenHour > 12 ? eatenHour - 12 : eatenHour}:${String(eatenTime.getMinutes()).padStart(2, "0")}${eatenHour >= 12 ? "pm" : "am"}`;
     await prisma.activityTag.create({
       data: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         tag: meal,
         category: "nutrition",
         timestamp: eatenTime,
@@ -217,7 +217,7 @@ export async function DELETE(request: NextRequest) {
     try {
       const candidates = await prisma.activityTag.findMany({
         where: {
-          userId: getCurrentUserId(),
+          userId: await getCurrentUserId(),
           category: "nutrition",
           tag: entry.mealType,
           timestamp: entry.eatenAt,
@@ -279,7 +279,7 @@ export async function GET() {
     const today = getLocalDay(await getRequestTz());
 
     const log = await prisma.nutritionLog.findUnique({
-      where: { userId_day: { userId: getCurrentUserId(), day: today } },
+      where: { userId_day: { userId: await getCurrentUserId(), day: today } },
       include: { entries: { orderBy: { createdAt: "desc" } } },
     });
 

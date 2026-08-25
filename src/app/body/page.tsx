@@ -116,14 +116,14 @@ export default async function BodyPage({
         },
       },
     }),
-    prisma.userProfile.findUnique({ where: { userId: getCurrentUserId() } }),
+    prisma.userProfile.findUnique({ where: { userId: await getCurrentUserId() } }),
     prisma.dailySleep.findMany({
       where: { day: { lte: viewDate } },
       orderBy: { day: "desc" },
       take: 14,
     }),
     prisma.nutritionLog.findUnique({
-      where: { userId_day: { userId: getCurrentUserId(), day: viewDate } },
+      where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } },
       include: { entries: true },
     }),
     prisma.workoutSet.findMany({
@@ -148,9 +148,9 @@ export default async function BodyPage({
   ]);
 
   const [dayStress, daySpO2, dayResilience] = await Promise.all([
-    prisma.dailyStress.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: viewDate } } }),
-    prisma.dailySpO2.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: viewDate } } }),
-    prisma.dailyResilience.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: viewDate } } }),
+    prisma.dailyStress.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } } }),
+    prisma.dailySpO2.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } } }),
+    prisma.dailyResilience.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } } }),
   ]);
 
   const latestWeight = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1] : null;

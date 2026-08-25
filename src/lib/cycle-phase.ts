@@ -122,7 +122,7 @@ export async function resolveCyclePhase(
   // period that was only logged once.
   if (log.phase === "menstrual" && daysAgo > 0) {
     const prev = await prisma.cyclePhaseLog.findUnique({
-      where: { userId_day: { userId: getCurrentUserId(), day: new Date(log.day.getTime() - DAY_MS) } },
+      where: { userId_day: { userId: await getCurrentUserId(), day: new Date(log.day.getTime() - DAY_MS) } },
     });
     const isStreak = prev?.phase === "menstrual";
     const MENSTRUAL_GRACE_DAYS = 1;
@@ -220,7 +220,7 @@ export async function findCurrentPeriodStart(
   for (let i = 0; i < maxCycleDays; i++) {
     const prevDay = new Date(earliest.getTime() - 24 * 60 * 60 * 1000);
     const prev = await prisma.cyclePhaseLog.findUnique({
-      where: { userId_day: { userId: getCurrentUserId(), day: prevDay } },
+      where: { userId_day: { userId: await getCurrentUserId(), day: prevDay } },
     });
     if (!prev || prev.phase !== "menstrual") break;
     earliest = prevDay;

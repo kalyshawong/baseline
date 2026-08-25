@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       where: { defId_day: { defId, day } },
       update: { notes: typeof notes === "string" ? notes : null },
       create: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         defId,
         day,
         notes: typeof notes === "string" ? notes : null,

@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "text required" }, { status: 400 });
     }
 
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
     const todayStr = new Date().toISOString().slice(0, 10);
 
     // Library names help the model normalize nicknames → canonical names.

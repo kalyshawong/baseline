@@ -39,7 +39,7 @@ export default async function WorkoutPage({
       templateExercises = builtin.exercises;
     } else {
       const custom = await prisma.workoutTemplate.findUnique({
-        where: { userId_name: { userId: getCurrentUserId(), name: session.templateName } },
+        where: { userId_name: { userId: await getCurrentUserId(), name: session.templateName } },
       });
       if (custom) {
         const parsed = safeJsonParse<Array<{

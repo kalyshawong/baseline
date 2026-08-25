@@ -64,7 +64,7 @@ export async function syncHyroxPlanForGoal(
 
   await tx.hyroxPlan.create({
     data: {
-      userId: getCurrentUserId(),
+      userId: await getCurrentUserId(),
       goalId: goal.id,
       raceDate,
       targetTime,

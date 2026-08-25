@@ -101,7 +101,7 @@ export default async function MindPage({
     getHrvCvCalibration(viewDate),
     getFlags(viewDate),
     prisma.nutritionLog.findUnique({
-      where: { userId_day: { userId: getCurrentUserId(), day: viewDate } },
+      where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } },
       include: { entries: { orderBy: { eatenAt: "asc" } } },
     }),
     prisma.lifeContextDef.findMany({

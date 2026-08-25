@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     const template = await prisma.workoutTemplate.create({
       data: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         name,
         split: split ?? "custom",
         exercises: JSON.stringify(exercises),
