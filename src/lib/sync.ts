@@ -195,9 +195,10 @@ function avgFromSamples(obj: { items: number[] } | null): number | null {
 }
 
 export async function syncPersonalInfo(): Promise<void> {
+  const userId = await getCurrentUserId();
   const info = await ouraFetch<OuraPersonalInfo>("personal_info", {});
   await prisma.userProfile.upsert({
-    where: { userId: getCurrentUserId() },
+    where: { userId: userId },
     update: {
       ...(info.weight != null && { bodyWeightKg: info.weight }),
       ...(info.height != null && { heightCm: Math.round(info.height * 100) }),
@@ -205,7 +206,7 @@ export async function syncPersonalInfo(): Promise<void> {
       ...(info.biological_sex != null && { sex: info.biological_sex }),
     },
     create: {
-      userId: getCurrentUserId(),
+      userId: userId,
       bodyWeightKg: info.weight,
       heightCm: info.height ? Math.round(info.height * 100) : undefined,
       age: info.age ?? undefined,
@@ -229,6 +230,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
   vo2max: number;
   needsReauth: boolean;
 }> {
+  const userId = await getCurrentUserId();
   const startDate = formatDate(daysAgo(lookbackDays));
   // End date padded +2 days: the server clock (Eastern) can be a calendar day
   // BEHIND the user (e.g. traveling in Asia), and Oura excludes same-day data
@@ -267,7 +269,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     await prisma.$transaction(
       readiness.data.map((r) =>
         prisma.dailyReadiness.upsert({
-          where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
+          where: { userId_day: { userId: userId, day: new Date(r.day) } },
           update: {
             score: r.score,
             temperatureDeviation: r.temperature_deviation,
@@ -280,7 +282,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
             activityBalance: r.contributors.activity_balance,
           },
           create: {
-            userId: getCurrentUserId(),
+            userId: userId,
             id: r.id,
             day: new Date(r.day),
             score: r.score,
@@ -379,9 +381,9 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
         : {};
 
       return prisma.dailySleep.upsert({
-        where: { userId_day: { userId: getCurrentUserId(), day: new Date(s.day) } },
+        where: { userId_day: { userId: userId, day: new Date(s.day) } },
         update: { score: s.score, ...periodFields },
-        create: { userId: getCurrentUserId(), id: s.id, day: new Date(s.day), score: s.score, ...periodFields },
+        create: { userId: userId, id: s.id, day: new Date(s.day), score: s.score, ...periodFields },
       });
     });
     await prisma.$transaction(sleepOps);
@@ -401,14 +403,14 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     await prisma.$transaction(
       stress.data.map((s) =>
         prisma.dailyStress.upsert({
-          where: { userId_day: { userId: getCurrentUserId(), day: new Date(s.day) } },
+          where: { userId_day: { userId: userId, day: new Date(s.day) } },
           update: {
             stressHigh: s.stress_high,
             recoveryHigh: s.recovery_high,
             daySummary: s.day_summary,
           },
           create: {
-            userId: getCurrentUserId(),
+            userId: userId,
             id: s.id,
             day: new Date(s.day),
             stressHigh: s.stress_high,
@@ -444,14 +446,14 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
           prisma.heartRateSample.upsert({
             where: {
               userId_timestamp_source: {
-                userId: getCurrentUserId(),
+                userId: userId,
                 timestamp: new Date(hr.timestamp),
                 source: hr.source,
               },
             },
             update: { bpm: hr.bpm },
             create: {
-              userId: getCurrentUserId(),
+              userId: userId,
               bpm: hr.bpm,
               source: hr.source,
               timestamp: new Date(hr.timestamp),
@@ -481,7 +483,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
             )
           : null;
         return prisma.dailyActivity.upsert({
-          where: { userId_day: { userId: getCurrentUserId(), day: new Date(a.day) } },
+          where: { userId_day: { userId: userId, day: new Date(a.day) } },
           update: {
             score: a.score,
             activeCalories: a.active_calories,
@@ -496,7 +498,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
             metMinutes,
           },
           create: {
-            userId: getCurrentUserId(),
+            userId: userId,
             id: a.id,
             day: new Date(a.day),
             score: a.score,
@@ -527,10 +529,10 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     await prisma.$transaction(
       spo2.data.map((r) =>
         prisma.dailySpO2.upsert({
-          where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
+          where: { userId_day: { userId: userId, day: new Date(r.day) } },
           update: { avgSpO2: r.spo2_percentage?.average ?? null },
           create: {
-            userId: getCurrentUserId(),
+            userId: userId,
             id: r.id,
             day: new Date(r.day),
             avgSpO2: r.spo2_percentage?.average ?? null,
@@ -558,10 +560,10 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       .map((t) => {
         const mapped = TAG_MAP[t.tag_type_code]!;
         return prisma.activityTag.upsert({
-          where: { userId_ouraTagId: { userId: getCurrentUserId(), ouraTagId: t.id } },
+          where: { userId_ouraTagId: { userId: userId, ouraTagId: t.id } },
           update: {}, // no-op on duplicate
           create: {
-            userId: getCurrentUserId(),
+            userId: userId,
             tag: mapped.tag,
             category: mapped.category,
             timestamp: new Date(t.start_time),
@@ -597,7 +599,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
       // Dedup: skip bridging if HealthKit already has a matching workout
       const existingHk = await prisma.healthKitWorkout.findFirst({
         where: {
-          userId: getCurrentUserId(),
+          userId: userId,
           externalId: { not: `oura-${w.id}` }, // don't match our own bridge row
           startedAt: {
             gte: new Date(startedAt.getTime() - 5 * 60 * 1000),
@@ -610,7 +612,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
         // Bridge into HealthKitWorkout so the dashboard surfaces it
         const bridgedSource = `oura-${w.source ?? "unknown"}`;
         await prisma.healthKitWorkout.upsert({
-          where: { userId_externalId: { userId: getCurrentUserId(), externalId: `oura-${w.id}` } },
+          where: { userId_externalId: { userId: userId, externalId: `oura-${w.id}` } },
           update: {
             name: w.activity,
             startedAt,
@@ -622,7 +624,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
             source: bridgedSource,
           },
           create: {
-            userId: getCurrentUserId(),
+            userId: userId,
             externalId: `oura-${w.id}`,
             name: w.activity,
             startedAt,
@@ -654,7 +656,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
           durationSeconds,
         },
         create: {
-          userId: getCurrentUserId(),
+          userId: userId,
           id: w.id,
           day: new Date(w.day),
           activity: w.activity,
@@ -701,7 +703,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
             mood: s.mood,
           },
           create: {
-            userId: getCurrentUserId(),
+            userId: userId,
             id: s.id,
             day: new Date(s.day),
             type: s.type,
@@ -733,7 +735,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     await prisma.$transaction(
       sleepTime.data.map((st) =>
         prisma.sleepTimeRecommendation.upsert({
-          where: { userId_day: { userId: getCurrentUserId(), day: new Date(st.day) } },
+          where: { userId_day: { userId: userId, day: new Date(st.day) } },
           update: {
             optimalBedtimeStart: st.optimal_bedtime?.start_offset ?? null,
             optimalBedtimeEnd: st.optimal_bedtime?.end_offset ?? null,
@@ -741,7 +743,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
             status: st.status,
           },
           create: {
-            userId: getCurrentUserId(),
+            userId: userId,
             id: st.id,
             day: new Date(st.day),
             optimalBedtimeStart: st.optimal_bedtime?.start_offset ?? null,
@@ -770,7 +772,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
     await prisma.$transaction(
       resilience.data.map((r) =>
         prisma.dailyResilience.upsert({
-          where: { userId_day: { userId: getCurrentUserId(), day: new Date(r.day) } },
+          where: { userId_day: { userId: userId, day: new Date(r.day) } },
           update: {
             level: r.level,
             sleepRecovery: r.contributors.sleep_recovery,
@@ -778,7 +780,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
             stress: r.contributors.stress,
           },
           create: {
-            userId: getCurrentUserId(),
+            userId: userId,
             id: r.id,
             day: new Date(r.day),
             level: r.level,
@@ -841,7 +843,7 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
 
   await prisma.syncLog.create({
     data: {
-      userId: getCurrentUserId(),
+      userId: userId,
       status,
       details: JSON.stringify({
         readiness: readinessCount,

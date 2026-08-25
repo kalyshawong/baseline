@@ -97,14 +97,14 @@ export async function POST(request: NextRequest) {
 
     if (!session) {
       session = await prisma.chatSession.create({
-        data: { userId: getCurrentUserId(), title: message.slice(0, 60) },
+        data: { userId: await getCurrentUserId(), title: message.slice(0, 60) },
         include: { messages: true },
       });
     }
 
     // Save user message
     await prisma.chatMessage.create({
-      data: { userId: getCurrentUserId(), sessionId: session.id, role: "user", content: message },
+      data: { userId: await getCurrentUserId(), sessionId: session.id, role: "user", content: message },
     });
 
     // Build context (cached for 5 min to avoid 14+ queries every message)
@@ -207,7 +207,7 @@ Keep it under 250 words. Be direct and specific with numbers.`
     }
 
     const assistantMsg = await prisma.chatMessage.create({
-      data: { userId: getCurrentUserId(), sessionId: session.id, role: "assistant", content: assistantText },
+      data: { userId: await getCurrentUserId(), sessionId: session.id, role: "assistant", content: assistantText },
     });
 
     await prisma.chatSession.update({

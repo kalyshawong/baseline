@@ -168,7 +168,7 @@ async function getScoreForDateUncached(forDate?: Date): Promise<BaselineScore | 
   const today = forDate ?? utcToday();
 
   const readiness = await prisma.dailyReadiness.findUnique({
-    where: { userId_day: { userId: getCurrentUserId(), day: today } },
+    where: { userId_day: { userId: await getCurrentUserId(), day: today } },
   });
 
   if (!readiness) return null;
@@ -179,7 +179,7 @@ async function getScoreForDateUncached(forDate?: Date): Promise<BaselineScore | 
       where: { day: { lte: today }, averageHrv: { not: null } },
       orderBy: { day: "desc" },
     }) ??
-    await prisma.dailySleep.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: today } } });
+    await prisma.dailySleep.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: today } } });
 
   // 3-day HRV average
   const threeDaysAgo = utcDaysAgo(today, 3);

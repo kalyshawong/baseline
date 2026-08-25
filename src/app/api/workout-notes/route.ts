@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     const note = await prisma.workoutNote.findUnique({
       where: {
-        userId_workoutSource_workoutId: { userId: getCurrentUserId(), workoutSource: source, workoutId },
+        userId_workoutSource_workoutId: { userId: await getCurrentUserId(), workoutSource: source, workoutId },
       },
     });
 
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     const note = await prisma.workoutNote.create({
       data: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         workoutSource: source,
         workoutId,
         workoutDate: workout.workoutDate,

@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     const session = await prisma.hyroxSession.create({
       data: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         planId: plan.id,
         day: dayStart,
         sessionType,

@@ -17,7 +17,7 @@ const HRV_BASELINE_CHOICE = ["pending", "personalized", "standard"] as const;
 
 export async function GET() {
   try {
-    const profile = await prisma.userProfile.findUnique({ where: { userId: getCurrentUserId() } });
+    const profile = await prisma.userProfile.findUnique({ where: { userId: await getCurrentUserId() } });
     return NextResponse.json(profile);
   } catch (error) {
     const { status, body } = apiError(error);
@@ -86,9 +86,9 @@ export async function POST(request: NextRequest) {
     }
 
     const profile = await prisma.userProfile.upsert({
-      where: { userId: getCurrentUserId() },
+      where: { userId: await getCurrentUserId() },
       update: data,
-      create: { userId: getCurrentUserId(), ...data },
+      create: { userId: await getCurrentUserId(), ...data },
     });
 
     return NextResponse.json(profile);

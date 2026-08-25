@@ -61,7 +61,7 @@ export async function getSorenessForDay(dateStr: string): Promise<SorenessEntry[
   lookback.setUTCDate(lookback.getUTCDate() - LOOKBACK_DAYS);
 
   const logs: Row[] = await prisma.sorenessLog.findMany({
-    where: { userId: getCurrentUserId(), day: { gte: lookback, lte: day } },
+    where: { userId: await getCurrentUserId(), day: { gte: lookback, lte: day } },
     orderBy: { day: "asc" },
   });
 
@@ -103,7 +103,7 @@ export async function getSorenessForDay(dateStr: string): Promise<SorenessEntry[
  */
 export async function getSoreDaySetsByPart(): Promise<Map<string, Set<string>>> {
   const logs: Row[] = await prisma.sorenessLog.findMany({
-    where: { userId: getCurrentUserId() },
+    where: { userId: await getCurrentUserId() },
     orderBy: { day: "asc" },
   });
 

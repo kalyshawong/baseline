@@ -97,6 +97,7 @@ async function processMetrics(
   metrics: MetricEntry[],
   source: "native-app" | "health-auto-export",
 ): Promise<number> {
+  const userId = await getCurrentUserId();
   // Only HAE may write daily activity totals: HAE exports full-day
   // aggregates, but the native plugin sends since-watermark samples, so
   // any sum it computes is a PARTIAL day — writing it would clobber
@@ -122,7 +123,7 @@ async function processMetrics(
         const hrRows = metric.data
           .filter((d) => (d.Avg ?? d.qty) && d.date)
           .map((d) => ({
-            userId: getCurrentUserId(),
+            userId: userId,
             bpm: Math.round((d.Avg ?? d.qty)!),
             source: "apple-watch",
             timestamp: new Date(d.date),
@@ -151,9 +152,9 @@ async function processMetrics(
           await prisma.$transaction(
             batch.map((r) =>
               prisma.heartRateSample.upsert({
-                where: { userId_timestamp_source: { userId: getCurrentUserId(), timestamp: r.timestamp, source: "apple-watch-resting" } },
+                where: { userId_timestamp_source: { userId: userId, timestamp: r.timestamp, source: "apple-watch-resting" } },
                 update: { bpm: r.bpm },
-                create: { userId: getCurrentUserId(), bpm: r.bpm, source: "apple-watch-resting", timestamp: r.timestamp },
+                create: { userId: userId, bpm: r.bpm, source: "apple-watch-resting", timestamp: r.timestamp },
               }),
             ),
           );
@@ -174,7 +175,7 @@ async function processMetrics(
         const stepsByDay = sumByDay(metric.data);
         for (const [dayStr, total] of stepsByDay) {
           await prisma.dailyActivity.updateMany({
-            where: { userId: getCurrentUserId(), day: dateStrToUTC(dayStr) },
+            where: { userId: userId, day: dateStrToUTC(dayStr) },
             data: { steps: Math.round(total) },
           });
         }
@@ -188,7 +189,7 @@ async function processMetrics(
         const energyByDay = sumByDay(metric.data);
         for (const [dayStr, total] of energyByDay) {
           await prisma.dailyActivity.updateMany({
-            where: { userId: getCurrentUserId(), day: dateStrToUTC(dayStr) },
+            where: { userId: userId, day: dateStrToUTC(dayStr) },
             data: { activeCalories: Math.round(total) },
           });
         }
@@ -204,9 +205,9 @@ async function processMetrics(
               const day = dateStrToUTC(d.date.substring(0, 10));
               const weightKg = d.qty! * 0.453592;
               return prisma.weightLog.upsert({
-                where: { userId_day: { userId: getCurrentUserId(), day } },
+                where: { userId_day: { userId: userId, day } },
                 update: { weightKg },
-                create: { userId: getCurrentUserId(), day, weightKg },
+                create: { userId: userId, day, weightKg },
               });
             }),
           );
@@ -222,9 +223,9 @@ async function processMetrics(
             bfRows.map((d) => {
               const day = dateStrToUTC(d.date.substring(0, 10));
               return prisma.weightLog.upsert({
-                where: { userId_day: { userId: getCurrentUserId(), day } },
+                where: { userId_day: { userId: userId, day } },
                 update: { bodyFatPct: d.qty },
-                create: { userId: getCurrentUserId(), day, weightKg: 0, bodyFatPct: d.qty },
+                create: { userId: userId, day, weightKg: 0, bodyFatPct: d.qty },
               });
             }),
           );
@@ -242,9 +243,9 @@ async function processMetrics(
         for (const [dayStr, val] of lastPerDay(metric.data)) {
           const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
+            where: { userId_day: { userId: userId, day } },
             update: { walkingRunningDistance: val },
-            create: { userId: getCurrentUserId(), day, walkingRunningDistance: val },
+            create: { userId: userId, day, walkingRunningDistance: val },
           });
         }
         count += metric.data.length;
@@ -258,9 +259,9 @@ async function processMetrics(
         for (const [dayStr, val] of lastPerDay(metric.data)) {
           const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
+            where: { userId_day: { userId: userId, day } },
             update: { physicalEffort: val },
-            create: { userId: getCurrentUserId(), day, physicalEffort: val },
+            create: { userId: userId, day, physicalEffort: val },
           });
         }
         count += metric.data.length;
@@ -274,9 +275,9 @@ async function processMetrics(
         for (const [dayStr, val] of lastPerDay(metric.data)) {
           const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
+            where: { userId_day: { userId: userId, day } },
             update: { respiratoryRate: val },
-            create: { userId: getCurrentUserId(), day, respiratoryRate: val },
+            create: { userId: userId, day, respiratoryRate: val },
           });
         }
         count += metric.data.length;
@@ -287,9 +288,9 @@ async function processMetrics(
         for (const [dayStr, val] of lastPerDay(metric.data)) {
           const day = dateStrToUTC(dayStr);
           await prisma.dailyVO2Max.upsert({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
+            where: { userId_day: { userId: userId, day } },
             update: { vo2Max: val },
-            create: { id: `hae-vo2-${dayStr}`, userId: getCurrentUserId(), day, vo2Max: val },
+            create: { id: `hae-vo2-${dayStr}`, userId: userId, day, vo2Max: val },
           });
         }
         count += metric.data.length;
@@ -305,9 +306,9 @@ async function processMetrics(
         for (const [dayStr, val] of lastPerDay(metric.data)) {
           const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
+            where: { userId_day: { userId: userId, day } },
             update: { runningSpeed: val },
-            create: { userId: getCurrentUserId(), day, runningSpeed: val },
+            create: { userId: userId, day, runningSpeed: val },
           });
         }
         count += metric.data.length;
@@ -321,9 +322,9 @@ async function processMetrics(
         for (const [dayStr, val] of lastPerDay(metric.data)) {
           const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
+            where: { userId_day: { userId: userId, day } },
             update: { runningPower: val },
-            create: { userId: getCurrentUserId(), day, runningPower: val },
+            create: { userId: userId, day, runningPower: val },
           });
         }
         count += metric.data.length;
@@ -337,9 +338,9 @@ async function processMetrics(
         for (const [dayStr, val] of lastPerDay(metric.data)) {
           const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
+            where: { userId_day: { userId: userId, day } },
             update: { groundContactTime: val },
-            create: { userId: getCurrentUserId(), day, groundContactTime: val },
+            create: { userId: userId, day, groundContactTime: val },
           });
         }
         count += metric.data.length;
@@ -353,9 +354,9 @@ async function processMetrics(
         for (const [dayStr, val] of lastPerDay(metric.data)) {
           const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
+            where: { userId_day: { userId: userId, day } },
             update: { verticalOscillation: val },
-            create: { userId: getCurrentUserId(), day, verticalOscillation: val },
+            create: { userId: userId, day, verticalOscillation: val },
           });
         }
         count += metric.data.length;
@@ -369,9 +370,9 @@ async function processMetrics(
         for (const [dayStr, val] of lastPerDay(metric.data)) {
           const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
+            where: { userId_day: { userId: userId, day } },
             update: { strideLength: val },
-            create: { userId: getCurrentUserId(), day, strideLength: val },
+            create: { userId: userId, day, strideLength: val },
           });
         }
         count += metric.data.length;
@@ -385,9 +386,9 @@ async function processMetrics(
         for (const [dayStr, val] of lastPerDay(metric.data)) {
           const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
-            where: { userId_day: { userId: getCurrentUserId(), day } },
+            where: { userId_day: { userId: userId, day } },
             update: { cardioRecovery: val },
-            create: { userId: getCurrentUserId(), day, cardioRecovery: val },
+            create: { userId: userId, day, cardioRecovery: val },
           });
         }
         count += metric.data.length;
@@ -403,6 +404,7 @@ async function processMetrics(
 }
 
 async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
+  const userId = await getCurrentUserId();
   let count = 0;
 
   for (const w of workouts) {
@@ -437,7 +439,7 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
         // createMany (the typed option errors as `never`). Use raw
         // INSERT … ON CONFLICT DO UPDATE — same pattern as the bulk HR
         // sample insert at line ~70. Batches keep payload bounded.
-        const userId = getCurrentUserId();
+        const userId = await getCurrentUserId();
         const BATCH = 500;
         for (let i = 0; i < points.length; i += BATCH) {
           const batch = points.slice(i, i + BATCH);
@@ -504,10 +506,10 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
     }
 
     await prisma.healthKitWorkout.upsert({
-      where: { userId_externalId: { userId: getCurrentUserId(), externalId: w.id } },
+      where: { userId_externalId: { userId: userId, externalId: w.id } },
       update: updateData,
       create: {
-        userId: getCurrentUserId(),
+        userId: userId,
         externalId: w.id,
         name: w.name,
         startedAt: new Date(w.start),
@@ -598,7 +600,7 @@ async function processCycleTracking(entries: CycleEntry[]): Promise<number> {
   // contributor to killed syncs (2026-08-20). Now: dedupe to one phase per
   // day in memory, fetch the manual-override days in ONE query, and batch
   // the remaining upserts.
-  const userId = getCurrentUserId();
+  const userId = await getCurrentUserId();
 
   const phaseByDay = new Map<string, { day: Date; phase: string }>();
   for (const entry of entries) {
@@ -642,6 +644,7 @@ async function processCycleTracking(entries: CycleEntry[]): Promise<number> {
 // --- Route handlers ---
 
 export async function POST(request: NextRequest) {
+  const userId = await getCurrentUserId();
   // Hoisted so the catch block can flip the tombstone row to "error".
   let logRowId: string | null = null;
   try {
@@ -663,7 +666,7 @@ export async function POST(request: NextRequest) {
       try {
         await prisma.healthKitSync.create({
           data: {
-            userId: getCurrentUserId(),
+            userId: userId,
             status: "unauthorized",
             metrics: 0,
             workouts: 0,
@@ -700,7 +703,7 @@ export async function POST(request: NextRequest) {
     // infinite re-send: observed 2026-08-19).
     try {
       const row = await prisma.healthKitSync.create({
-        data: { userId: getCurrentUserId(), status: "processing", source, metrics: 0, workouts: 0 },
+        data: { userId: userId, status: "processing", source, metrics: 0, workouts: 0 },
       });
       logRowId = row.id;
     } catch {
@@ -809,7 +812,7 @@ export async function POST(request: NextRequest) {
       await prisma.healthKitSync.update({ where: { id: logRowId }, data: finalLog });
     } else {
       await prisma.healthKitSync.create({
-        data: { userId: getCurrentUserId(), ...finalLog },
+        data: { userId: userId, ...finalLog },
       });
     }
 
@@ -835,7 +838,7 @@ export async function POST(request: NextRequest) {
         await prisma.healthKitSync.update({ where: { id: logRowId }, data: errLog });
       } else {
         await prisma.healthKitSync.create({
-          data: { userId: getCurrentUserId(), metrics: 0, workouts: 0, ...errLog },
+          data: { userId: userId, metrics: 0, workouts: 0, ...errLog },
         });
       }
     } catch {
@@ -847,6 +850,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  const userId = await getCurrentUserId();
   try {
     const syncs = await prisma.healthKitSync.findMany({
       orderBy: { syncedAt: "desc" },

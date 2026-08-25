@@ -149,11 +149,11 @@ export default async function Dashboard({
       cycleResult,
     ] = await Promise.all([
       getScoreForDate(viewDate),
-      prisma.dailyReadiness.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: viewDate } } }),
+      prisma.dailyReadiness.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } } }),
       prisma.syncLog.findFirst({ orderBy: { syncDate: "desc" } }),
-      prisma.dailySleep.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: viewDate } } }),
+      prisma.dailySleep.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } } }),
       prisma.nutritionLog.findUnique({
-        where: { userId_day: { userId: getCurrentUserId(), day: viewDate } },
+        where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } },
         include: { entries: { select: { id: true } } },
       }),
       // Fall back to most recent within 7 days when there's no exact-day rec.
@@ -178,9 +178,9 @@ export default async function Dashboard({
         orderBy: { startedAt: "desc" },
       }),
       prisma.weightLog.findFirst({ where: { day: viewDate } }),
-      prisma.dailyActivity.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: viewDate } } }),
+      prisma.dailyActivity.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } } }),
       prisma.healthKitSync.findFirst({ orderBy: { syncedAt: "desc" } }),
-      prisma.userProfile.findUnique({ where: { userId: getCurrentUserId() } }),
+      prisma.userProfile.findUnique({ where: { userId: await getCurrentUserId() } }),
       // Cycle phase + period day for the viewed date.
       //
       // Both go through helpers in src/lib/cycle-phase.ts:

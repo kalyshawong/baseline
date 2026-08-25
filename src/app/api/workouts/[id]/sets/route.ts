@@ -47,7 +47,7 @@ export async function POST(
 
     const set = await prisma.workoutSet.create({
       data: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         sessionId,
         exerciseId,
         setNumber: setNumber ?? 1,

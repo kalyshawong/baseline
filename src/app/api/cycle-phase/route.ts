@@ -9,7 +9,7 @@ export async function GET() {
     const today = getLocalDay(await getRequestTz());
 
     const phase = await prisma.cyclePhaseLog.findUnique({
-      where: { userId_day: { userId: getCurrentUserId(), day: today } },
+      where: { userId_day: { userId: await getCurrentUserId(), day: today } },
     });
 
     return NextResponse.json({ phase: phase?.phase ?? null });
@@ -34,9 +34,9 @@ export async function POST(request: NextRequest) {
     const today = getLocalDay(await getRequestTz());
 
     const result = await prisma.cyclePhaseLog.upsert({
-      where: { userId_day: { userId: getCurrentUserId(), day: today } },
+      where: { userId_day: { userId: await getCurrentUserId(), day: today } },
       update: { phase },
-      create: { userId: getCurrentUserId(), day: today, phase, source: "manual" },
+      create: { userId: await getCurrentUserId(), day: today, phase, source: "manual" },
     });
 
     return NextResponse.json({ success: true, phase: result.phase });

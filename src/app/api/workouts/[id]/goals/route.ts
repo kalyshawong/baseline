@@ -8,6 +8,7 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getCurrentUserId();
   try {
     const { id } = await params;
     const tags = await prisma.goalWorkoutTag.findMany({
@@ -30,6 +31,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getCurrentUserId();
   try {
     const { id } = await params;
     const { goalIds } = await request.json();
@@ -56,7 +58,7 @@ export async function PUT(
     await prisma.$transaction([
       prisma.goalWorkoutTag.deleteMany({ where: { sessionId: id } }),
       ...goalIds.map((goalId: string) =>
-        prisma.goalWorkoutTag.create({ data: { userId: getCurrentUserId(), goalId, sessionId: id } })
+        prisma.goalWorkoutTag.create({ data: { userId: userId, goalId, sessionId: id } })
       ),
     ]);
 

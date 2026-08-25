@@ -40,7 +40,7 @@ const METRICS: {
 ];
 
 export async function analyzeSoreness(): Promise<SorenessFinding[]> {
-  const userId = getCurrentUserId();
+  const userId = await getCurrentUserId();
   // Episode-expanded sore days (2026-08-20): a day counts as sore if it
   // falls inside an episode (logged once, carried until cleared), not just
   // on days she happened to log.

@@ -74,17 +74,17 @@ export async function buildWorkoutDiscussionStarter(
   // the correct "day 6" on 2026-05-27.
   const workoutDayPeriodDay = await getCurrentPeriodDay(workout.workoutDate);
   const dailyTemp = await prisma.dailyReadiness.findUnique({
-    where: { userId_day: { userId: getCurrentUserId(), day: workout.workoutDate } },
+    where: { userId_day: { userId: await getCurrentUserId(), day: workout.workoutDate } },
     select: { temperatureDeviation: true, temperatureTrendDeviation: true },
   });
   const [note, nutritionLog, recentWorkouts] = await Promise.all([
     prisma.workoutNote.findUnique({
       where: {
-        userId_workoutSource_workoutId: { userId: getCurrentUserId(), workoutSource: source, workoutId },
+        userId_workoutSource_workoutId: { userId: await getCurrentUserId(), workoutSource: source, workoutId },
       },
     }),
     prisma.nutritionLog.findUnique({
-      where: { userId_day: { userId: getCurrentUserId(), day: workout.workoutDate } },
+      where: { userId_day: { userId: await getCurrentUserId(), day: workout.workoutDate } },
       include: { entries: { orderBy: { eatenAt: "asc" } } },
     }),
     prisma.healthKitWorkout.findMany({

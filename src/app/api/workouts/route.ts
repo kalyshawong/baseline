@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     const session = await prisma.workoutSession.create({
       data: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         date: sessionDate,
         startedAt,
         readinessScore: score?.overall ?? null,

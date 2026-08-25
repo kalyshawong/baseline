@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
 
     const created = await prisma.healthKitWorkout.create({
       data: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         // externalId is @unique. Use a uuid prefix to avoid collisions
         // with HAE-pushed externalIds (which are HK UUIDs from iOS).
         externalId: `manual-${randomUUID()}`,

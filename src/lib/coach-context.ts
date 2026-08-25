@@ -575,7 +575,7 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
       take: 14,
     }),                                                              // 6
     prisma.nutritionLog.findUnique({
-      where: { userId_day: { userId: getCurrentUserId(), day: localToday } },
+      where: { userId_day: { userId: await getCurrentUserId(), day: localToday } },
       include: { entries: true },
     }),                                                              // 7
     prisma.workoutSession.findMany({
@@ -599,7 +599,7 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
       orderBy: { day: "desc" },
       take: 14,
     }),                                                              // 10
-    prisma.userProfile.findUnique({ where: { userId: getCurrentUserId() } }),            // 11
+    prisma.userProfile.findUnique({ where: { userId: await getCurrentUserId() } }),            // 11
     prisma.experiment.findMany({
       where: { status: { in: ["active", "analyzed"] } },
       include: { _count: { select: { logs: true } } },

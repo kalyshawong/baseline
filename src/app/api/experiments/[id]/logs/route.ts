@@ -46,7 +46,7 @@ export async function POST(
       },
       update: { independentValue, intensity, notes },
       create: {
-        userId: getCurrentUserId(),
+        userId: await getCurrentUserId(),
         experimentId: id,
         day: dayDate,
         independentValue,

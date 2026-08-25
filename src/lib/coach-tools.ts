@@ -393,7 +393,7 @@ async function handleWorkoutDetails(input: {
       prisma.workoutNote.findUnique({
         where: {
           userId_workoutSource_workoutId: {
-            userId: getCurrentUserId(),
+            userId: await getCurrentUserId(),
             workoutSource: "healthkit",
             workoutId: workout.id,
           },
@@ -402,7 +402,7 @@ async function handleWorkoutDetails(input: {
       resolveCyclePhase(workoutLocalDay),
       findCurrentPeriodStart(workoutLocalDay),
       getCurrentPeriodDay(workoutLocalDay),
-      prisma.dailyReadiness.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: workoutLocalDay } } }),
+      prisma.dailyReadiness.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: workoutLocalDay } } }),
     ]);
 
   return {
@@ -486,9 +486,9 @@ async function handleSignals(input: { date?: unknown }): Promise<unknown> {
   const sevenDaysAgo = new Date(day.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   const [sleep, readiness, stress, recentSleep] = await Promise.all([
-    prisma.dailySleep.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day } } }),
-    prisma.dailyReadiness.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day } } }),
-    prisma.dailyStress.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day } } }),
+    prisma.dailySleep.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day } } }),
+    prisma.dailyReadiness.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day } } }),
+    prisma.dailyStress.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day } } }),
     prisma.dailySleep.findMany({
       where: { day: { gte: sevenDaysAgo, lte: day } },
       orderBy: { day: "desc" },
@@ -578,7 +578,7 @@ async function handleCycle(input: { date?: unknown }): Promise<unknown> {
     // physiological story (luteal: elevated; menstrual onset: drops
     // 0.3-0.5°C). Without this in the tool result the model invents
     // numbers like "0.3-0.5°C higher" without checking the actual log.
-    prisma.dailyReadiness.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: target } } }),
+    prisma.dailyReadiness.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: target } } }),
   ]);
 
   return {

@@ -37,7 +37,7 @@ export default async function CoachPage({
       take: 14,
       select: { averageHrv: true, score: true },
     }),
-    prisma.dailyStress.findUnique({ where: { userId_day: { userId: getCurrentUserId(), day: localToday } } }),
+    prisma.dailyStress.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: localToday } } }),
     (async () => {
       const { resolveCyclePhase } = await import("@/lib/cycle-phase");
       return resolveCyclePhase(localToday);
