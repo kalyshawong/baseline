@@ -22,6 +22,7 @@ function isExempt(pathname: string): boolean {
   if (pathname === "/api/keepalive") return true; // Vercel cron; leaks nothing
   if (pathname === "/api/version") return true; // build sha only; staleness check
   if (pathname === "/login") return true;
+  if (pathname === "/signup") return true; // invite-gated; the code is the gate
   if (pathname.startsWith("/api/auth")) return true; // NextAuth + Oura OAuth callbacks
   // PWA + static files (sw.js, icons, manifest, fonts, favicon)
   if (/\.(?:png|svg|ico|webmanifest|js|txt|woff2?|json)$/.test(pathname)) return true;

@@ -32,6 +32,17 @@ datasource db {
 // Tenant
 // ---------------------------------------------------------------------------
 
+// Invite codes gate signup during the friends phase. Global rows (no
+// userId) — deliberately NOT in db.ts OWNED_MODELS.
+model Invite {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  note      String?   // who it's for, free text
+  createdAt DateTime  @default(now())
+  usedAt    DateTime?
+  usedById  String?   @unique // User.id that consumed it
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   apiError,
@@ -74,7 +75,7 @@ export async function PATCH(
         });
       }
       const updated = await tx.goal.update({ where: { id }, data });
-      await syncHyroxPlanForGoal(tx, updated);
+      await syncHyroxPlanForGoal(tx as unknown as Prisma.TransactionClient, updated);
       return updated;
     });
     return NextResponse.json(goal);

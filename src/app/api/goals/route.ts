@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
 import {
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
           isPrimary: isPrimary ?? false,
         },
       });
-      await syncHyroxPlanForGoal(tx, created);
+      await syncHyroxPlanForGoal(tx as unknown as Prisma.TransactionClient, created);
       return created;
     });
     return NextResponse.json(goal, { status: 201 });
