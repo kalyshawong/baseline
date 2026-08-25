@@ -64,13 +64,9 @@ function deriveWasoSeconds(
 // Traffic-light bands. Each metric maps current value → tint color.
 type Tone = "green" | "yellow" | "red" | "neutral";
 
-function efficiencyTone(pct: number | null): Tone {
-  if (pct == null) return "neutral";
-  if (pct >= 85) return "green";
-  if (pct >= 75) return "yellow";
-  return "red";
-}
-
+// AUDIT §2.2 (2026-08-26): efficiency/WASO tone bands + targets removed —
+// both are stage-detection-derived (WASO error up to 1,217% MAPE vs PSG);
+// showing traffic lights and targets implies precision the ring doesn't have.
 function latencyTone(seconds: number | null): Tone {
   if (seconds == null) return "neutral";
   const min = seconds / 60;
@@ -78,14 +74,6 @@ function latencyTone(seconds: number | null): Tone {
   // 25-40 = sluggish onset. >40 = clear insomnia.
   if (min >= 10 && min <= 25) return "green";
   if (min >= 5 && min <= 40) return "yellow";
-  return "red";
-}
-
-function wasoTone(seconds: number | null): Tone {
-  if (seconds == null) return "neutral";
-  const min = seconds / 60;
-  if (min < 30) return "green";
-  if (min < 45) return "yellow";
   return "red";
 }
 
@@ -173,14 +161,9 @@ export function SleepCard({ daySleep }: Props) {
         total time asleep
       </p>
 
-      {/* Insomnia trinity: efficiency · latency · WASO */}
-      <div className="mt-6 grid grid-cols-3 gap-2">
-        <StatCell
-          label="Efficiency"
-          value={daySleep.sleepEfficiency != null ? `${daySleep.sleepEfficiency}%` : "—"}
-          target="target ≥ 85%"
-          tone={efficiencyTone(daySleep.sleepEfficiency)}
-        />
+      {/* Latency keeps its cell (onset timing is robustly detected);
+          efficiency + WASO are demoted to the small-print row below. */}
+      <div className="mt-6 grid grid-cols-1 gap-2">
         <StatCell
           label="Latency"
           value={
@@ -190,12 +173,6 @@ export function SleepCard({ daySleep }: Props) {
           }
           target="target 15–20m"
           tone={latencyTone(daySleep.latency)}
-        />
-        <StatCell
-          label="WASO"
-          value={wasoSec != null ? `${Math.round(wasoSec / 60)}m` : "—"}
-          target="target < 30m"
-          tone={wasoTone(wasoSec)}
         />
       </div>
 
@@ -230,6 +207,11 @@ export function SleepCard({ daySleep }: Props) {
               Light <span className="disp num text-[var(--color-text)]">{formatDuration(light)}</span>
             </span>
           </div>
+          <p className="mt-1.5 text-[10.5px] text-[var(--color-faint)]">
+            Stage estimates are rough — rings misread stages by ±25–70 min vs lab measurement.
+            {daySleep.sleepEfficiency != null && <> Efficiency {daySleep.sleepEfficiency}%.</>}
+            {wasoSec != null && <> Est. awake time {Math.round(wasoSec / 60)}m.</>}
+          </p>
         </div>
       )}
 
