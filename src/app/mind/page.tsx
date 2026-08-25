@@ -117,6 +117,29 @@ export default async function MindPage({
     analyzeMealGi().catch(() => null),
   ]);
 
+  // Her own most-used tags (any non-nutrition category) become one-tap
+  // chips in Quick Tag — previously "sex" etc. had to be retyped into the
+  // custom box every time ("why cant i add my own quick tags").
+  const freq = await prisma.activityTag.groupBy({
+    by: ["tag", "category"],
+    where: {
+      timestamp: { gte: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000) },
+      category: { notIn: ["nutrition"] },
+    },
+    _count: true,
+  });
+  const presetTagNames = new Set([
+    "lo-fi","classical","ambient","binaural","box breathing","wim hof","4-7-8","physiological sigh",
+    "coffee","espresso","matcha","pre-workout","wine","beer","spirits","guided","unguided","body scan",
+    "walking","strength","cardio","yoga","walk","rest day","social event","alone time","deep conversation",
+    "deep work","reading","lecture","practice",
+  ]);
+  const frequentTags = freq
+    .filter((f) => f._count >= 2 && !presetTagNames.has(f.tag))
+    .sort((a, b) => b._count - a._count)
+    .slice(0, 8)
+    .map((f) => ({ tag: f.tag, category: f.category }));
+
   const active = experiments.filter((e) => e.status === "active");
   const others = experiments.filter((e) => e.status !== "active");
 
@@ -167,7 +190,7 @@ export default async function MindPage({
           <div className="g-sec">Inputs · Log</div>
           <div className="wrap">
             <div className="stack-lg">
-              <MobileQuickTag dateStr={viewDateStr} />
+              <MobileQuickTag dateStr={viewDateStr} frequentTags={frequentTags} />
               <MobileLogFood dateStr={viewDateStr} />
               <MacroSummary
                 data={
@@ -295,7 +318,7 @@ export default async function MindPage({
           <ColHead>Inputs &middot; Log</ColHead>
 
           <div className="flex flex-col gap-[14px]">
-            <QuickTag dateStr={viewDateStr} />
+            <QuickTag dateStr={viewDateStr} frequentTags={frequentTags} />
             <NutritionInput dateStr={viewDateStr} />
 
             <MacroSummary
