@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
 import Link from "next/link";
 import { generateInsights } from "@/lib/insights";
+import { getTestedFindings } from "@/lib/tested-findings";
 import { getHrvCvCalibration } from "@/lib/training-call";
 import { getFlags } from "@/lib/flags";
 import { FlagsFeed } from "@/components/mind/flags-feed";
@@ -69,6 +70,7 @@ export default async function MindPage({
     lifeContextDefs,
     lifeContextLogs,
     mealGi,
+    testedFindings,
   ] = await Promise.all([
     prisma.experiment.findMany({
       include: { _count: { select: { logs: true } } },
@@ -116,6 +118,7 @@ export default async function MindPage({
     // yet). Folded into the batch so its ~6 queries run alongside the rest
     // instead of adding a serial round-trip to the remote DB.
     analyzeMealGi().catch(() => null),
+    getTestedFindings().catch(() => []),
   ]);
 
   // Her own most-used tags (any non-nutrition category) become one-tap
@@ -257,7 +260,7 @@ export default async function MindPage({
             <div className="stack-lg">
               {flags.length > 0 && <FlagsFeed flags={flags} />}
               <DiagnoseCard />
-              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} calibration={hrvCalibration} />
+              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} tested={testedFindings} calibration={hrvCalibration} />
               {mealGi && <GiPatternsCard result={mealGi} />}
               {active.length > 0 && (
                 <div className="panel">
@@ -398,7 +401,7 @@ export default async function MindPage({
 
           {/* Insights feed with filter bar + featured finding */}
           <DiagnoseCard />
-              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} calibration={hrvCalibration} />
+              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} tested={testedFindings} calibration={hrvCalibration} />
 
           {/* Pre-workout meal -> GI patterns (backward analyzer + "test this") */}
           {mealGi && <GiPatternsCard result={mealGi} />}
