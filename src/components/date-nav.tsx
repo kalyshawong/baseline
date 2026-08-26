@@ -49,8 +49,19 @@ export function DateNav({ basePath }: { basePath: string }) {
         <span className="text-[15px]">&lsaquo;</span>
       </button>
       <div className="text-center">
-        <span className="disp text-[22px] tracking-[0.03em]">
+        {/* Click the date → native date picker (invisible input overlay). */}
+        <span className="disp relative cursor-pointer text-[22px] tracking-[0.03em]">
           {formatDisplayDate(currentDate)}
+          <input
+            type="date"
+            aria-label="Pick a date"
+            value={currentDate}
+            max={todayStr()}
+            onClick={(e) => (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.()}
+            onChange={(e) => e.target.value && navigate(e.target.value)}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            style={{ WebkitAppearance: "none", appearance: "none", border: 0, padding: 0 }}
+          />
         </span>
         {!isToday && (
           <button
