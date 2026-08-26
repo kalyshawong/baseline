@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CollectingTag, Insight, InsightMetric } from "@/lib/insights";
+import type { TestedFinding } from "@/lib/tested-findings";
 import type { HrvCvCalibration } from "@/lib/training-call";
 
 /**
@@ -26,7 +27,101 @@ const tierToPill: Record<string, string> = {
   watching: "pill pill-muted",
 };
 
-type Filter = "all" | "patterns" | "collecting";
+type Filter = "all" | "patterns" | "collecting" | "tested";
+
+/** Mean paired difference in display units (redesign tested-card headline). */
+function testedDelta(t: TestedFinding): string | null {
+  if (t.meanDiff == null) return null;
+  const d = t.meanDiff;
+  const sign = d >= 0 ? "+" : "−";
+  if (t.metric === "totalSleepDuration") return `${sign}${Math.round(Math.abs(d) / 60)} min`;
+  if (t.metric === "lowestHeartRate") return `${sign}${Math.abs(Math.round(d * 10) / 10)} bpm`;
+  if (t.metric === "hrvVsBaseline") return `${sign}${Math.abs(Math.round(d * 10) / 10)} ms`;
+  if (t.metric === "temperatureDeviation") return `${sign}${Math.abs(Math.round(d * 100) / 100)}°C`;
+  return `${sign}${Math.abs(Math.round(d * 10) / 10)}`;
+}
+
+function testedHeadline(t: TestedFinding): { title: React.ReactNode; body: string } {
+  const delta = testedDelta(t);
+  const felt =
+    t.feltDelta == null
+      ? "Felt ratings weren't logged."
+      : `You rated test blocks ${t.feltDelta > 0 ? "+" : ""}${t.feltDelta} pts vs usual.`;
+  switch (t.decision) {
+    case "effect_found":
+      return {
+        title: (
+          <>
+            &ldquo;{t.label}&rdquo; moved your {t.outcomeLabel}
+            {delta && <em className="not-italic text-[var(--color-green)]"> {delta}.</em>}
+          </>
+        ),
+        body: `Randomized ${t.pairsUsed}-pair run. P(effect > worthwhile) = ${Math.round(t.pEffectGtSWC * 100)}%. ${felt} One replication before this becomes a Coach rule.`,
+      };
+    case "no_effect_at_mde":
+      return {
+        title: (
+          <>
+            &ldquo;{t.label}&rdquo;: <em className="not-italic text-[var(--color-green)]">no effect</em> your test could see.
+          </>
+        ),
+        body: `Randomized ${t.pairsUsed}-pair run. P(effect > worthwhile) = ${Math.round(t.pEffectGtSWC * 100)}%. ${felt} A real answer — you can stop wondering about this one at this size.`,
+      };
+    case "inconclusive_low_adherence":
+      return {
+        title: <>&ldquo;{t.label}&rdquo;: too few completed days to call.</>,
+        body: `Only ${t.pairsUsed} usable pairs of ${t.blocks}. Rerun with better adherence, or let it go.`,
+      };
+    default:
+      return {
+        title: <>&ldquo;{t.label}&rdquo;: inconclusive.</>,
+        body: `Randomized ${t.pairsUsed}-pair run. P(effect > worthwhile) = ${Math.round(t.pEffectGtSWC * 100)}%. ${felt} The effect, if any, sits below what this design could resolve.`,
+      };
+  }
+}
+
+/** Tested result card (redesign .fcard.tested — green border, verdict copy). */
+function TestedCard({ t }: { t: TestedFinding }) {
+  const { title, body } = testedHeadline(t);
+  const measuredPositive = t.decision === "effect_found";
+  const feltPositive = t.feltDelta != null && t.feltDelta > 0;
+  const agree = t.feltDelta != null && measuredPositive === feltPositive;
+  return (
+    <div
+      className="flex flex-col bg-[var(--color-surface)] p-[20px_22px]"
+      style={{ borderLeft: "4px solid var(--color-green)", boxShadow: "inset 0 1px 0 oklch(1 0 0/.05), 0 12px 30px -16px #000" }}
+    >
+      <div className="mb-[11px] flex items-center gap-[11px]">
+        <span
+          className="px-3 py-[5px] text-[10.5px] font-extrabold uppercase tracking-[0.14em] angled-clip"
+          style={{ background: "var(--color-green)", color: "var(--color-bg)" }}
+        >
+          Tested ✓
+        </span>
+        <span className="text-[11.5px] font-bold tracking-[0.04em] text-[var(--color-faint)]">
+          {t.label} → {t.outcomeLabel}
+        </span>
+      </div>
+      <h3 className="disp text-[25px] leading-[0.95]">{title}</h3>
+      <p className="mt-[9px] flex-1 text-[12.5px] leading-[1.55] text-[var(--color-text-muted)]">{body}</p>
+      <p className="num mt-[11px] text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--color-faint)]">
+        Randomized · {t.blocks} pairs · p {t.randTestP < 0.001 ? "<0.001" : t.randTestP}
+        {t.feltDelta != null && ` · measured + felt ${agree ? "agree" : "disagree"}`}
+        {t.source === "diagnose" && " · from Diagnose"}
+      </p>
+      {t.href && (
+        <div className="mt-[14px]">
+          <a
+            href={t.href}
+            className="inline-block bg-[var(--color-surface-2)] px-[14px] py-[9px] text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--color-text-muted)]"
+          >
+            View result
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** AUDIT §2.1.5: no p-value is zero — floor the display at <0.001. */
 function fmtP(p: number | undefined | null): string {
@@ -179,10 +274,12 @@ function Bundle({ tag, lines }: { tag: string; lines: string[] }) {
 export function InsightsFeed({
   insights,
   collecting = [],
+  tested = [],
   calibration,
 }: {
   insights: Insight[];
   collecting?: CollectingTag[];
+  tested?: TestedFinding[];
   calibration?: HrvCvCalibration | null;
 }) {
   const [activeFilter, setActiveFilter] = useState<Filter>("all");
@@ -206,11 +303,17 @@ export function InsightsFeed({
   const isHidden = (tag: string) => hiddenTags.includes(tag);
   const pool = showHidden ? insights : insights.filter((i) => !isHidden(i.tag));
 
-  const counts = { all: pool.length + collecting.length, patterns: pool.length, collecting: collecting.length };
-  const showPatterns = activeFilter !== "collecting";
-  const showCollecting = activeFilter !== "patterns";
+  const counts = {
+    all: pool.length + collecting.length + tested.length,
+    patterns: pool.length,
+    collecting: collecting.length,
+    tested: tested.length,
+  };
+  const showPatterns = activeFilter === "all" || activeFilter === "patterns";
+  const showCollecting = activeFilter === "all" || activeFilter === "collecting";
+  const showTested = activeFilter === "all" || activeFilter === "tested";
 
-  if (insights.length === 0 && collecting.length === 0) {
+  if (insights.length === 0 && collecting.length === 0 && tested.length === 0) {
     return (
       <div>
         {calibration && <CalibrationCard c={calibration} />}
@@ -245,6 +348,7 @@ export function InsightsFeed({
             ["all", "All"],
             ["patterns", "Patterns"],
             ["collecting", "Collecting"],
+            ...(tested.length > 0 ? ([["tested", "Tested"]] as [Filter, string][]) : []),
           ] as [Filter, string][]).map(([id, label]) => (
             <button
               key={id}
@@ -308,6 +412,15 @@ export function InsightsFeed({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Tested result cards (redesign .fcard.tested) ── */}
+      {showTested && tested.length > 0 && (
+        <div className="mt-[14px] grid grid-cols-1 gap-[14px] md:grid-cols-2">
+          {tested.map((t) => (
+            <TestedCard key={t.id} t={t} />
+          ))}
         </div>
       )}
 
