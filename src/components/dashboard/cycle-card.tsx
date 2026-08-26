@@ -57,6 +57,14 @@ export function CycleCard({ phase, dayNumber, temperatureDeviationC }: Props) {
               </div>
             )}
           </div>
+          {/* AUDIT §1.3: temp detects the luteal shift, but temperature noise
+              alone false-positives 8–15% — phase from temp is an estimate,
+              and menses onset still needs her tap. */}
+          {tempLabel != null && (
+            <p className="mt-3 text-[10.5px] leading-snug text-[var(--color-faint)]">
+              Temp alone false-positives ~8–15% — period start still needs a log.
+            </p>
+          )}
         </>
       ) : (
         <p className="mt-3 text-sm text-[var(--color-text-muted)]">

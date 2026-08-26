@@ -323,6 +323,12 @@ export function MobileDashboard(p: MobileDashboardProps) {
                   {p.cycleDayNumber != null && <div><div className="k">Day</div><div className="v num">{p.cycleDayNumber}</div></div>}
                   {p.tempDeviationC != null && <div><div className="k">Temp</div><div className="v num blue">{p.tempDeviationC > 0 ? "+" : "−"}{Math.abs(p.tempDeviationC).toFixed(2)}°</div></div>}
                 </div>
+                {/* AUDIT §1.3: temp-only phase inference FPs 8–15% */}
+                {p.tempDeviationC != null && (
+                  <div style={{ marginTop: 6, fontSize: 10, lineHeight: 1.35, color: "var(--color-faint, #888)" }}>
+                    Temp alone false-positives ~8–15% — period start still needs a log.
+                  </div>
+                )}
               </div>
               </MinCard>
             )}
