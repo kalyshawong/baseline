@@ -93,6 +93,7 @@ export default async function BodyPage({
     allRecentSets,
     weightLogs,
     todayRunning,
+    lastRun,
     latestVO2Max,
     todaySleep,
     sleepTimeRec,
@@ -138,6 +139,14 @@ export default async function BodyPage({
     }),
     prisma.dailyRunningMetrics.findFirst({
       where: { day: { lte: viewDate } },
+      orderBy: { day: "desc" },
+    }),
+    // Run DYNAMICS (speed/power/GCT/osc/stride) belong to the last actual
+    // RUN, not the viewed day — a rest day's row has them all null and was
+    // shadowing the real values with dashes ("is there no data from
+    // health?", 2026-08-26). Same latest-known pattern as VO2max.
+    prisma.dailyRunningMetrics.findFirst({
+      where: { day: { lte: viewDate }, runningSpeed: { not: null } },
       orderBy: { day: "desc" },
     }),
     prisma.dailyVO2Max.findFirst({ orderBy: { day: "desc" } }),
@@ -471,13 +480,15 @@ export default async function BodyPage({
           <div className="g-sec">Running &amp; Cardio</div>
           <div className="wrap">
             <div className="mgrid c3">
-              <MCard label="Run Speed" value={todayRunning?.runningSpeed != null ? todayRunning.runningSpeed.toFixed(1) : "—"} unit="km/h" />
-              <MCard label="Run Power" value={todayRunning?.runningPower != null ? Math.round(todayRunning.runningPower) : "—"} unit="W" />
+              {/* Run dynamics come from the LAST RUN (latest-known, like
+                  VO2max) — a rest day's all-null row was rendering dashes. */}
+              <MCard label="Run Speed" value={lastRun?.runningSpeed != null ? lastRun.runningSpeed.toFixed(1) : "—"} unit="km/h" detail={lastRun?.day ? `Last run ${lastRun.day.toLocaleDateString()}` : undefined} />
+              <MCard label="Run Power" value={lastRun?.runningPower != null ? Math.round(lastRun.runningPower) : "—"} unit="W" />
               <MCard label="VO₂ Max" value={latestVO2Max?.vo2Max != null ? latestVO2Max.vo2Max.toFixed(1) : "—"} detail={latestVO2Max?.day ? `Updated ${latestVO2Max.day.toLocaleDateString()}` : undefined} />
-              <MCard label="Gnd Contact" value={todayRunning?.groundContactTime != null ? Math.round(todayRunning.groundContactTime) : "—"} unit="ms" />
-              <MCard label="Vert. Osc." value={todayRunning?.verticalOscillation != null ? todayRunning.verticalOscillation.toFixed(1) : "—"} unit="cm" />
-              <MCard label="Stride" value={todayRunning?.strideLength != null ? todayRunning.strideLength.toFixed(2) : "—"} unit="m" />
-              <MCard label="Cardio Rec." value={todayRunning?.cardioRecovery != null ? Math.round(todayRunning.cardioRecovery) : "—"} unit="bpm" />
+              <MCard label="Gnd Contact" value={lastRun?.groundContactTime != null ? Math.round(lastRun.groundContactTime) : "—"} unit="ms" />
+              <MCard label="Vert. Osc." value={lastRun?.verticalOscillation != null ? lastRun.verticalOscillation.toFixed(1) : "—"} unit="cm" />
+              <MCard label="Stride" value={lastRun?.strideLength != null ? lastRun.strideLength.toFixed(2) : "—"} unit="m" />
+              <MCard label="Cardio Rec." value={lastRun?.cardioRecovery != null ? Math.round(lastRun.cardioRecovery) : "—"} unit="bpm" />
               <MCard label="Effort" value={todayRunning?.physicalEffort != null ? todayRunning.physicalEffort.toFixed(1) : "—"} />
               <MCard label="Distance" value={todayRunning?.walkingRunningDistance != null ? (todayRunning.walkingRunningDistance / 1000).toFixed(1) : "—"} unit="km" />
             </div>
@@ -778,17 +789,21 @@ export default async function BodyPage({
       <SectionLabel>Running &amp; Cardio</SectionLabel>
       <div className="mt-6">
         <RunningMetricsCard
-          metrics={todayRunning ? {
-            runningSpeed: todayRunning.runningSpeed,
-            runningPower: todayRunning.runningPower,
-            groundContactTime: todayRunning.groundContactTime,
-            verticalOscillation: todayRunning.verticalOscillation,
-            strideLength: todayRunning.strideLength,
-            cardioRecovery: todayRunning.cardioRecovery,
-            walkingRunningDistance: todayRunning.walkingRunningDistance,
-            respiratoryRate: todayRunning.respiratoryRate,
-            physicalEffort: todayRunning.physicalEffort,
+          metrics={todayRunning || lastRun ? {
+            // Run dynamics: last actual run (latest-known, like VO2max) —
+            // a rest day's all-null row was rendering dashes everywhere.
+            runningSpeed: lastRun?.runningSpeed ?? null,
+            runningPower: lastRun?.runningPower ?? null,
+            groundContactTime: lastRun?.groundContactTime ?? null,
+            verticalOscillation: lastRun?.verticalOscillation ?? null,
+            strideLength: lastRun?.strideLength ?? null,
+            cardioRecovery: lastRun?.cardioRecovery ?? null,
+            // Daily fields stay with the viewed day's row.
+            walkingRunningDistance: todayRunning?.walkingRunningDistance ?? null,
+            respiratoryRate: todayRunning?.respiratoryRate ?? null,
+            physicalEffort: todayRunning?.physicalEffort ?? null,
           } : null}
+          runDate={lastRun?.day ? `Last run ${lastRun.day.toLocaleDateString()}` : null}
           vo2Max={latestVO2Max?.vo2Max ?? null}
           vo2MaxDate={latestVO2Max?.day
             ? `Updated ${latestVO2Max.day.toLocaleDateString()}`
