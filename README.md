@@ -1,22 +1,29 @@
-# CODING AGENTS: READ THIS FIRST
+# Baseline
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+**Find your own baseline. No clinic required.**
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+Your wearable already knows more about your body than an annual physical does — it just presents that data against population averages that were never about you. A 22 ms HRV reads as "poor" on every chart, and can still be *your* healthy set-point. Baseline exists to answer the only question that matters: **what's normal for you, and what actually moves it?**
 
-## What you should do — IMPORTANT
+That knowledge used to require a sports-science lab, a clinician, or a statistics degree. Baseline puts it in an app, in plain language, built from data you already collect.
 
-**Read `baseline/project/Baseline iOS.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+## What it does
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+**Learns your baseline.** ~60 nights of your own wearable data become your personal reference ranges — HRV, resting heart rate, sleep, temperature, cycle rhythm. Every reading is judged against *you*, never against a population chart. Your low HRV is a set-point, not a deficit.
 
-## About the design files
+**Calls your training day.** One daily verdict — push, easy, or recover — computed from your physiology, with the reasoning shown. Cycle-aware, because cycle phase moves heart metrics as much as an alcoholic drink does and almost nothing else accounts for that.
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
+**Finds patterns without lying to you.** The Findings feed only shows a pattern when it survives real statistics: 14+ days of evidence per side, detrending, cycle adjustment, false-discovery correction, and two independent tests that must agree. Below that bar you see an honest progress bar, not a fake insight. No card ever claims cause and effect — including the food→gut-distress analyzer that traces pre-run meals to GI failures.
 
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
+**Runs real experiments on you.** Any pattern can become a randomized n-of-1 experiment: the app assigns your test/control days, schedules the start (so a bad streak recovering on its own can't fake a cure), sizes the test from your own variance — and **refuses to run it if it can't honestly detect an effect worth caring about**. Verdicts show two labeled numbers: what was measured and what you felt.
 
-## Bundle contents
+**Diagnoses bad stretches.** When your sessions degrade below your own baseline while you're trying just as hard, Baseline first checks what it already knows (cycle phase, illness signals, travel, sleep debt, overdue deload) — and only if nothing explains it, proposes isolating one suspected cause at a time with a randomized test. It learns what you will and won't do, and stops asking about the things you won't.
 
-- `baseline/README.md` — this file
-- `baseline/project/` — the `baseline` project files (HTML prototypes, assets, components)
+## What it deliberately isn't
+
+No population percentiles as judgment. No "wellness score" theater. No correlation dressed up as causation. No advice a p-value can't back. When the honest answer is "not enough data," that's the answer on screen.
+
+## Stack
+
+Next.js 15 · Prisma · Postgres (Supabase) · native iOS shell (Capacitor + custom HealthKit background sync) · Oura API · Vercel
+
+Private beta — invite only.
