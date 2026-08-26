@@ -26,6 +26,9 @@ import { permutationP, pEffectGtSWC, mdeForPairs, type Assignment } from "@/lib/
 
 export interface ExperimentPreReg {
   outcome: string; // metricSource.dependentMetric
+  /** Set when this run is the pre-registered replication of an earlier
+   *  effect_found run [audit §2.5: replication before "rule" status]. */
+  replicationOf?: string;
   swc: number;
   mde: number;
   baselineSd: number;

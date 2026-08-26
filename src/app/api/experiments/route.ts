@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const {
+    let {
       title,
       hypothesis,
       independentVariable,
@@ -38,6 +38,35 @@ export async function POST(request: NextRequest) {
       lagDays = 0,
       minDays = 14,
     } = body;
+    let replicationOf: string | null = null;
+    let swcOverride: number | null = typeof body.swc === "number" ? body.swc : null;
+
+    // REPLICATION (audit §2.5: replication before "rule" status). Everything
+    // is inherited from the original's locked pre-registration — same IV,
+    // same outcome, same SWC — only the randomized schedule is fresh. The
+    // link is stored inside the new run's preReg, so the pairing itself is
+    // pre-registered.
+    if (typeof body.replicationOf === "string") {
+      const original = await prisma.experiment.findUnique({ where: { id: body.replicationOf } });
+      if (!original?.resultJson || !original.preReg) {
+        return NextResponse.json({ error: "Original run not found or has no verdict" }, { status: 400 });
+      }
+      const verdict = JSON.parse(original.resultJson);
+      if (verdict.decision !== "effect_found") {
+        return NextResponse.json({ error: "Only effect_found runs get replications" }, { status: 400 });
+      }
+      const originalPreReg = JSON.parse(original.preReg);
+      replicationOf = original.id;
+      title = `Replication: ${original.title}`;
+      hypothesis = `Independent rerun of "${original.title}" — the effect must hold in a fresh randomized schedule before it becomes a rule.`;
+      independentVariable = original.independentVariable;
+      dependentVariable = original.dependentVariable;
+      dependentMetric = original.dependentMetric;
+      metricSource = original.metricSource;
+      lagDays = original.lagDays;
+      minDays = original.minDays;
+      swcOverride = originalPreReg.swc ?? null;
+    }
 
     if (!title || !hypothesis || !independentVariable || !dependentVariable || !dependentMetric || !metricSource) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -53,13 +82,15 @@ export async function POST(request: NextRequest) {
     const plan = await planRigorousExperiment({
       metricSource,
       dependentMetric,
-      swc: typeof body.swc === "number" ? body.swc : null,
+      swc: swcOverride,
       lagDays,
     });
 
     if (plan.refused) {
       return NextResponse.json({ refused: true, reason: plan.reason }, { status: 422 });
     }
+
+    if (replicationOf) plan.preReg.replicationOf = replicationOf;
 
     const experiment = await prisma.experiment.create({
       data: {
