@@ -97,7 +97,7 @@ export default async function MindPage({
     prisma.envReading.findFirst({
       orderBy: { timestamp: "desc" },
     }),
-    generateInsights(),
+    generateInsights(), // → FindingsResult { patterns, collecting }
     getHrvCvCalibration(viewDate),
     getFlags(viewDate),
     prisma.nutritionLog.findUnique({
@@ -255,7 +255,7 @@ export default async function MindPage({
           <div className="wrap">
             <div className="stack-lg">
               {flags.length > 0 && <FlagsFeed flags={flags} />}
-              <InsightsFeed insights={insights} calibration={hrvCalibration} />
+              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} calibration={hrvCalibration} />
               {mealGi && <GiPatternsCard result={mealGi} />}
               {active.length > 0 && (
                 <div className="panel">
@@ -395,7 +395,7 @@ export default async function MindPage({
           )}
 
           {/* Insights feed with filter bar + featured finding */}
-          <InsightsFeed insights={insights} calibration={hrvCalibration} />
+          <InsightsFeed insights={insights.patterns} collecting={insights.collecting} calibration={hrvCalibration} />
 
           {/* Pre-workout meal -> GI patterns (backward analyzer + "test this") */}
           {mealGi && <GiPatternsCard result={mealGi} />}

@@ -7,7 +7,11 @@ export interface InsightMetric {
   metricLabel: string;
   taggedMean: number;
   untaggedMean: number;
+  /** Raw medians — the DISPLAY numbers (outlier-resistant; redesign spec). */
+  taggedMedian: number;
+  untaggedMedian: number;
   percentDiff: number;
+  /** FDR-adjusted (q). The max of Welch and Mann–Whitney p pre-adjustment. */
   pValue: number;
 }
 
@@ -24,6 +28,23 @@ export interface Insight {
   controlLabel: string;
   recommendation: string;
   metrics: InsightMetric[];
+  /** Rigor chips actually satisfied (redesign): all true by construction. */
+  checks: string[];
+  /** "What else differed" — co-occurring tags that could carry the effect. */
+  confounders: string[];
+}
+
+/** Tags still accumulating toward the 14-day evidence floor. */
+export interface CollectingTag {
+  tag: string;
+  category: string;
+  have: number;
+  need: number;
+}
+
+export interface FindingsResult {
+  patterns: Insight[];
+  collecting: CollectingTag[];
 }
 
 // AUDIT (baseline-audit.md §2.2): deep sleep / sleep efficiency / WASO are
@@ -55,6 +76,98 @@ function welchP(a: number[], b: number[]): number {
   return 2 * (1 - jStat.studentt.cdf(Math.abs(t), df));
 }
 
+/** Median of a non-empty array. */
+function median(xs: number[]): number {
+  const v = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(v.length / 2);
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+}
+
+/**
+ * Mann–Whitney U test p-value (normal approximation with tie correction).
+ * The redesign's "rank & mean stats agree" check: a finding must survive
+ * BOTH this and Welch's t, so a few outlier nights can't fake a pattern.
+ */
+function mannWhitneyP(a: number[], b: number[]): number {
+  const n1 = a.length, n2 = b.length;
+  if (n1 < 3 || n2 < 3) return 1;
+  const all = [...a.map((v) => ({ v, g: 0 })), ...b.map((v) => ({ v, g: 1 }))]
+    .sort((x, y) => x.v - y.v);
+  // assign ranks with ties averaged
+  const ranks = new Array(all.length).fill(0);
+  let i = 0;
+  const tieGroups: number[] = [];
+  while (i < all.length) {
+    let j = i;
+    while (j + 1 < all.length && all[j + 1].v === all[i].v) j++;
+    const avgRank = (i + j + 2) / 2;
+    for (let k = i; k <= j; k++) ranks[k] = avgRank;
+    if (j > i) tieGroups.push(j - i + 1);
+    i = j + 1;
+  }
+  let r1 = 0;
+  for (let k = 0; k < all.length; k++) if (all[k].g === 0) r1 += ranks[k];
+  const u1 = r1 - (n1 * (n1 + 1)) / 2;
+  const mu = (n1 * n2) / 2;
+  const n = n1 + n2;
+  const tieCorr = tieGroups.reduce((s2, t) => s2 + (t ** 3 - t), 0);
+  const sigma = Math.sqrt(((n1 * n2) / 12) * (n + 1 - tieCorr / (n * (n - 1))));
+  if (sigma === 0) return 1;
+  const z = Math.abs((u1 - mu - Math.sign(u1 - mu) * 0.5) / sigma); // continuity corr.
+  return 2 * (1 - jStat.normal.cdf(z, 0, 1));
+}
+
+/**
+ * Detrend + cycle-adjust a day→value series (audit §2.1.2/§2.1.4).
+ *
+ * 1. DETREND: subtract an OLS linear fit over calendar time, so a slow
+ *    drift (fitness gain, seasonal change) can't masquerade as a tag effect
+ *    when tagging habits also drift.
+ * 2. CYCLE-ADJUST: subtract each cycle phase's own mean residual, so a tag
+ *    that clusters in (say) follicular days can't inherit the phase's
+ *    physiology as its "effect". Days with unknown phase form their own
+ *    stratum (no-op within it).
+ *
+ * Returns residuals keyed by day. Display code should keep using RAW values
+ * (medians of residuals aren't human-readable); these residuals are for the
+ * test statistics only.
+ */
+function detrendAndAdjust(
+  valueByDay: Map<string, number>,
+  phaseByDay: Map<string, string>,
+): Map<string, number> {
+  const entries = [...valueByDay.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
+  if (entries.length < 3) return new Map(entries);
+  const t0 = new Date(entries[0][0] + "T00:00:00Z").getTime();
+  const xs = entries.map(([d]) => (new Date(d + "T00:00:00Z").getTime() - t0) / 86_400_000);
+  const ys = entries.map(([, v]) => v);
+  const mx = xs.reduce((s2, x) => s2 + x, 0) / xs.length;
+  const my = ys.reduce((s2, y) => s2 + y, 0) / ys.length;
+  let num = 0, den = 0;
+  for (let k = 0; k < xs.length; k++) {
+    num += (xs[k] - mx) * (ys[k] - my);
+    den += (xs[k] - mx) ** 2;
+  }
+  const slope = den === 0 ? 0 : num / den;
+  const resid = new Map<string, number>();
+  entries.forEach(([d, v], k) => resid.set(d, v - (my + slope * (xs[k] - mx))));
+
+  // phase strata means
+  const sums = new Map<string, { s: number; n: number }>();
+  for (const [d, r] of resid) {
+    const ph = phaseByDay.get(d) ?? "unknown";
+    const cur = sums.get(ph) ?? { s: 0, n: 0 };
+    cur.s += r; cur.n += 1;
+    sums.set(ph, cur);
+  }
+  for (const [d, r] of resid) {
+    const ph = phaseByDay.get(d) ?? "unknown";
+    const { s: s2, n } = sums.get(ph)!;
+    resid.set(d, r - s2 / n);
+  }
+  return resid;
+}
+
 function generateRecommendation(
   tag: string,
   metricLabels: string[],
@@ -67,19 +180,14 @@ function generateRecommendation(
     (direction === "higher" && hib) || (direction === "lower" && !hib)
   );
 
-  if (significance === "significant") {
-    if (isGood) {
-      return `Keep doing "${tag}" — it shows a strong positive correlation with ${metricsStr}.`;
-    }
-    return `Consider reducing "${tag}" — it correlates with lower ${metricsStr}.`;
+  // AUDIT §2.1: NO causal copy, NO behavioral directives ("keep it up",
+  // "consider reducing" are deleted). Cards describe the past and point at
+  // the one legitimate next step: a randomized test.
+  const goodBad = isGood ? "in the direction you'd want" : "in the direction you wouldn't want";
+  if (significance === "significant" || significance === "suggestive") {
+    return `On days you logged "${tag}", your ${metricsStr} ran ${direction} — ${goodBad}. That's a description of your past, not a cause: days you chose "${tag}" may differ in other ways. A randomized test can split that.`;
   }
-  if (significance === "suggestive") {
-    if (isGood) {
-      return `"${tag}" shows a promising trend for ${metricsStr}. Keep logging to confirm.`;
-    }
-    return `"${tag}" may be affecting your ${metricsStr} negatively. Log more data to confirm.`;
-  }
-  return `Early signal — "${tag}" may relate to ${metricsStr}. Needs more data.`;
+  return `Days with "${tag}" show a weak lean in ${metricsStr}. Below the confidence bar — treat as noise until tested.`;
 }
 
 interface RawFinding {
@@ -96,7 +204,15 @@ interface RawFinding {
   untaggedN: number;
   higherIsBetter: boolean;
   controlLabel: string;
+  taggedMedian: number;
+  untaggedMedian: number;
 }
+
+/** Per-metric day-indexed series: raw for display, residuals for testing. */
+type MetricSeries = Map<
+  string,
+  { raw: Map<string, number>; resid: Map<string, number> }
+>;
 
 /** Compare two groups across all biometric metrics, push significant findings. */
 function compareBuckets(
@@ -104,68 +220,69 @@ function compareBuckets(
   category: string,
   taggedDays: Set<string>,
   controlDays: Set<string>,
-  sleepByDay: Map<string, Record<string, unknown>>,
-  readinessByDay: Map<string, Record<string, unknown>>,
+  series: MetricSeries,
   out: RawFinding[],
   controlLabel: string,
   testCounter: { tests: number },
 ) {
   for (const metric of metricConfigs) {
-    const taggedValues: number[] = [];
-    const controlValues: number[] = [];
+    const ms = series.get(metric.field);
+    if (!ms) continue;
 
+    const tRaw: number[] = [], cRaw: number[] = [];
+    const tRes: number[] = [], cRes: number[] = [];
     for (const day of taggedDays) {
-      let value: number | null = null;
-      if (metric.source === "DailySleep") {
-        const row = sleepByDay.get(day);
-        if (row) value = row[metric.field] as number | null;
-      } else {
-        const row = readinessByDay.get(day);
-        if (row) value = row[metric.field] as number | null;
-      }
-      if (value != null) taggedValues.push(value);
+      const r = ms.raw.get(day), e = ms.resid.get(day);
+      if (r != null && e != null) { tRaw.push(r); tRes.push(e); }
     }
-
     for (const day of controlDays) {
-      let value: number | null = null;
-      if (metric.source === "DailySleep") {
-        const row = sleepByDay.get(day);
-        if (row) value = row[metric.field] as number | null;
-      } else {
-        const row = readinessByDay.get(day);
-        if (row) value = row[metric.field] as number | null;
-      }
-      if (value != null) controlValues.push(value);
+      const r = ms.raw.get(day), e = ms.resid.get(day);
+      if (r != null && e != null) { cRaw.push(r); cRes.push(e); }
     }
 
-    // AUDIT §2.1 (Omnio bar): fewer than 14 paired observations per side is
-    // below the publishable-correlation floor — n=4 "spirits" cards die here.
-    if (taggedValues.length < 14 || controlValues.length < 14) continue;
+    // AUDIT §2.1 (Omnio bar): fewer than 14 observations per side is below
+    // the publishable-correlation floor — n=4 "spirits" cards die here.
+    if (tRaw.length < 14 || cRaw.length < 14) continue;
 
-    const taggedMean = taggedValues.reduce((a, b) => a + b, 0) / taggedValues.length;
-    const controlMean = controlValues.reduce((a, b) => a + b, 0) / controlValues.length;
-    const pValue = welchP(taggedValues, controlValues);
-    testCounter.tests += 1; // every computed test counts toward the FDR family
+    // Test statistics run on DETRENDED + CYCLE-ADJUSTED residuals; display
+    // numbers stay raw (medians, outlier-resistant).
+    const pWelch = welchP(tRes, cRes);
+    const pRank = mannWhitneyP(tRes, cRes);
+    testCounter.tests += 1;
 
-    if (pValue >= 0.10) continue;
+    const tMed = median(tRaw), cMed = median(cRaw);
+    const tResMean = tRes.reduce((a, b) => a + b, 0) / tRes.length;
+    const cResMean = cRes.reduce((a, b) => a + b, 0) / cRes.length;
 
-    const meanDiff = taggedMean - controlMean;
-    const pctDiff = controlMean !== 0 ? Math.abs((meanDiff / controlMean) * 100) : 0;
+    // Agreement gate (redesign "rank & mean stats agree"): both tests under
+    // 0.10 AND the adjusted-mean and raw-median differences point the same
+    // way. Disagreement → flag internally by NOT showing (Omnio rule).
+    const medDiff = tMed - cMed;
+    const resDiff = tResMean - cResMean;
+    if (pWelch >= 0.10 || pRank >= 0.10) continue;
+    if (medDiff !== 0 && resDiff !== 0 && Math.sign(medDiff) !== Math.sign(resDiff)) continue;
 
+    const pctDiff = cMed !== 0 ? Math.abs((medDiff / cMed) * 100) : 0;
     if (pctDiff < 5) continue;
+
+    const tMean = tRaw.reduce((a, b) => a + b, 0) / tRaw.length;
+    const cMean = cRaw.reduce((a, b) => a + b, 0) / cRaw.length;
 
     out.push({
       tag: tagName,
       category,
       metric: metric.field,
       metricLabel: metric.label,
-      taggedMean: Math.round(taggedMean * 100) / 100,
-      untaggedMean: Math.round(controlMean * 100) / 100,
+      taggedMean: Math.round(tMean * 100) / 100,
+      untaggedMean: Math.round(cMean * 100) / 100,
+      taggedMedian: Math.round(tMed * 100) / 100,
+      untaggedMedian: Math.round(cMed * 100) / 100,
       percentDiff: Math.round(pctDiff * 10) / 10,
-      direction: meanDiff > 0 ? "higher" : "lower",
-      pValue: Math.round(pValue * 1000) / 1000,
-      taggedN: taggedValues.length,
-      untaggedN: controlValues.length,
+      direction: (medDiff !== 0 ? medDiff : resDiff) > 0 ? "higher" : "lower",
+      // conservative: the WEAKER of the two agreeing tests carries forward
+      pValue: Math.round(Math.max(pWelch, pRank) * 1000) / 1000,
+      taggedN: tRaw.length,
+      untaggedN: cRaw.length,
       higherIsBetter: metric.higherIsBetter,
       controlLabel,
     });
@@ -180,10 +297,10 @@ function percentile(sorted: number[], p: number): number {
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
 }
 
-export async function generateInsights(): Promise<Insight[]> {
+export async function generateInsights(): Promise<FindingsResult> {
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
-  const [allTags, allLifeLogs, sleepData, readinessData, nutritionLogs, nutritionEntries] = await Promise.all([
+  const [allTags, allLifeLogs, sleepData, readinessData, nutritionLogs, nutritionEntries, phaseLogs] = await Promise.all([
     prisma.activityTag.findMany({
       where: { timestamp: { gte: ninetyDaysAgo } },
       select: { tag: true, category: true, timestamp: true },
@@ -206,7 +323,15 @@ export async function generateInsights(): Promise<Insight[]> {
       where: { createdAt: { gte: ninetyDaysAgo }, timeUnknown: false },
       select: { nutritionLogId: true, eatenAt: true },
     }),
+    prisma.cyclePhaseLog.findMany({
+      where: { day: { gte: ninetyDaysAgo } },
+      select: { day: true, phase: true },
+    }),
   ]);
+
+  const phaseByDay = new Map(
+    phaseLogs.map((r) => [r.day.toISOString().split("T")[0], r.phase]),
+  );
 
   const sleepByDay = new Map(sleepData.map((s) => [s.day.toISOString().split("T")[0], s as unknown as Record<string, unknown>]));
 
@@ -229,6 +354,19 @@ export async function generateInsights(): Promise<Insight[]> {
     }
   }
   const readinessByDay = new Map(readinessData.map((r) => [r.day.toISOString().split("T")[0], r as unknown as Record<string, unknown>]));
+
+  // Per-metric day-indexed series: raw values for display, detrended +
+  // cycle-adjusted residuals for every test statistic (audit §2.1.2/.4).
+  const series: MetricSeries = new Map();
+  for (const metric of metricConfigs) {
+    const raw = new Map<string, number>();
+    const src = metric.source === "DailySleep" ? sleepByDay : readinessByDay;
+    for (const [day, row] of src) {
+      const v = row[metric.field] as number | null | undefined;
+      if (v != null) raw.set(day, v);
+    }
+    series.set(metric.field, { raw, resid: detrendAndAdjust(raw, phaseByDay) });
+  }
 
   const rawFindings: RawFinding[] = [];
   // Total hypothesis tests actually computed — the FDR family size. ~19+
@@ -368,7 +506,7 @@ export async function generateInsights(): Promise<Insight[]> {
       controlLabel = `logged days outside the ${grp} group`;
     }
 
-    compareBuckets(tagName, category, taggedDaySet, controlDays, sleepByDay, readinessByDay, rawFindings, controlLabel, testCounter);
+    compareBuckets(tagName, category, taggedDaySet, controlDays, series, rawFindings, controlLabel, testCounter);
   }
 
   // Collapse mirrored findings within the same group. Even after the control
@@ -427,13 +565,13 @@ export async function generateInsights(): Promise<Insight[]> {
         compareBuckets(
           `high ${macro.label} days`, "nutrition:macro",
           highDays, lowDays,
-          sleepByDay, readinessByDay, rawFindings,
+          series, rawFindings,
           `low ${macro.label} days`, testCounter,
         );
         compareBuckets(
           `low ${macro.label} days`, "nutrition:macro",
           lowDays, highDays,
-          sleepByDay, readinessByDay, rawFindings,
+          series, rawFindings,
           `high ${macro.label} days`, testCounter,
         );
       }
@@ -489,13 +627,13 @@ export async function generateInsights(): Promise<Insight[]> {
     compareBuckets(
       "short eating window (<8h)", "nutrition:timing",
       shortWindow, longWindow,
-      sleepByDay, readinessByDay, rawFindings,
+      series, rawFindings,
       "long eating-window days (12h+)", testCounter,
     );
     compareBuckets(
       "long eating window (12h+)", "nutrition:timing",
       longWindow, shortWindow,
-      sleepByDay, readinessByDay, rawFindings,
+      series, rawFindings,
       "short eating-window days (<8h)", testCounter,
     );
   }
@@ -504,7 +642,7 @@ export async function generateInsights(): Promise<Insight[]> {
     compareBuckets(
       "short eating window (<8h)", "nutrition:timing",
       shortWindow, mediumWindow,
-      sleepByDay, readinessByDay, rawFindings,
+      series, rawFindings,
       "medium eating-window days (8–12h)", testCounter,
     );
   }
@@ -513,7 +651,7 @@ export async function generateInsights(): Promise<Insight[]> {
     compareBuckets(
       "long eating window (12h+)", "nutrition:timing",
       longWindow, mediumWindow,
-      sleepByDay, readinessByDay, rawFindings,
+      series, rawFindings,
       "medium eating-window days (8–12h)", testCounter,
     );
   }
@@ -565,6 +703,31 @@ export async function generateInsights(): Promise<Insight[]> {
 
   const insights: Insight[] = [];
 
+  // "What else differed" (redesign confounder bundle): other tags whose
+  // frequency differs sharply between this tag's days and its control days.
+  function confoundersFor(target: string, taggedSet: Set<string>, controlSet: Set<string>): string[] {
+    const lines: { line: string; ratio: number }[] = [];
+    for (const [other, bucket] of tagDays) {
+      if (other === target) continue;
+      let onTagged = 0, onControl = 0;
+      for (const d of bucket.days) {
+        if (taggedSet.has(d)) onTagged++;
+        else if (controlSet.has(d)) onControl++;
+      }
+      if (onTagged + onControl < 4) continue;
+      const rT = onTagged / Math.max(taggedSet.size, 1);
+      const rC = onControl / Math.max(controlSet.size, 1);
+      const hi = Math.max(rT, rC), lo = Math.min(rT, rC);
+      if (hi < 0.2 || hi < lo * 2) continue; // needs a real, common imbalance
+      const moreOnTagged = rT > rC;
+      lines.push({
+        line: `"${other}" tagged on ${moreOnTagged ? onTagged : onControl} of ${moreOnTagged ? taggedSet.size : controlSet.size} ${moreOnTagged ? `"${target}" days` : "control days"} vs ${moreOnTagged ? onControl : onTagged} of ${moreOnTagged ? controlSet.size : taggedSet.size} on the other side`,
+        ratio: hi / Math.max(lo, 0.01),
+      });
+    }
+    return lines.sort((a, b) => b.ratio - a.ratio).slice(0, 3).map((l) => l.line);
+  }
+
   for (const findings of groups.values()) {
     const best = findings.reduce((a, b) => (a.pValue < b.pValue ? a : b));
     const significance = best.pValue < 0.01
@@ -572,6 +735,15 @@ export async function generateInsights(): Promise<Insight[]> {
       : best.pValue < 0.05
         ? "suggestive" as const
         : "watching" as const;
+
+    const taggedSet = tagDays.get(best.tag)?.days ?? new Set<string>();
+    // reconstruct an approximate control set for the confounder scan: all
+    // journaled bio days not tagged (era/group nuances already shaped the
+    // stats; for co-occurrence description this approximation is fine).
+    const controlSet = new Set<string>();
+    for (const d of allBioDays) {
+      if (journaledDays.has(d) && !taggedSet.has(d)) controlSet.add(d);
+    }
 
     insights.push({
       tag: best.tag,
@@ -593,9 +765,20 @@ export async function generateInsights(): Promise<Insight[]> {
         metricLabel: f.metricLabel,
         taggedMean: f.taggedMean,
         untaggedMean: f.untaggedMean,
+        taggedMedian: f.taggedMedian,
+        untaggedMedian: f.untaggedMedian,
         percentDiff: f.percentDiff,
         pValue: f.pValue,
       })),
+      checks: [
+        "14+ days each side",
+        "Detrended",
+        "Cycle-adjusted",
+        "Rank & mean stats agree",
+        `FDR-corrected (q = ${best.pValue < 0.001 ? "<0.001" : best.pValue})`,
+        "Logged days only, within tracking era",
+      ],
+      confounders: confoundersFor(best.tag, taggedSet, controlSet),
     });
   }
 
@@ -611,9 +794,20 @@ export async function generateInsights(): Promise<Insight[]> {
 
   // Cap watching-tier cards at 5 to avoid a wall of marginal findings
   let watchingCount = 0;
-  return insights.filter((i) => {
+  const patterns = insights.filter((i) => {
     if (i.significance !== "watching") return true;
     watchingCount++;
     return watchingCount <= 5;
   });
+
+  // "Collecting" cards (redesign): tags honestly below the 14-day evidence
+  // floor get a progress bar, never a claim.
+  const shownTags = new Set(patterns.map((i) => i.tag));
+  const collecting: CollectingTag[] = Array.from(tagDays.entries())
+    .filter(([tag, v]) => v.days.size >= 3 && v.days.size < 14 && !shownTags.has(tag))
+    .sort((a, b) => b[1].days.size - a[1].days.size)
+    .slice(0, 6)
+    .map(([tag, v]) => ({ tag, category: v.category, have: v.days.size, need: 14 }));
+
+  return { patterns, collecting };
 }

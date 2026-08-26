@@ -969,7 +969,7 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
 
   // --- Recent Insights ---
   try {
-    const insights = await generateInsights();
+    const insights = (await generateInsights()).patterns;
     const top = insights.slice(0, 5);
     if (top.length > 0) {
       const insightLines: string[] = [];
