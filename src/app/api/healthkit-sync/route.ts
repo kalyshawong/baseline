@@ -37,6 +37,21 @@ function lastPerDay(
   return byDay;
 }
 
+/** For CUMULATIVE quantities (distance): a day is the SUM of its samples,
+ *  never the last one. */
+function sumPerDay(
+  data: Array<{ date: string; qty?: number; Avg?: number }>,
+): Map<string, number> {
+  const byDay = new Map<string, number>();
+  for (const d of data) {
+    const val = d.qty ?? d.Avg;
+    if (!val || !d.date) continue;
+    const k = d.date.substring(0, 10);
+    byDay.set(k, (byDay.get(k) ?? 0) + val);
+  }
+  return byDay;
+}
+
 interface MetricEntry {
   name: string;
   units?: string;
@@ -237,14 +252,16 @@ async function processMetrics(
       // --- Apple Watch running & fitness metrics (via Health Auto Export) ---
 
       case "walking_running_distance": {
-        // One write PER DAY, not per sample — run days carry hundreds of
-        // samples and the old per-sample upserts were sequential round-trips
-        // (a major cause of the killed-function watermark loop, 2026-08-20).
-        for (const [dayStr, val] of lastPerDay(metric.data)) {
+        // Distance is CUMULATIVE — HealthKit sends per-interval increments,
+        // so a day must SUM its samples. lastPerDay was storing the final
+        // ~20m sample as the whole day ("distance is zero?", 2026-08-26).
+        // Batches arrive since-watermark, so later syncs INCREMENT the same
+        // day rather than overwrite it.
+        for (const [dayStr, val] of sumPerDay(metric.data)) {
           const day = dateStrToUTC(dayStr);
           await prisma.dailyRunningMetrics.upsert({
             where: { userId_day: { userId: userId, day } },
-            update: { walkingRunningDistance: val },
+            update: { walkingRunningDistance: { increment: val } },
             create: { userId: userId, day, walkingRunningDistance: val },
           });
         }
