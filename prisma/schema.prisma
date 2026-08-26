@@ -100,6 +100,9 @@ model User {
   lifeContextDefs          LifeContextDef[]
   lifeContextLogs          LifeContextLog[]
   workoutNotes             WorkoutNote[]
+  diagnoseFlows            DiagnoseFlow[]
+  diagnoseCandidateStates  DiagnoseCandidateState[]
+  diagnoseRuns             DiagnoseRun[]
 }
 
 // Per-user, per-signal baseline state. This is the gate between "priors mode"
@@ -949,4 +952,68 @@ model SorenessLog {
 
   @@unique([userId, day, bodyPart])
   @@index([userId, bodyPart, day])
+}
+
+// ─── Diagnose engine (DIAGNOSE-ENGINE-SPEC.md, built 2026-08-26) ──────────
+// Event-triggered cause isolation: a streak of degraded sessions wakes the
+// engine; context checks run first; then one randomized candidate experiment
+// at a time. State machine is pure (src/lib/diagnose); these rows are its
+// persistence. All JSON columns are engine-internal snapshots.
+
+model DiagnoseFlow {
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category           String // "strength" | "run"
+  state              String // TRIGGERED|CONTEXT_EXPLAINED|CANDIDATES_RANKED|PROPOSED|PRE_REG|REFUSED_UNDERPOWERED|SCHEDULED|RUNNING|VERDICT|SELF_RESOLVED|EXHAUSTED|CLOSED
+  triggeredAt        DateTime  @default(now())
+  flaggedSessions    String // JSON SessionQuality[] snapshot that fired the streak
+  contextResult      String? // JSON: [{check, passed, note}]
+  queue              String? // JSON ranked candidates at ranking time
+  currentCandidateId String?
+  closedAt           DateTime?
+  closedAs           String? // context_explained|self_resolved|exhausted|confirmed|dismissed
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  runs DiagnoseRun[]
+
+  @@index([userId, category, state])
+}
+
+// Per-user candidate learning (§8): priors + willingness survive across flows.
+model DiagnoseCandidateState {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  candidateId  String // key into the seed library (src/lib/diagnose/candidates.ts)
+  prior        Float
+  status       String    @default("untested") // untested|no_effect_at_mde|confirmed|declined|parked|context
+  declineCount Int       @default(0)
+  parkedUntil  DateTime?
+  lastVerdict  String? // JSON Verdict
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, candidateId])
+}
+
+model DiagnoseRun {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flowId      String
+  flow        DiagnoseFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  candidateId String
+  status      String // pre_reg|scheduled|running|complete|abandoned
+  // Locked at PRE_REG, before the schedule exists [GUARD]: outcome, swc,
+  // mde, exclusion rule, block count, analysis plan.
+  preReg      String // JSON
+  assignments String // JSON [{idx, date, arm, done, value|null, excluded|null}]
+  startDate   DateTime
+  feltRatings String? // JSON [{blockIdx, armA:number, armB:number}]
+  verdict     String? // JSON Verdict {pEffectGtSWC, randTestP, mde, feltDelta, decision}
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, status])
 }
