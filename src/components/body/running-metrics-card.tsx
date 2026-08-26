@@ -20,9 +20,11 @@ interface RunningMetricsCardProps {
   } | null;
   vo2Max: number | null;
   vo2MaxDate: string | null;
+  /** "Last run <date>" — run dynamics are latest-known, not day-scoped. */
+  runDate?: string | null;
 }
 
-export function RunningMetricsCard({ metrics, vo2Max, vo2MaxDate }: RunningMetricsCardProps) {
+export function RunningMetricsCard({ metrics, vo2Max, vo2MaxDate, runDate }: RunningMetricsCardProps) {
   const hasAnyData = vo2Max != null || (metrics && Object.values(metrics).some((v) => v != null));
 
   if (!hasAnyData) {
@@ -42,11 +44,13 @@ export function RunningMetricsCard({ metrics, vo2Max, vo2MaxDate }: RunningMetri
           label="Running Speed"
           value={metrics?.runningSpeed?.toFixed(1) ?? null}
           unit="km/h"
+          detail={runDate ?? undefined}
         />
         <MetricCard
           label="Running Power"
           value={metrics?.runningPower ? Math.round(metrics.runningPower) : null}
           unit="W"
+          detail={runDate ?? undefined}
         />
         <MetricCard
           label="VO₂ Max"
@@ -58,16 +62,19 @@ export function RunningMetricsCard({ metrics, vo2Max, vo2MaxDate }: RunningMetri
           label="Ground Contact"
           value={metrics?.groundContactTime ? Math.round(metrics.groundContactTime) : null}
           unit="ms"
+          detail={runDate ?? undefined}
         />
         <MetricCard
           label="Vert. Oscillation"
           value={metrics?.verticalOscillation?.toFixed(1) ?? null}
           unit="cm"
+          detail={runDate ?? undefined}
         />
         <MetricCard
           label="Stride Length"
           value={metrics?.strideLength?.toFixed(2) ?? null}
           unit="m"
+          detail={runDate ?? undefined}
         />
         <MetricCard
           label="Cardio Recovery"
