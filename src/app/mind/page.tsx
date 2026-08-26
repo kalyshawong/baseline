@@ -10,6 +10,7 @@ import { QuickTag } from "@/components/mind/quick-tag";
 import { TagTimeline } from "@/components/mind/tag-timeline";
 import { TodayContext } from "@/components/mind/today-context";
 import { InsightsFeed } from "@/components/mind/insights-feed";
+import { DiagnoseCard } from "@/components/mind/diagnose-card";
 import { GiPatternsCard } from "@/components/mind/gi-patterns-card";
 import { analyzeMealGi } from "@/lib/meal-gi";
 import { EnvCard } from "@/components/mind/env-card";
@@ -255,6 +256,7 @@ export default async function MindPage({
           <div className="wrap">
             <div className="stack-lg">
               {flags.length > 0 && <FlagsFeed flags={flags} />}
+              <DiagnoseCard />
               <InsightsFeed insights={insights.patterns} collecting={insights.collecting} calibration={hrvCalibration} />
               {mealGi && <GiPatternsCard result={mealGi} />}
               {active.length > 0 && (
@@ -395,7 +397,8 @@ export default async function MindPage({
           )}
 
           {/* Insights feed with filter bar + featured finding */}
-          <InsightsFeed insights={insights.patterns} collecting={insights.collecting} calibration={hrvCalibration} />
+          <DiagnoseCard />
+              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} calibration={hrvCalibration} />
 
           {/* Pre-workout meal -> GI patterns (backward analyzer + "test this") */}
           {mealGi && <GiPatternsCard result={mealGi} />}
