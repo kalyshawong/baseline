@@ -23,6 +23,8 @@ import { getFlags } from "@/lib/flags";
 import { BaselineCard } from "@/components/dashboard/baseline-card";
 import { getDownsampledHrForWorkout, type HrChartPoint } from "@/lib/workout-notes";
 import { MobileDashboard } from "@/components/mobile/mobile-dashboard";
+import { EveningCheckin } from "@/components/dashboard/evening-checkin";
+import { getEveningCheckinData, type CheckinData } from "@/lib/evening-checkin";
 import { unstable_cache } from "next/cache";
 
 /**
@@ -250,6 +252,14 @@ export default async function Dashboard({
   // viewed date — it's a standing fact, not today's data.
   const hrvBaseline = await getHrvBaselineSummary();
 
+  // Evening check-in (audit §1.4): the one deliberate ritual moment. Only
+  // assembled when viewing TODAY — the card itself additionally gates on
+  // evening hours client-side, so this is cheap dead data before 6pm.
+  let checkin: CheckinData | null = null;
+  if (isToday) {
+    checkin = await getEveningCheckinData(getDateStrFromParams(params, tz), tz).catch(() => null);
+  }
+
   // Pull the active Hyrox plan + today's session recommendation. Renders
   // nothing if no active plan exists, so non-Hyrox users see no change.
   const hyroxToday = await getHyroxToday(viewDate);
@@ -393,6 +403,7 @@ export default async function Dashboard({
       <div className="md:hidden">
         <MobileDashboard
           tz={tz}
+          checkin={checkin}
           viewDate={viewDate}
           isConnected={isConnected}
           lastSyncIso={lastSync?.syncDate.toISOString() ?? null}
@@ -460,6 +471,9 @@ export default async function Dashboard({
       </div>
 
       <div className="mx-auto max-w-[1320px] space-y-6 px-9 pt-6 pb-16">
+
+      {/* Evening check-in — self-hides outside evening hours */}
+      {checkin && <EveningCheckin data={checkin} />}
 
       {/* Hero — the day's training call */}
       <TodayCallHero

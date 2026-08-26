@@ -6,6 +6,8 @@ import { SyncButton } from "@/components/dashboard/sync-button";
 import { MobileDateNav } from "@/components/mobile/mobile-date-nav";
 import { WorkoutCard } from "@/components/dashboard/workout-card";
 import { MinCard } from "@/components/min-card";
+import { EveningCheckin } from "@/components/dashboard/evening-checkin";
+import type { CheckinData } from "@/lib/evening-checkin";
 
 /**
  * Mobile "Today" screen — implements the Claude Design "Baseline iOS"
@@ -47,6 +49,8 @@ type HyroxData = {
 export type MobileDashboardProps = {
   /** Viewer IANA timezone — clock times render in HER day, not the server's. */
   tz?: string;
+  /** Evening ritual questions (audit §1.4) — null when viewing a past day. */
+  checkin?: CheckinData | null;
   viewDate: Date;
   isConnected: boolean;
   lastSyncIso: string | null;
@@ -186,6 +190,9 @@ export function MobileDashboard(p: MobileDashboardProps) {
 
       <div className="wrap" style={{ marginTop: 12 }}>
         <div className="stack-lg">
+
+          {/* Evening check-in — self-hides outside evening hours */}
+          {p.checkin && <EveningCheckin data={p.checkin} />}
 
           {/* Baseline score */}
           {p.score && (
