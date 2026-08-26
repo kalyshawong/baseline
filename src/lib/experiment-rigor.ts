@@ -46,7 +46,9 @@ export interface ExperimentVerdict {
 
 const START_DELAY_DAYS = 5;
 const MIN_BLOCKS = 6;
-const MAX_BLOCKS = 10;
+// Audit power table: d>=0.8 effects need ~50 days; the honest ceiling is a
+// long design, not a lax test. 24 pairs = 48 assignment days.
+const MAX_BLOCKS = 24;
 
 /** Baseline mean/sd for any (source, metric) over the last 90 days,
  *  excluding the most recent 10 (anti-contamination, mirrors Diagnose). */
@@ -94,17 +96,20 @@ export async function planRigorousExperiment(input: {
     return { refused: true, reason: "This metric never varies in your data — nothing to detect." };
   }
 
-  const swcAbs = input.swc != null && input.swc > 0 ? input.swc : 0.5 * base.sd;
+  // Default SWC targets a LARGE effect (0.8 SD) — the audit's power table
+  // shows medium effects need ~126 days for these metrics; large is the
+  // practical band. Users can set an explicit SWC to override.
+  const swcAbs = input.swc != null && input.swc > 0 ? input.swc : 0.8 * base.sd;
   const sdDiff = Math.SQRT2 * base.sd;
 
-  // auto-extend blocks until powered, cap at MAX_BLOCKS
+  // auto-extend blocks until MDE is within 1.25× of the SWC, cap at MAX_BLOCKS
   let blocks = MIN_BLOCKS;
-  while (mdeForPairs(sdDiff, blocks) > swcAbs * 2.5 && blocks < MAX_BLOCKS) blocks += 2;
+  while (mdeForPairs(sdDiff, blocks) > swcAbs * 1.25 && blocks < MAX_BLOCKS) blocks += 2;
   const mde = mdeForPairs(sdDiff, blocks);
-  if (mde > swcAbs * 2.5) {
+  if (mde > swcAbs * 1.25) {
     return {
       refused: true,
-      reason: `Underpowered even at ${MAX_BLOCKS} blocks: this design detects ~${round1(mde)} at best, but your smallest worthwhile change is ${round1(swcAbs)}. Honest options: accept a longer study later, or test something with a bigger expected effect.`,
+      reason: `Underpowered even at ${MAX_BLOCKS} pairs (${MAX_BLOCKS * 2} days): this design detects ~${round1(mde)} at best, but your smallest worthwhile change is ${round1(swcAbs)}. Honest options: a bigger-effect intervention, or accept only large effects are findable in this metric.`,
       mde,
       swc: swcAbs,
     };
