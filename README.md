@@ -1,12 +1,10 @@
 # Baseline
 
-Baseline is an app that finds your personal baseline from your own wearable data.
+Baseline is an app that finds your own personal baseline from your wearable data.
 
-## Why this exists
+I built it to understand my own body and to improve. We get so much data from Oura and Apple Watch, but on its own it doesn't mean anything. We don't understand it and we can't learn from it.
 
-I built Baseline because my wearables kept telling me things about my body that weren't true.
-
-My overnight HRV averages around 20ms, which every chart on the internet says is terrible. Every app decided I was overtrained and told me to take it easy, every single day, forever. The real story is that my HRV is just low. It tracks my heart rate the way it should, so nothing is wrong with me. The apps were comparing me to a population average instead of to my own history, and there was no way to tell them that.
+My wearables also kept telling me things that weren't true. My overnight HRV averages around 20ms, which every chart on the internet says is terrible. Every app decided I was overtrained and told me to take it easy, every single day, forever. The real story is that my HRV is just low. It tracks my heart rate the way it should, so nothing is wrong with me. The apps were comparing me to a population average instead of to my own history, and there was no way to tell them that.
 
 Then I threw up twice during a race because of something I ate beforehand, and none of my data could tell me which food did it or help me test it.
 
