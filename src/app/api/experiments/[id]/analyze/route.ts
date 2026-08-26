@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { analyzeExperiment } from "@/lib/correlation";
+import { analyzeRigorousExperiment } from "@/lib/experiment-rigor";
 import { apiError } from "@/lib/utils";
 
 export async function POST(
@@ -17,6 +18,16 @@ export async function POST(
 
     if (!experiment) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    // Rigorous experiments use the paired randomization analysis — the
+    // legacy Welch path below is only for pre-audit self-selected runs.
+    if (experiment.assignments != null) {
+      const verdict = await analyzeRigorousExperiment(id);
+      if (!verdict) {
+        return NextResponse.json({ error: "Not enough completed assignments yet" }, { status: 422 });
+      }
+      return NextResponse.json({ rigorous: true, verdict });
     }
 
     const result = await analyzeExperiment(id);

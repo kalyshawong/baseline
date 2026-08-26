@@ -298,6 +298,13 @@ model Experiment {
   endDate             DateTime?
   minDays             Int       @default(14)
   status              String    @default("draft")
+  // ── Rigorous mode (audit §2.5–2.7, added 2026-08-26) ──
+  // Nullable = legacy experiments (self-selected days, Welch analysis,
+  // displayed with an honesty label). New experiments get all four.
+  assignments         String? // JSON randomized-pairs schedule [{idx,pairIdx,date,arm,done,value,excluded}]
+  preReg              String? // JSON locked before schedule: outcome, swc, mde, blocks, exclusion, analysis
+  feltRatings         String? // JSON [{pairIdx, armA, armB}]
+  resultJson          String? // JSON verdict {pEffectGtSWC, randTestP, feltDelta, decision}
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 

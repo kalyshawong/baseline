@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { ExperimentDetail } from "@/components/mind/experiment-detail";
+import { RigorousPanel } from "@/components/mind/rigorous-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,19 @@ export default async function ExperimentPage({
   const controlCount = experiment.logs.filter((l) => !l.independentValue).length;
 
   return (
+    <>
+    {experiment.assignments && experiment.preReg && (
+      <RigorousPanel
+        experimentId={experiment.id}
+        status={experiment.status}
+        startDate={experiment.startDate.toISOString().split("T")[0]}
+        assignments={JSON.parse(experiment.assignments)}
+        preReg={JSON.parse(experiment.preReg)}
+        feltRatings={experiment.feltRatings ? JSON.parse(experiment.feltRatings) : []}
+        verdict={experiment.resultJson ? JSON.parse(experiment.resultJson) : null}
+        ivLabel={experiment.independentVariable}
+      />
+    )}
     <ExperimentDetail
       experiment={{
         ...experiment,
@@ -46,5 +60,6 @@ export default async function ExperimentPage({
       treatmentCount={treatmentCount}
       controlCount={controlCount}
     />
+    </>
   );
 }
