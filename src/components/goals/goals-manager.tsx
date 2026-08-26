@@ -315,9 +315,24 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
           type="text"
           value={fields.target}
           onChange={(e) => setField("target", e.target.value)}
-          placeholder="Target (optional, e.g. sub-60 min, 140 lb, score > 70%)"
+          placeholder={
+            fields.subtype === "hrv_baseline"
+              ? 'Baseline-relative target (e.g. "raise my 60-day baseline 5%")'
+              : "Target (optional, e.g. sub-60 min, 140 lb, score > 70%)"
+          }
           className="field w-full"
         />
+        {/* AUDIT §2.4: an absolute-ms HRV target ("get to 45 ms") compares you
+            to a population — the exact habit the baseline card exists to break.
+            Only movement of YOUR OWN baseline is a meaningful target. */}
+        {fields.subtype === "hrv_baseline" && (
+          <p className="text-[11.5px] leading-relaxed text-[var(--color-text-muted)]">
+            HRV goals are measured against <b className="text-[var(--color-text)]">your own baseline</b>, not a
+            population number — an absolute target like &ldquo;45 ms&rdquo; is meaningless if your set-point is 22.
+            Night-to-night noise is ~9&ndash;16%, so only a sustained shift of your 60-day baseline counts. Behavior
+            goals (&ldquo;alcohol-free weeknights&rdquo;) often work better than metric goals.
+          </p>
+        )}
         <input
           type="date"
           value={fields.deadline}

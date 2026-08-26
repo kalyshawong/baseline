@@ -505,6 +505,36 @@ export function InsightsFeed({
         </button>
       )}
 
+      {/* Context strip (redesign .testflow): partner presence, travel and the
+          like are CONTEXTS — balanced and forecast-adjusted, never proposed
+          as experiments, because you won't (and shouldn't have to) randomize
+          your life. */}
+      <div className="mt-[14px] grid grid-cols-1 gap-[18px] bg-[var(--color-surface)] p-[20px_22px] md:grid-cols-2"
+        style={{ boxShadow: "inset 0 1px 0 oklch(1 0 0/.05), 0 12px 30px -16px #000" }}>
+        <div>
+          <p className="mb-[7px] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--color-gold)]">
+            Context, everywhere
+          </p>
+          <p className="text-[12.5px] leading-[1.55] text-[var(--color-text-muted)]">
+            Things you won&apos;t randomize — a partner staying over, travel, a visit week — are treated{" "}
+            <b className="text-[var(--color-text)]">like your cycle phase</b>: a context, never an intervention.
+            Findings and experiments are balanced across them, so &ldquo;he was here&rdquo; can&apos;t masquerade
+            as a supplement effect.
+          </p>
+        </div>
+        <div>
+          <p className="mb-[7px] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--color-gold)]">
+            Forecast, not verdict
+          </p>
+          <p className="text-[12.5px] leading-[1.55] text-[var(--color-text-muted)]">
+            When a context has a measured pattern, it becomes an{" "}
+            <b className="text-[var(--color-text)]">adjusted expectation</b> for those days — and Coach can flag a
+            collision (a visit landing on a taper week) <b className="text-[var(--color-text)]">before</b> it
+            happens. No behavior change asked of you.
+          </p>
+        </div>
+      </div>
+
       {/* Method footer (redesign .foot) */}
       <p className="mt-4 max-w-[900px] border-t border-[var(--color-border)] pt-4 text-[12px] leading-[1.6] text-[var(--color-faint)]">
         <b className="text-[var(--color-text-muted)]">How Findings works:</b> cards describe your logged past using medians
