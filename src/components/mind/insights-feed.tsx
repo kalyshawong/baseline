@@ -47,6 +47,16 @@ function testedHeadline(t: TestedFinding): { title: React.ReactNode; body: strin
     t.feltDelta == null
       ? "Felt ratings weren't logged."
       : `You rated test blocks ${t.feltDelta > 0 ? "+" : ""}${t.feltDelta} pts vs usual.`;
+  const repNote =
+    t.replicationOf != null
+      ? "This was the replication run."
+      : t.replicationStatus === "confirmed"
+        ? "Replicated — Coach now uses this as a rule."
+        : t.replicationStatus === "running"
+          ? "Replication in progress — not a rule until it holds."
+          : t.replicationStatus === "not_confirmed"
+            ? "The replication didn't confirm it — no rule. One-off effects happen."
+            : "One replication before this becomes a Coach rule.";
   switch (t.decision) {
     case "effect_found":
       return {
@@ -56,7 +66,7 @@ function testedHeadline(t: TestedFinding): { title: React.ReactNode; body: strin
             {delta && <em className="not-italic text-[var(--color-green)]"> {delta}.</em>}
           </>
         ),
-        body: `Randomized ${t.pairsUsed}-pair run. P(effect > worthwhile) = ${Math.round(t.pEffectGtSWC * 100)}%. ${felt} One replication before this becomes a Coach rule.`,
+        body: `Randomized ${t.pairsUsed}-pair run. P(effect > worthwhile) = ${Math.round(t.pEffectGtSWC * 100)}%. ${felt} ${repNote}`,
       };
     case "no_effect_at_mde":
       return {
@@ -82,10 +92,32 @@ function testedHeadline(t: TestedFinding): { title: React.ReactNode; body: strin
 
 /** Tested result card (redesign .fcard.tested — green border, verdict copy). */
 function TestedCard({ t }: { t: TestedFinding }) {
+  const router = useRouter();
+  const [replicating, setReplicating] = useState(false);
   const { title, body } = testedHeadline(t);
   const measuredPositive = t.decision === "effect_found";
   const feltPositive = t.feltDelta != null && t.feltDelta > 0;
   const agree = t.feltDelta != null && measuredPositive === feltPositive;
+
+  async function startReplication() {
+    setReplicating(true);
+    try {
+      const res = await fetch("/api/experiments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replicationOf: t.id }),
+      });
+      if (res.ok) {
+        const exp = await res.json();
+        router.push(`/mind/experiments/${exp.id}`);
+      } else {
+        setReplicating(false);
+      }
+    } catch {
+      setReplicating(false);
+    }
+  }
+
   return (
     <div
       className="flex flex-col bg-[var(--color-surface)] p-[20px_22px]"
@@ -100,6 +132,7 @@ function TestedCard({ t }: { t: TestedFinding }) {
         </span>
         <span className="text-[11.5px] font-bold tracking-[0.04em] text-[var(--color-faint)]">
           {t.label} → {t.outcomeLabel}
+          {t.replicationOf != null && " · replication"}
         </span>
       </div>
       <h3 className="disp text-[25px] leading-[0.95]">{title}</h3>
@@ -107,18 +140,32 @@ function TestedCard({ t }: { t: TestedFinding }) {
       <p className="num mt-[11px] text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--color-faint)]">
         Randomized · {t.blocks} pairs · p {t.randTestP < 0.001 ? "<0.001" : t.randTestP}
         {t.feltDelta != null && ` · measured + felt ${agree ? "agree" : "disagree"}`}
+        {t.replicationStatus === "confirmed" && (
+          <b className="text-[var(--color-green)]"> · replicated ✓ · coach rule</b>
+        )}
         {t.source === "diagnose" && " · from Diagnose"}
       </p>
-      {t.href && (
-        <div className="mt-[14px]">
+      <div className="mt-[14px] flex gap-2">
+        {t.replicationStatus === "none" && (
+          <button
+            type="button"
+            disabled={replicating}
+            onClick={startReplication}
+            className="cursor-pointer border-none px-[14px] py-[9px] text-[11px] font-extrabold uppercase tracking-[0.07em] angled-clip disabled:opacity-50"
+            style={{ background: "var(--color-green)", color: "var(--color-bg)" }}
+          >
+            {replicating ? "Scheduling…" : "Run replication →"}
+          </button>
+        )}
+        {t.href && (
           <a
             href={t.href}
             className="inline-block bg-[var(--color-surface-2)] px-[14px] py-[9px] text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--color-text-muted)]"
           >
             View result
           </a>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

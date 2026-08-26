@@ -967,6 +967,49 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
   }
   addSection("experiments", experimentLines);
 
+  // --- Confirmed causes + verdicts (replicated randomized tests) ---
+  // AUDIT §2.5, replication-before-rule: a finding earns "rule" status only
+  // after surviving a second independently randomized run in the same
+  // direction. Confirmed rules are the ONLY tested effects the Coach may
+  // state as true and plan around. Single effect_found runs stay hypotheses.
+  try {
+    const { getTestedFindings, formatRuleDelta } = await import("./tested-findings");
+    const { tested, confirmed } = await getTestedFindings();
+    const lines: string[] = [];
+    if (confirmed.length > 0) {
+      lines.push("## Confirmed causes (replicated randomized tests)");
+      for (const r of confirmed) {
+        const delta = formatRuleDelta(r.meanDiff, r.metric);
+        lines.push(
+          `- "${r.label}" → ${r.outcomeLabel}${delta ? ` (${delta} across two runs)` : ""}. Randomized, replicated. You MAY treat this as causal and apply it as a standing rule in plans and advice.`,
+        );
+      }
+    }
+    const awaiting = tested.filter(
+      (t) => t.decision === "effect_found" && t.replicationOf == null && t.replicationStatus !== "confirmed",
+    );
+    const nulls = tested.filter((t) => t.decision === "no_effect_at_mde");
+    if (awaiting.length > 0) {
+      lines.push("## Tested once — awaiting replication (NOT rules yet)");
+      for (const t of awaiting) {
+        lines.push(
+          `- "${t.label}" → ${t.outcomeLabel}: effect found in one randomized run (P>SWC ${Math.round(t.pEffectGtSWC * 100)}%)${t.replicationStatus === "running" ? ", replication underway" : t.replicationStatus === "not_confirmed" ? ", replication did NOT confirm — treat as noise" : ""}. Do not state as fact; you may suggest the replication.`,
+        );
+      }
+    }
+    if (nulls.length > 0) {
+      lines.push("## Ruled out at tested size (randomized nulls)");
+      for (const t of nulls) {
+        lines.push(
+          `- "${t.label}" → ${t.outcomeLabel}: no effect at what the design could detect. Don't recommend this intervention for that outcome.`,
+        );
+      }
+    }
+    addSection("confirmed-rules", lines);
+  } catch {
+    // never block coach context on verdicts
+  }
+
   // --- Recent Insights ---
   try {
     const insights = (await generateInsights()).patterns;
@@ -1261,8 +1304,15 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
   const profileSection = sections.get("profile");
   if (profileSection) finalLines.push(...profileSection, "");
 
+  // Confirmed rules pinned second, whatever the goal lens: replicated
+  // randomized verdicts outrank every correlation below them, and early
+  // placement IS the weighting mechanism.
+  const rulesSection = sections.get("confirmed-rules");
+  if (rulesSection) finalLines.push(...rulesSection, "");
+
   // Then goal-ordered sections
   for (const key of order) {
+    if (key === "confirmed-rules") continue;
     const section = sections.get(key);
     if (section && section.length > 0) {
       finalLines.push(...section, "");
@@ -1271,7 +1321,7 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
 
   // Any remaining sections not in the order list (safety net)
   for (const [key, section] of sections) {
-    if (key !== "profile" && !order.includes(key) && section.length > 0) {
+    if (key !== "profile" && key !== "confirmed-rules" && !order.includes(key) && section.length > 0) {
       finalLines.push(...section, "");
     }
   }

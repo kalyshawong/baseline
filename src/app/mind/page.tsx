@@ -118,7 +118,7 @@ export default async function MindPage({
     // yet). Folded into the batch so its ~6 queries run alongside the rest
     // instead of adding a serial round-trip to the remote DB.
     analyzeMealGi().catch(() => null),
-    getTestedFindings().catch(() => []),
+    getTestedFindings().catch(() => ({ tested: [], confirmed: [] })),
   ]);
 
   // Her own most-used tags (any non-nutrition category) become one-tap
@@ -260,7 +260,7 @@ export default async function MindPage({
             <div className="stack-lg">
               {flags.length > 0 && <FlagsFeed flags={flags} />}
               <DiagnoseCard />
-              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} tested={testedFindings} calibration={hrvCalibration} />
+              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} tested={testedFindings.tested} calibration={hrvCalibration} />
               {mealGi && <GiPatternsCard result={mealGi} />}
               {active.length > 0 && (
                 <div className="panel">
@@ -401,7 +401,7 @@ export default async function MindPage({
 
           {/* Insights feed with filter bar + featured finding */}
           <DiagnoseCard />
-              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} tested={testedFindings} calibration={hrvCalibration} />
+              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} tested={testedFindings.tested} calibration={hrvCalibration} />
 
           {/* Pre-workout meal -> GI patterns (backward analyzer + "test this") */}
           {mealGi && <GiPatternsCard result={mealGi} />}
