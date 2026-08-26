@@ -1,29 +1,29 @@
 # Baseline
 
-**Find your own baseline. No clinic required.**
+Baseline is an app that finds your personal baseline from your own wearable data.
 
-Your wearable already knows more about your body than an annual physical does — it just presents that data against population averages that were never about you. A 22 ms HRV reads as "poor" on every chart, and can still be *your* healthy set-point. Baseline exists to answer the only question that matters: **what's normal for you, and what actually moves it?**
+Right now, if you want to know what's actually normal for your body — your real resting heart rate, your real HRV range, how your cycle moves things, what your sleep actually does to your training — you'd need a sports lab or a clinic, and even then they'd mostly compare you to population averages. Baseline does it from data your watch and ring already collect, and explains it in normal language.
 
-That knowledge used to require a sports-science lab, a clinician, or a statistics degree. Baseline puts it in an app, in plain language, built from data you already collect.
+The point: an HRV of 22ms is "poor" on every chart on the internet. It can also just be your number. You can't know which until something measures *you* against *you*. That's what this is.
 
-## What it does
+## What it actually does
 
-**Learns your baseline.** ~60 nights of your own wearable data become your personal reference ranges — HRV, resting heart rate, sleep, temperature, cycle rhythm. Every reading is judged against *you*, never against a population chart. Your low HRV is a set-point, not a deficit.
+**Finds your baseline.** After about 60 nights of data it knows your normal ranges for HRV, resting heart rate, sleep, and temperature. Everything after that is compared to your own numbers, not a chart.
 
-**Calls your training day.** One daily verdict — push, easy, or recover — computed from your physiology, with the reasoning shown. Cycle-aware, because cycle phase moves heart metrics as much as an alcoholic drink does and almost nothing else accounts for that.
+**Tells you what kind of training day it is.** One call each morning — push, easy, or recover — based on your body, including your cycle phase, with the reasoning written out.
 
-**Finds patterns without lying to you.** The Findings feed only shows a pattern when it survives real statistics: 14+ days of evidence per side, detrending, cycle adjustment, false-discovery correction, and two independent tests that must agree. Below that bar you see an honest progress bar, not a fake insight. No card ever claims cause and effect — including the food→gut-distress analyzer that traces pre-run meals to GI failures.
+**Notices patterns without making things up.** It watches for things like "you sleep worse after late caffeine" or "these pre-run meals keep wrecking your stomach" — but it only shows a pattern when there's actually enough data to say it (14+ days per side, corrected for the statistical traps that make most app "insights" fake). Until then it just shows a progress bar.
 
-**Runs real experiments on you.** Any pattern can become a randomized n-of-1 experiment: the app assigns your test/control days, schedules the start (so a bad streak recovering on its own can't fake a cure), sizes the test from your own variance — and **refuses to run it if it can't honestly detect an effect worth caring about**. Verdicts show two labeled numbers: what was measured and what you felt.
+**Lets you test things on yourself properly.** Any pattern can become a real experiment: the app picks which days are test days and which are control days (so you can't fool yourself), schedules it, and sizes it from your own data. If a test can't actually detect anything meaningful, it tells you that and refuses to run — instead of running anyway and handing you noise.
 
-**Diagnoses bad stretches.** When your sessions degrade below your own baseline while you're trying just as hard, Baseline first checks what it already knows (cycle phase, illness signals, travel, sleep debt, overdue deload) — and only if nothing explains it, proposes isolating one suspected cause at a time with a randomized test. It learns what you will and won't do, and stops asking about the things you won't.
+**Figures out why you're suddenly worse.** If your sessions drop below your normal while you're trying just as hard, it first checks the boring explanations — cycle phase, getting sick, travel, sleep debt, needing a deload. Only if none of those fit does it start testing suspects, one at a time.
 
-## What it deliberately isn't
+## What it doesn't do
 
-No population percentiles as judgment. No "wellness score" theater. No correlation dressed up as causation. No advice a p-value can't back. When the honest answer is "not enough data," that's the answer on screen.
+It doesn't score your "wellness." It doesn't compare you to other people. It doesn't tell you a correlation is a cause. And when the honest answer is "not enough data yet," that's what it says.
 
 ## Stack
 
-Next.js 15 · Prisma · Postgres (Supabase) · native iOS shell (Capacitor + custom HealthKit background sync) · Oura API · Vercel
+Next.js 15 · Prisma · Postgres (Supabase) · Capacitor iOS shell with custom HealthKit background sync · Oura API · Vercel
 
-Private beta — invite only.
+Currently invite-only.
