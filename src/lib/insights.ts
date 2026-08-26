@@ -298,33 +298,38 @@ function percentile(sorted: number[], p: number): number {
 }
 
 export async function generateInsights(): Promise<FindingsResult> {
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  // 180 days, not 90 (2026-08-26): with journaling gaps (June–July) a 90-day
+  // window silently discarded whole tag eras — "sex" showed 3/14 days when
+  // 50 existed. The coverage-era clamp below already handles absence
+  // honestly, and detrending + cycle adjustment handle slow drift, so the
+  // wide window is safe; the hard cut was just throwing away evidence.
+  const windowStart = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
 
   const [allTags, allLifeLogs, sleepData, readinessData, nutritionLogs, nutritionEntries, phaseLogs] = await Promise.all([
     prisma.activityTag.findMany({
-      where: { timestamp: { gte: ninetyDaysAgo } },
+      where: { timestamp: { gte: windowStart } },
       select: { tag: true, category: true, timestamp: true },
     }),
     prisma.lifeContextLog.findMany({
-      where: { day: { gte: ninetyDaysAgo } },
+      where: { day: { gte: windowStart } },
       select: { day: true, def: { select: { label: true, category: true, groupKey: true } } },
     }),
     prisma.dailySleep.findMany({
-      where: { day: { gte: ninetyDaysAgo } },
+      where: { day: { gte: windowStart } },
     }),
     prisma.dailyReadiness.findMany({
-      where: { day: { gte: ninetyDaysAgo } },
+      where: { day: { gte: windowStart } },
     }),
     prisma.nutritionLog.findMany({
-      where: { day: { gte: ninetyDaysAgo } },
+      where: { day: { gte: windowStart } },
       select: { day: true, calories: true, protein: true, carbs: true, fat: true },
     }),
     prisma.nutritionEntry.findMany({
-      where: { createdAt: { gte: ninetyDaysAgo }, timeUnknown: false },
+      where: { createdAt: { gte: windowStart }, timeUnknown: false },
       select: { nutritionLogId: true, eatenAt: true },
     }),
     prisma.cyclePhaseLog.findMany({
-      where: { day: { gte: ninetyDaysAgo } },
+      where: { day: { gte: windowStart } },
       select: { day: true, phase: true },
     }),
   ]);

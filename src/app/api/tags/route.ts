@@ -59,7 +59,10 @@ export async function POST(request: NextRequest) {
     const created = await prisma.activityTag.create({
       data: {
         userId: await getCurrentUserId(),
-        tag,
+        // Normalized at write: "Sex" and "sex" were living as two tags,
+        // splitting counts across every analyzer (2026-08-26). One tag,
+        // one identity, case-insensitive.
+        tag: String(tag).trim().toLowerCase(),
         category,
         metadata: metadata ? JSON.stringify(metadata) : null,
         experimentId: experimentId ?? null,
