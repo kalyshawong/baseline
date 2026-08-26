@@ -60,6 +60,7 @@ ${library.map((e) => e.name).join(", ")}
 
 Rules:
 - Resolve relative dates ("two days ago", "yesterday") against today's date; default to today.
+- NEVER collapse a variant into its parent exercise: "single leg RDL" is NOT "Romanian Deadlift", "paused bench" is NOT "Bench Press", "incline curl" is NOT "Bicep Curl". Only map to a library name when it is the SAME movement. If a qualified variant isn't in the library, keep the user's qualified name in Title Case (e.g. "Single Leg Romanian Deadlift") — it will be created.
 - Weights: assume kg unless "lb" stated (convert lb→kg, 1 decimal).
 - "3x8 @25" = 3 sets of 8 reps at 25kg. If an exercise has no sets/reps, OMIT it from entries entirely (never emit null sets/reps).
 - templateName: short session label from context ("Legs", "Push", "Pull") or null.
