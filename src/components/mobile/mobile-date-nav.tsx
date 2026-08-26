@@ -39,7 +39,31 @@ export function MobileDateNav({ basePath }: { basePath: string }) {
   return (
     <div className="datenav">
       <button onClick={() => navigate(shiftDate(currentDate, -1))} aria-label="Previous day">‹</button>
-      <span className="d">{label(currentDate)}</span>
+      {/* Tapping the date opens the NATIVE date picker — an invisible
+          <input type="date"> overlays the label, so any day is one tap
+          away instead of N arrow presses. */}
+      <span className="d" style={{ position: "relative" }}>
+        {label(currentDate)}
+        <input
+          type="date"
+          aria-label="Pick a date"
+          value={currentDate}
+          max={todayStr()}
+          onClick={(e) => (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.()}
+          onChange={(e) => e.target.value && navigate(e.target.value)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            opacity: 0,
+            border: 0,
+            padding: 0,
+            WebkitAppearance: "none",
+            appearance: "none",
+          }}
+        />
+      </span>
       <button onClick={() => navigate(shiftDate(currentDate, 1))} disabled={isToday} aria-label="Next day">›</button>
     </div>
   );
