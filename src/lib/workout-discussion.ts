@@ -6,11 +6,18 @@ import {
 } from "@/lib/workout-notes";
 import { safeJsonParse } from "@/lib/utils";
 import { getCurrentUserId } from "@/lib/current-user";
+import { getRequestTz } from "@/lib/date-utils";
+
+/** Viewer tz for every clock string in the draft — set at builder entry.
+ *  Without it these rendered in the SERVER's clock (Eastern): her Italy
+ *  8:27 AM run read "2:27 AM" and dinner "1:30 PM" (2026-08-26). */
+let activeTz: string | undefined;
 
 function formatClockTime(d: Date): string {
   return d.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: activeTz,
   });
 }
 
@@ -18,6 +25,7 @@ function formatShortDate(d: Date): string {
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    timeZone: activeTz,
   });
 }
 
@@ -53,6 +61,12 @@ export async function buildWorkoutDiscussionStarter(
   workoutId: string,
 ): Promise<string | null> {
   if (!isValidWorkoutSource(source)) return null;
+
+  try {
+    activeTz = await getRequestTz();
+  } catch {
+    activeTz = undefined;
+  }
 
   const workout = await getWorkoutByIdAndSource(source, workoutId);
   if (!workout) return null;
@@ -97,14 +111,12 @@ export async function buildWorkoutDiscussionStarter(
   ]);
 
   const startedAt = workout.startedAt;
-  const startTime = startedAt.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const startTime = formatClockTime(startedAt);
   const dateStr = startedAt.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
+    timeZone: activeTz,
   });
   const durationMin = Math.round(workout.durationSeconds / 60);
 
