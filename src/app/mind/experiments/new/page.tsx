@@ -60,7 +60,8 @@ export default function NewExperimentPage() {
         router.push(`/mind/experiments/${exp.id}`);
       } else {
         const data = await res.json();
-        setError(data.error ?? "Failed to create experiment");
+        // 422 refusal = the honest "this design can't see your effect" answer
+        setError(data.reason ?? data.error ?? "Failed to create experiment");
       }
     });
   }

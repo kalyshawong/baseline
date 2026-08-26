@@ -61,7 +61,7 @@ function cohensLabel(d: number): string {
   return "negligible";
 }
 
-async function fetchMetricValues(
+export async function fetchMetricValues(
   metricSource: string,
   dependentMetric: string,
   days: Date[]
