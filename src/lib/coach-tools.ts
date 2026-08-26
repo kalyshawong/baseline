@@ -15,6 +15,15 @@ import { getCurrentUserId } from "@/lib/current-user";
  * "2026-05-27T21:00Z" (a 5 PM meal) as "9 PM." Returning explicit
  * local strings eliminates the ambiguity.
  */
+/**
+ * VIEWER's timezone for all "_local" strings, set per tool call by
+ * runCoachTool from the bl_tz cookie. Without it these formatters fell back
+ * to the SERVER clock (pinned Eastern) — while she was in Italy the Coach
+ * read her 7:30 PM dinner as "1:30 PM" and her 8:27 AM run as "2:27 AM",
+ * then reasoned from that fiction (2026-08-26).
+ */
+let activeTz: string | undefined;
+
 function formatLocalDateTime(d: Date): string {
   return d.toLocaleString("en-US", {
     weekday: "short",
@@ -23,6 +32,7 @@ function formatLocalDateTime(d: Date): string {
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: activeTz,
   });
 }
 
@@ -30,6 +40,7 @@ function formatLocalTime(d: Date): string {
   return d.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: activeTz,
   });
 }
 
@@ -39,6 +50,7 @@ function formatLocalDate(d: Date): string {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: activeTz,
   });
 }
 
@@ -843,6 +855,13 @@ export async function runCoachTool(
     string,
     unknown
   >;
+  // All *_local strings in tool output render in HER timezone, not the
+  // server's. Falls back to the server clock outside request scope.
+  try {
+    activeTz = await getRequestTz();
+  } catch {
+    activeTz = undefined;
+  }
   try {
     switch (name) {
       case "get_food_log":
