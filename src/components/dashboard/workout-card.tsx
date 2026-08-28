@@ -40,6 +40,47 @@ interface Props {
   /** HR-zone anchor: her OBSERVED max HR (falls back to 220−age only if set
    *  and higher). Null → no zone bands. */
   zoneMaxHr?: number | null;
+  /** GPS route [[lat,lng],...] from the native module. Null → no map. */
+  route?: [number, number][] | null;
+}
+
+/** Route glyph — the path itself, no map tiles, no API keys. Equirectangular
+ *  projection with cos(lat) x-correction; start dot green, end dot red. */
+function RouteMap({ route }: { route: [number, number][] }) {
+  const lats = route.map((p) => p[0]);
+  const lngs = route.map((p) => p[1]);
+  const latMid = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const kx = Math.cos((latMid * Math.PI) / 180);
+  const xs = lngs.map((l) => l * kx);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...lats), maxY = Math.max(...lats);
+  const spanX = maxX - minX || 1e-6;
+  const spanY = maxY - minY || 1e-6;
+  const W = 280, H = 120, PAD = 8;
+  const scale = Math.min((W - PAD * 2) / spanX, (H - PAD * 2) / spanY);
+  const ox = (W - spanX * scale) / 2;
+  const oy = (H - spanY * scale) / 2;
+  const pt = (i: number) => ({
+    x: ox + (xs[i] - minX) * scale,
+    y: H - (oy + (lats[i] - minY) * scale), // north up
+  });
+  const d = route.map((_, i) => {
+    const { x, y } = pt(i);
+    return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join("");
+  const s = pt(0), e = pt(route.length - 1);
+  return (
+    <div className="mt-4">
+      <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)]">
+        Route
+      </p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-1 w-full" style={{ maxHeight: 140 }}>
+        <path d={d} fill="none" stroke="var(--color-red)" strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
+        <circle cx={s.x} cy={s.y} r={3} fill="var(--color-green)" />
+        <circle cx={e.x} cy={e.y} r={3} fill="var(--color-red)" stroke="var(--color-bg)" strokeWidth={1} />
+      </svg>
+    </div>
+  );
 }
 
 /** Five classic zones as fractions of max HR, coldest → hottest. */
@@ -75,7 +116,7 @@ function formatDuration(seconds: number): string {
   return `${h}h ${m}m`;
 }
 
-export function WorkoutCard({ workout, hrChart, fuelLine, zoneMaxHr }: Props) {
+export function WorkoutCard({ workout, hrChart, fuelLine, zoneMaxHr, route }: Props) {
   const timeRange = `${formatTime(workout.startedAt)} – ${formatTime(workout.endedAt)}`;
   const durationStr = formatDuration(workout.durationSeconds);
   const hasHrData = workout.avgHeartRate != null;
@@ -215,6 +256,9 @@ export function WorkoutCard({ workout, hrChart, fuelLine, zoneMaxHr }: Props) {
           )}
         </div>
       )}
+
+      {/* GPS route — path shape only, no tiles */}
+      {route && route.length >= 2 && <RouteMap route={route} />}
 
       {/* Pre-run fuel attribution — context for the GI outcome logged below */}
       {fuelLine && (

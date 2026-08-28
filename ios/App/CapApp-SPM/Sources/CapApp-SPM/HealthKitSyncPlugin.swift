@@ -1,6 +1,7 @@
 import Foundation
 import Capacitor
 import HealthKit
+import CoreLocation
 
 /**
  * Baseline HealthKit sync.
@@ -61,8 +62,56 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
             if let t = HKObjectType.quantityType(forIdentifier: id) { types.insert(t) }
         }
         types.insert(HKObjectType.workoutType())
+        // GPS routes for outdoor workouts (2026-08-28)
+        types.insert(HKSeriesType.workoutRoute())
         if let flow = HKObjectType.categoryType(forIdentifier: .menstrualFlow) { types.insert(flow) }
         return types
+    }
+
+    // MARK: - Workout GPS route
+
+    /// Fetch the workout's GPS route (if any), downsampled to ≤300 points of
+    /// [lat, lng] rounded to 1e-5° (~1 m). Returns [] when no route exists
+    /// (indoor sessions, no permission) — the server treats absent as absent.
+    private func routePoints(for workout: HKWorkout) async -> [[Double]] {
+        let routes: [HKWorkoutRoute] = await withCheckedContinuation { cont in
+            let pred = HKQuery.predicateForObjects(from: workout)
+            let q = HKSampleQuery(
+                sampleType: HKSeriesType.workoutRoute(), predicate: pred,
+                limit: 1, sortDescriptors: nil
+            ) { _, samples, _ in
+                cont.resume(returning: (samples as? [HKWorkoutRoute]) ?? [])
+            }
+            store.execute(q)
+        }
+        guard let route = routes.first else { return [] }
+
+        var locs: [CLLocation] = []
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            let rq = HKWorkoutRouteQuery(route: route) { _, batch, done, _ in
+                if let batch = batch { locs.append(contentsOf: batch) }
+                if done { cont.resume() }
+            }
+            store.execute(rq)
+        }
+        guard locs.count >= 2 else { return [] }
+
+        let strideN = max(1, Int((Double(locs.count) / 300.0).rounded(.up)))
+        var pts: [[Double]] = []
+        for (i, l) in locs.enumerated() where i % strideN == 0 {
+            pts.append([
+                (l.coordinate.latitude * 1e5).rounded() / 1e5,
+                (l.coordinate.longitude * 1e5).rounded() / 1e5,
+            ])
+        }
+        // always keep the true endpoint
+        if let last = locs.last, pts.last?[0] != (last.coordinate.latitude * 1e5).rounded() / 1e5 {
+            pts.append([
+                (last.coordinate.latitude * 1e5).rounded() / 1e5,
+                (last.coordinate.longitude * 1e5).rounded() / 1e5,
+            ])
+        }
+        return pts
     }
 
     // MARK: - JS API
@@ -205,7 +254,7 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
             } else {
                 energyKcal = w.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0
             }
-            workouts.append([
+            var entry: [String: Any] = [
                 "id": w.uuid.uuidString,
                 "name": w.workoutActivityType.baselineName,
                 "start": df.string(from: w.startDate),
@@ -216,7 +265,15 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
                     "qty": (w.totalDistance?.doubleValue(for: .meterUnit(with: .kilo)) ?? 0),
                     "units": "km",
                 ],
-            ])
+            ]
+            // GPS route for outdoor sessions (running/walking/cycling/hiking)
+            switch w.workoutActivityType {
+            case .running, .walking, .cycling, .hiking:
+                let route = await routePoints(for: w)
+                if !route.isEmpty { entry["route"] = route }
+            default: break
+            }
+            workouts.append(entry)
         }
 
         // Cycle tracking

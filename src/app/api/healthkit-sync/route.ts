@@ -75,6 +75,8 @@ interface WorkoutEntry {
   heartRate?: {
     data: Array<{ date: string; Min?: number; Avg?: number; Max?: number }>;
   };
+  /** GPS route from the native module: downsampled [[lat,lng],...]. */
+  route?: [number, number][];
 }
 
 /**
@@ -521,6 +523,16 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
       updateData.maxHeartRate = maxHR;
       updateData.minHeartRate = minHR;
     }
+    // GPS route (native module only; HAE never sends this). Basic shape
+    // check, then stored verbatim — absent stays absent, never overwritten
+    // with null on a later route-less sync of the same workout.
+    if (
+      Array.isArray(w.route) &&
+      w.route.length >= 2 &&
+      w.route.every((p) => Array.isArray(p) && p.length === 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]))
+    ) {
+      updateData.routeJson = JSON.stringify(w.route.slice(0, 400));
+    }
 
     await prisma.healthKitWorkout.upsert({
       where: { userId_externalId: { userId: userId, externalId: w.id } },
@@ -538,6 +550,7 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
         avgHeartRate: avgHR,
         maxHeartRate: maxHR,
         minHeartRate: minHR,
+        routeJson: (updateData.routeJson as string | undefined) ?? null,
       },
     });
     count++;

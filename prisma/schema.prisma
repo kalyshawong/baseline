@@ -716,6 +716,8 @@ model HealthKitWorkout {
   activeCalories  Float?
   distance        Float?
   distanceUnit    String?
+  // GPS route (2026-08-28): downsampled [[lat,lng],...] JSON, <=300 points
+  routeJson       String?
   avgHeartRate    Int?
   maxHeartRate    Int?
   minHeartRate    Int?
