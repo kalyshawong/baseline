@@ -244,9 +244,24 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
             if !data.isEmpty { metrics.append(["name": haeName, "data": data]) }
         }
 
-        // Workouts
+        // Workouts — always the trailing 14 days, IGNORING the watermark.
+        // Workout rows are few and the server upserts by UUID, so re-sends are
+        // free — and this is what lets routes appear for recent runs after an
+        // app update, instead of only for workouts newer than the last sync.
         var workouts: [[String: Any]] = []
-        for case let w as HKWorkout in try await newSamples(for: HKObjectType.workoutType()) {
+        let workoutWindow = HKQuery.predicateForSamples(
+            withStart: Calendar.current.date(byAdding: .day, value: -14, to: Date()),
+            end: nil, options: .strictStartDate)
+        let recentWorkouts: [HKSample] = try await withCheckedThrowingContinuation { cont in
+            let q = HKSampleQuery(
+                sampleType: HKObjectType.workoutType(), predicate: workoutWindow,
+                limit: 500, sortDescriptors: nil
+            ) { _, s, e in
+                if let e = e { cont.resume(throwing: e) } else { cont.resume(returning: s ?? []) }
+            }
+            store.execute(q)
+        }
+        for case let w as HKWorkout in recentWorkouts {
             let energyKcal: Double
             if #available(iOS 16.0, *) {
                 energyKcal = w.statistics(for: HKQuantityType(.activeEnergyBurned))?
