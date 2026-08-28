@@ -25,6 +25,8 @@ import { getDownsampledHrForWorkout, type HrChartPoint } from "@/lib/workout-not
 import { MobileDashboard } from "@/components/mobile/mobile-dashboard";
 import { EveningCheckin } from "@/components/dashboard/evening-checkin";
 import { getEveningCheckinData, type CheckinData } from "@/lib/evening-checkin";
+import { DailySignalsCard } from "@/components/dashboard/daily-signals-card";
+import { getDailySignals, type DailySignals } from "@/lib/daily-signals";
 import { unstable_cache } from "next/cache";
 
 /**
@@ -260,6 +262,13 @@ export default async function Dashboard({
     checkin = await getEveningCheckinData(getDateStrFromParams(params, tz), tz).catch(() => null);
   }
 
+  // Daily signals (daily-signals-plan.md) — open-recipe, own-baseline lines.
+  // Works for any viewed date, not just today.
+  const signals: DailySignals | null = await getDailySignals(
+    getDateStrFromParams(params, tz),
+    tz,
+  ).catch(() => null);
+
   // Pull the active Hyrox plan + today's session recommendation. Renders
   // nothing if no active plan exists, so non-Hyrox users see no change.
   const hyroxToday = await getHyroxToday(viewDate);
@@ -404,6 +413,7 @@ export default async function Dashboard({
         <MobileDashboard
           tz={tz}
           checkin={checkin}
+          signals={signals}
           viewDate={viewDate}
           isConnected={isConnected}
           lastSyncIso={lastSync?.syncDate.toISOString() ?? null}
@@ -474,6 +484,9 @@ export default async function Dashboard({
 
       {/* Evening check-in — self-hides outside evening hours */}
       {checkin && <EveningCheckin data={checkin} />}
+
+      {/* Daily signals — renders nothing when no line fired */}
+      {signals && <DailySignalsCard s={signals} />}
 
       {/* Hero — the day's training call */}
       <TodayCallHero
