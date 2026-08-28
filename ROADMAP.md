@@ -1,9 +1,34 @@
 # Baseline — Roadmap
 
-**Last updated:** 2026-05-27
+**Last updated:** 2026-08-28
 **Horizon:** Rest of 2026 (June → December)
 **Format:** Now / Next / Later
 **Owner:** Kalysha (solo)
+
+---
+
+## Product build track (added 2026-08-28)
+
+The public product is being built as an Expo React Native app from the
+audit-clean scaffold in `~/Downloads/baseline/baseline-app/` — core engines
+(intake, config generator, typed outcomes, experiment/analysis/diagnose) exist
+with guard tests. Full checklist lives in `~/Downloads/baseline/TODO.md`
+("Product build" section); order:
+
+1. **Screens on the cores** — morning screen (four numbers, personal bands),
+   evening check-in, Findings/experiments. Config-generator-driven, no
+   per-device branching.
+2. **Ingestion** — Suunto via HealthKit pipe (Mom pilot), Oura via Cloud API
+   OAuth (`oura-integration-plan.md`).
+3. **Backend + sync** — accounts, token storage, history import; reuse this
+   repo's lessons (tenant isolation at the query layer, viewer-tz cookie,
+   watermark sync with per-day SUM for cumulative quantities).
+4. **TestFlight** — EAS build, internal testers.
+
+This repo stays the lab: features prove themselves live here first (evening
+ritual, stress chip, Tested cards, replication-before-rule all shipped here),
+then land in the product as spec'd core + screen. Sections below this line
+predate the multi-tenant flip and are historical.
 
 ---
 
