@@ -8,6 +8,8 @@ import { WorkoutCard } from "@/components/dashboard/workout-card";
 import { MinCard } from "@/components/min-card";
 import { EveningCheckin } from "@/components/dashboard/evening-checkin";
 import type { CheckinData } from "@/lib/evening-checkin";
+import { DailySignalsCard } from "@/components/dashboard/daily-signals-card";
+import type { DailySignals } from "@/lib/daily-signals";
 
 /**
  * Mobile "Today" screen — implements the Claude Design "Baseline iOS"
@@ -51,6 +53,8 @@ export type MobileDashboardProps = {
   tz?: string;
   /** Evening ritual questions (audit §1.4) — null when viewing a past day. */
   checkin?: CheckinData | null;
+  /** Daily signals (daily-signals-plan.md) — card self-hides when empty. */
+  signals?: DailySignals | null;
   viewDate: Date;
   isConnected: boolean;
   lastSyncIso: string | null;
@@ -193,6 +197,9 @@ export function MobileDashboard(p: MobileDashboardProps) {
 
           {/* Evening check-in — self-hides outside evening hours */}
           {p.checkin && <EveningCheckin data={p.checkin} />}
+
+          {/* Daily signals — renders nothing when no line fired */}
+          {p.signals && <DailySignalsCard s={p.signals} />}
 
           {/* Baseline score */}
           {p.score && (
