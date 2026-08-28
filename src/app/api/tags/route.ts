@@ -2,6 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
 import { apiError } from "@/lib/utils";
+import { getLocalDayStr, getUserTz, wallTimeToUtc } from "@/lib/date-utils";
+
+/**
+ * Resolve a tag's timestamp. Preferred path (clients ≥2026-08-26): the
+ * literal HH:MM wall time the user entered plus the page's calendar day,
+ * interpreted SERVER-side in the user's canonical timezone (User.timezone →
+ * bl_tz → fallback) — same hardening as /api/nutrition, so a device with a
+ * wrong OS clock can't skew tag times. Legacy fallback: the client-built
+ * ISO instant, trusted as-is; else "now".
+ */
+async function resolveTagTimestamp(input: {
+  time?: unknown;
+  date?: unknown;
+  timestamp?: unknown;
+}): Promise<Date> {
+  const { time, date, timestamp } = input;
+  if (typeof time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    const tz = await getUserTz();
+    const dayStr =
+      typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
+        ? date
+        : getLocalDayStr(tz);
+    return wallTimeToUtc(dayStr, time, tz);
+  }
+  if (typeof timestamp === "string" || typeof timestamp === "number") {
+    const d = new Date(timestamp);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return new Date();
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,7 +72,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tag, category, metadata, experimentId, timestamp } = body;
+    const { tag, category, metadata, experimentId, timestamp, time, date } = body;
 
     if (!tag || !category) {
       return NextResponse.json({ error: "tag and category are required" }, { status: 400 });
@@ -66,7 +96,7 @@ export async function POST(request: NextRequest) {
         category,
         metadata: metadata ? JSON.stringify(metadata) : null,
         experimentId: experimentId ?? null,
-        timestamp: timestamp ? new Date(timestamp) : new Date(),
+        timestamp: await resolveTagTimestamp({ time, date, timestamp }),
       },
     });
 

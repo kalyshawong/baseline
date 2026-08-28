@@ -158,3 +158,54 @@ export function getLocalDayBounds(
   const end = toTzMidnight(y, m, d + 1);
   return { start, end };
 }
+
+
+/**
+ * Converts a wall-clock time on a calendar day, as seen in tz, to the UTC
+ * instant. This is the server-authoritative way to interpret a user-entered
+ * "time eaten" — the client sends the literal HH:MM it showed the user plus
+ * the day, and the SERVER decides the timezone (bl_tz), instead of trusting
+ * the submitting device's OS clock to build the instant.
+ *
+ * Added 2026-08-26 after the "Florentine dinner" incident: a device whose OS
+ * timezone was UTC+2 turned a user-entered 7:30 PM into 1:30 AM HKT because
+ * eatenAt was constructed client-side with `new Date(y, m, d, h, m)`.
+ */
+export function wallTimeToUtc(dateStr: string, timeStr: string, tz: string): Date {
+  const [y, mo, d] = dateStr.split("-").map(Number);
+  const [h, mi] = timeStr.split(":").map(Number);
+  // Guess the instant as if tz were UTC, then correct by the zone's offset at
+  // that instant (second pass handles a DST boundary near the guess).
+  const guess = new Date(Date.UTC(y, mo - 1, d, h, mi));
+  const once = new Date(guess.getTime() - tzOffsetMs(tz, guess));
+  return new Date(guess.getTime() - tzOffsetMs(tz, once));
+}
+
+
+/**
+ * The user's canonical timezone for interpreting wall times they ENTER
+ * (meal "time eaten", tag times): User.timezone when set, else the viewer's
+ * bl_tz cookie, else the server fallback.
+ *
+ * Why a user-level setting exists (2026-08-26): a device with a wrong OS
+ * clock poisons its own bl_tz cookie too, so no request-scoped signal can
+ * see through it — only an account-level fact can. Display formatting can
+ * keep using getRequestTz(); STORAGE interpretation should use this.
+ * React-cached: one lookup per request.
+ */
+export const getUserTz = cache(async (): Promise<string> => {
+  try {
+    const [{ prisma }, { getCurrentUserId }] = await Promise.all([
+      import("@/lib/db"),
+      import("@/lib/current-user"),
+    ]);
+    const user = await prisma.user.findUnique({
+      where: { id: await getCurrentUserId() },
+      select: { timezone: true },
+    });
+    if (user?.timezone && isValidTz(user.timezone)) return user.timezone;
+  } catch {
+    /* outside request scope, or db unavailable — fall through */
+  }
+  return getRequestTz();
+});

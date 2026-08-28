@@ -311,6 +311,10 @@ async function handleFoodLog(input: DateRangeInput): Promise<unknown> {
   });
   return logs.map((log) => ({
     date: formatLocalDate(log.day),
+    // true = user confirmed the entries are everything eaten that day (gaps
+    // are real fasting windows); false = unknown — NEVER read an absent
+    // meal as a skipped meal.
+    meals_confirmed_complete: log.mealsComplete,
     totals: {
       calories: Math.round(log.calories),
       protein: Math.round(log.protein),

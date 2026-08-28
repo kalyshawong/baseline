@@ -38,7 +38,15 @@ function formatTime(iso: string): string {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-export function NutritionLog({ entries }: { entries: Entry[] }) {
+export function NutritionLog({
+  entries,
+  dateStr,
+  mealsComplete,
+}: {
+  entries: Entry[];
+  dateStr: string;
+  mealsComplete: boolean;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +65,22 @@ export function NutritionLog({ entries }: { entries: Entry[] }) {
         router.refresh();
       } else {
         setError("Failed to delete entry");
+      }
+    });
+  }
+
+  function toggleComplete() {
+    setError(null);
+    startTransition(async () => {
+      const res = await fetch("/api/nutrition", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: dateStr, mealsComplete: !mealsComplete }),
+      });
+      if (res.ok) {
+        router.refresh();
+      } else {
+        setError("Failed to update day");
       }
     });
   }
@@ -154,6 +178,22 @@ export function NutritionLog({ entries }: { entries: Entry[] }) {
           );
         })}
       </div>
+      <button
+        onClick={toggleComplete}
+        disabled={isPending}
+        className={
+          "mt-4 w-full border px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50 " +
+          (mealsComplete
+            ? "border-amber-500/60 bg-amber-500/10 text-amber-400"
+            : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]")
+        }
+      >
+        {mealsComplete ? "\u2713 That\u2019s everything I ate today" : "That\u2019s everything I ate today"}
+      </button>
+      <p className="mt-2 text-[10px] leading-4 text-[var(--color-text-muted)]">
+        One or two meals is a normal day. Confirming tells Baseline the gaps were real fasting
+        windows, not unlogged meals — unconfirmed days stay unknown, never “skipped.”
+      </p>
     </div>
   );
 }

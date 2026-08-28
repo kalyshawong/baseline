@@ -22,6 +22,54 @@ const EVENING_HOUR = 18;
 
 type AnswerMap = Record<string, "yes" | "no" | "kept" | "cleared" | "logged">;
 
+/** "Anything stressful today?" — always a QUESTION, never an assertion
+ *  (oura-integration-plan §4). Yes logs a stress_event tag; the covariate
+ *  stays clean because the question exists every day, ring or no ring. */
+function StressRow({
+  answered,
+  answer,
+  busy,
+  onYes,
+  onNo,
+}: {
+  answered: boolean;
+  answer?: string;
+  busy: boolean;
+  onYes: () => void;
+  onNo: () => void;
+}) {
+  return (
+    <div className="mt-3 bg-[var(--color-surface-2)] px-3 py-2">
+      <p className="text-[12.5px]">Anything stressful today?</p>
+      <div className="mt-2 flex gap-2">
+        {answered ? (
+          <span className="text-[11px] font-bold uppercase text-[var(--color-green)]">
+            {answer === "no" ? "Noted — calm day" : "Logged ✓"}
+          </span>
+        ) : (
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onYes}
+              className="cursor-pointer border-none bg-[var(--color-surface)] px-3 py-[6px] text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--color-text-muted)] disabled:opacity-50"
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              onClick={onNo}
+              className="cursor-pointer border-none bg-[var(--color-surface)] px-3 py-[6px] text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--color-text-muted)]"
+            >
+              No
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function EveningCheckin({ data }: { data: CheckinData }) {
   const router = useRouter();
   const [visible, setVisible] = useState(false);
@@ -87,6 +135,29 @@ export function EveningCheckin({ data }: { data: CheckinData }) {
         </p>
       ) : (
         <>
+          {/* Stress question (always asked; a high-arousal ring day only
+              PROMOTES it to the top — never gates it, question-phrased). */}
+          {data.stress.promote && (
+            <StressRow
+              answered={data.stress.answered || answers["stress"] != null}
+              answer={answers["stress"]}
+              busy={busy === "stress"}
+              onYes={() =>
+                call(
+                  "stress",
+                  () =>
+                    fetch("/api/tags", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ tag: "stress_event", category: "custom" }),
+                    }),
+                  "yes",
+                )
+              }
+              onNo={() => setAnswers((x) => ({ ...x, stress: "no" }))}
+            />
+          )}
+
           {/* 1 · today's randomized assignment(s) — the highest-value answer */}
           {data.assignments.map((a) => {
             const key = `${a.kind}-${a.id}-${a.idx}`;
@@ -193,6 +264,28 @@ export function EveningCheckin({ data }: { data: CheckinData }) {
               </div>
             );
           })}
+
+          {/* 2b · stress in its usual slot when the ring didn't promote it */}
+          {!data.stress.promote && (
+            <StressRow
+              answered={data.stress.answered || answers["stress"] != null}
+              answer={answers["stress"]}
+              busy={busy === "stress"}
+              onYes={() =>
+                call(
+                  "stress",
+                  () =>
+                    fetch("/api/tags", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ tag: "stress_event", category: "custom" }),
+                    }),
+                  "yes",
+                )
+              }
+              onNo={() => setAnswers((x) => ({ ...x, stress: "no" }))}
+            />
+          )}
 
           {/* 3 · frequent exposures not logged today — tap = it happened */}
           {data.suggestions.length > 0 && (

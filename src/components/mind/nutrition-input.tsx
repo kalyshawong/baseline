@@ -61,6 +61,10 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
             text: text.trim(),
             mealType,
             source,
+            // Literal wall time as typed; the server interprets it in the
+            // viewer's timezone (bl_tz) so a device with a wrong OS timezone
+            // can't skew eaten-times. eatenAt kept as legacy fallback.
+            time: timeUnknown ? null : time,
             eatenAt: eatenAt.toISOString(),
             date: dateStr,
             timeUnknown,

@@ -35,6 +35,11 @@ export interface CheckinData {
   suggestions: { tag: string; category: string }[];
   assignments: CheckinAssignment[];
   soreness: { bodyPart: string; severity: number; streak: number }[];
+  /** Stress question (oura-integration-plan §4): ALWAYS asked — presence is
+   *  never gated by the ring (gating creates missing-not-at-random logging
+   *  that contaminates stress as a covariate). A high-arousal Oura day may
+   *  only PROMOTE its position. answered = stress_event already logged today. */
+  stress: { promote: boolean; answered: boolean };
 }
 
 export async function getEveningCheckinData(
@@ -43,7 +48,7 @@ export async function getEveningCheckinData(
 ): Promise<CheckinData> {
   const { start, end } = getLocalDayBounds(todayStr, tz);
 
-  const [freq, todayTags, experiments, diagnoseRuns, soreness] = await Promise.all([
+  const [freq, todayTags, experiments, diagnoseRuns, soreness, dayStress] = await Promise.all([
     prisma.activityTag.groupBy({
       by: ["tag", "category"],
       where: {
@@ -65,6 +70,9 @@ export async function getEveningCheckinData(
       select: { id: true, candidateId: true, assignments: true },
     }),
     getSorenessForDay(todayStr).catch(() => []),
+    prisma.dailyStress
+      .findFirst({ where: { day: new Date(todayStr + "T00:00:00.000Z") }, select: { daySummary: true } })
+      .catch(() => null),
   ]);
 
   const loggedToday = new Set(todayTags.map((t) => t.tag));
@@ -72,7 +80,8 @@ export async function getEveningCheckinData(
   // minus anything already logged today — an unanswered chip is a real
   // question, an answered one is noise.
   const suggestions = freq
-    .filter((f) => f._count >= 3 && !loggedToday.has(f.tag))
+    // stress_event has its own dedicated question row — never doubles as a chip
+    .filter((f) => f._count >= 3 && !loggedToday.has(f.tag) && f.tag !== "stress_event")
     .sort((a, b) => b._count - a._count)
     .slice(0, 6)
     .map((f) => ({ tag: f.tag, category: f.category }));
@@ -117,5 +126,11 @@ export async function getEveningCheckinData(
     suggestions,
     assignments,
     soreness: soreness.map((s) => ({ bodyPart: s.bodyPart, severity: s.severity, streak: s.streak })),
+    stress: {
+      // Promotion only — the ring's opinion moves the question up the card,
+      // it never decides whether the question exists.
+      promote: dayStress?.daySummary === "stressful",
+      answered: loggedToday.has("stress_event"),
+    },
   };
 }
