@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Area, AreaChart, ResponsiveContainer, YAxis } from "recharts";
+import { Area, AreaChart, ReferenceArea, ResponsiveContainer, YAxis } from "recharts";
 import { WorkoutNotesBlock } from "@/components/dashboard/workout-notes-block";
 
 /**
@@ -37,6 +37,27 @@ interface Props {
   /** Pre-run fuel attribution ("oatmeal · 1.5h before · …" or fasted note) —
    * what the meal→GI analyzer will pair this workout's GI outcome with. */
   fuelLine?: string | null;
+  /** HR-zone anchor: her OBSERVED max HR (falls back to 220−age only if set
+   *  and higher). Null → no zone bands. */
+  zoneMaxHr?: number | null;
+}
+
+/** Five classic zones as fractions of max HR, coldest → hottest. */
+const ZONES = [
+  { id: "Z1", lo: 0.5, hi: 0.6, color: "#4a90d9" },
+  { id: "Z2", lo: 0.6, hi: 0.7, color: "#3fa66a" },
+  { id: "Z3", lo: 0.7, hi: 0.8, color: "#d9b03f" },
+  { id: "Z4", lo: 0.8, hi: 0.9, color: "#d97b3f" },
+  { id: "Z5", lo: 0.9, hi: 1.01, color: "#d94a4a" },
+] as const;
+
+function zoneOf(bpm: number, maxHr: number): number {
+  const f = bpm / maxHr;
+  if (f < 0.6) return 0;
+  if (f < 0.7) return 1;
+  if (f < 0.8) return 2;
+  if (f < 0.9) return 3;
+  return 4;
 }
 
 function formatTime(iso: string): string {
@@ -54,11 +75,22 @@ function formatDuration(seconds: number): string {
   return `${h}h ${m}m`;
 }
 
-export function WorkoutCard({ workout, hrChart, fuelLine }: Props) {
+export function WorkoutCard({ workout, hrChart, fuelLine, zoneMaxHr }: Props) {
   const timeRange = `${formatTime(workout.startedAt)} – ${formatTime(workout.endedAt)}`;
   const durationStr = formatDuration(workout.durationSeconds);
   const hasHrData = workout.avgHeartRate != null;
   const hasHrChart = hrChart.length > 1;
+
+  // Time-in-zone from the (evenly downsampled) curve — % of samples per zone.
+  const maxHr = zoneMaxHr ?? null;
+  const zonePct: number[] | null =
+    maxHr && hasHrChart
+      ? (() => {
+          const counts = [0, 0, 0, 0, 0];
+          for (const p of hrChart) counts[zoneOf(p.bpm, maxHr)]++;
+          return counts.map((c) => Math.round((c / hrChart.length) * 100));
+        })()
+      : null;
 
   return (
     <div className="panel">
@@ -131,6 +163,20 @@ export function WorkoutCard({ workout, hrChart, fuelLine }: Props) {
                     </linearGradient>
                   </defs>
                   <YAxis hide domain={["dataMin - 5", "dataMax + 5"]} />
+                  {/* Zone bands anchored to HER observed max HR — horizontal
+                      tints behind the curve, coldest to hottest. */}
+                  {maxHr &&
+                    ZONES.map((z) => (
+                      <ReferenceArea
+                        key={z.id}
+                        y1={z.lo * maxHr}
+                        y2={z.hi * maxHr}
+                        fill={z.color}
+                        fillOpacity={0.09}
+                        stroke="none"
+                        ifOverflow="hidden"
+                      />
+                    ))}
                   <Area
                     type="monotone"
                     dataKey="bpm"
@@ -141,6 +187,30 @@ export function WorkoutCard({ workout, hrChart, fuelLine }: Props) {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Time-in-zone strip + legend (only with zones + a curve) */}
+          {zonePct && maxHr && (
+            <div className="mt-2">
+              <div className="flex h-[8px] w-full overflow-hidden">
+                {ZONES.map((z, i) =>
+                  zonePct[i] > 0 ? (
+                    <div key={z.id} style={{ width: `${zonePct[i]}%`, background: z.color, opacity: 0.85 }} />
+                  ) : null,
+                )}
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-[2px]">
+                {ZONES.map((z, i) => (
+                  <span key={z.id} className="text-[10px] tabular-nums text-[var(--color-faint)]">
+                    <span style={{ color: z.color, fontWeight: 700 }}>{z.id}</span>{" "}
+                    {Math.round(z.lo * maxHr)}–{Math.round(Math.min(1, z.hi) * maxHr)} · {zonePct[i]}%
+                  </span>
+                ))}
+              </div>
+              <p className="mt-1 text-[9.5px] text-[var(--color-faint)]">
+                Zones vs your observed max ({maxHr} bpm), not an age formula.
+              </p>
             </div>
           )}
         </div>

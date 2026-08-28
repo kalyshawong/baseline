@@ -55,6 +55,8 @@ export type MobileDashboardProps = {
   checkin?: CheckinData | null;
   /** Daily signals (daily-signals-plan.md) — card self-hides when empty. */
   signals?: DailySignals | null;
+  /** HR-zone anchor (observed max HR) for workout charts. */
+  zoneMaxHr?: number | null;
   viewDate: Date;
   isConnected: boolean;
   lastSyncIso: string | null;
@@ -396,7 +398,7 @@ export function MobileDashboard(p: MobileDashboardProps) {
           {/* Training workouts — full desktop treatment: HR chart + notes/GI
               editor + discuss-with-coach, one card per workout. */}
           {p.trainingWorkouts.map((w) => (
-            <WorkoutCard key={w.id} workout={w} hrChart={p.hrCharts[w.id] ?? []} fuelLine={w.fuelLine} />
+            <WorkoutCard key={w.id} workout={w} hrChart={p.hrCharts[w.id] ?? []} fuelLine={w.fuelLine} zoneMaxHr={p.zoneMaxHr} />
           ))}
 
           {/* Ambient activity list (walks etc.) + manual-log entry point */}

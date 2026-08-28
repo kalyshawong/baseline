@@ -72,14 +72,6 @@ export default function RootLayout({
           <Nav />
         </div>
         {children}
-        {/* TEMPORARY diagnostic (2026-08-20): her device kept showing old UI
-            after verified-live deploys. This stamp = which build + when THIS
-            page was server-rendered. Old time on screen → stale client cache;
-            fresh time but old visuals → asset-level cache. Remove once the
-            staleness chain is closed. */}
-        <div className="md:hidden" style={{ position: "fixed", bottom: 2, left: 8, zIndex: 9, fontSize: 8, letterSpacing: "0.04em", color: "rgba(255,255,255,0.28)", pointerEvents: "none", fontFamily: "monospace" }}>
-          {(process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7)} · {new Date().toISOString().slice(11, 16)}Z
-        </div>
         <MobileTabBar />
       </body>
     </html>

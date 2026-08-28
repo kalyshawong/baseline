@@ -616,6 +616,13 @@ export default async function BodyPage({
                   <div className="c"><div className="k">Body Fat</div><div className="v num">{latestBodyFat != null ? latestBodyFat.toFixed(1) : "—"}<small> %</small></div></div>
                   <div className="c"><div className="k">Trend</div><div className={`v num ${weightTrend === "down" ? "down" : ""}`}>{trendLabel}<small> {unit}/wk</small></div></div>
                 </div>
+                {/* Composition split — lean vs fat mass from weight × BF% */}
+                {ffm != null && weightKg != null && (
+                  <div className="wgrid" style={{ marginTop: 8 }}>
+                    <div className="c"><div className="k">Lean Mass</div><div className="v num">{unit === "lb" ? kgToLb(ffm) : ffm.toFixed(1)}<small> {unit}</small></div></div>
+                    <div className="c"><div className="k">Fat Mass</div><div className="v num">{unit === "lb" ? kgToLb(weightKg - ffm) : (weightKg - ffm).toFixed(1)}<small> {unit}</small></div></div>
+                  </div>
+                )}
                 <WeightTrendChart logs={weightChartData} unit={unit} targetWeightKg={profile?.targetWeightKg ?? null} />
               </div>
               {tdee != null && (
@@ -1001,6 +1008,7 @@ export default async function BodyPage({
           <WeightCard
             latestWeightKg={weightKg}
             latestBodyFat={latestBodyFat}
+            ffmKg={ffm}
             unit={unit}
             goal={profile?.goal ?? null}
             targetWeightKg={profile?.targetWeightKg ?? null}
