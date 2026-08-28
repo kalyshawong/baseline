@@ -9,6 +9,8 @@ import { kgToLb } from "@/lib/tdee";
 interface Props {
   latestWeightKg: number | null;
   latestBodyFat: number | null;
+  /** Fat-free mass (kg) — when present, a lean/fat split row renders. */
+  ffmKg?: number | null;
   unit: "lb" | "kg";
   goal: string | null;
   targetWeightKg: number | null;
@@ -27,6 +29,7 @@ function formatWeight(kg: number | null, unit: "lb" | "kg"): string {
 export function WeightCard({
   latestWeightKg,
   latestBodyFat,
+  ffmKg,
   unit,
   weightTrend,
 }: Props) {
@@ -80,6 +83,33 @@ export function WeightCard({
           </p>
         </div>
       </div>
+
+      {/* Composition split — lean vs fat mass (weight × BF%) */}
+      {ffmKg != null && latestWeightKg != null && (
+        <div
+          className="grid grid-cols-2 mt-[1px]"
+          style={{ gap: "1px", background: "var(--color-border)" }}
+        >
+          <div className="bg-[var(--color-surface)] p-[12px_16px]">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)] mb-[4px]">
+              Lean Mass
+            </p>
+            <p className="disp text-[24px] leading-[0.85] num">
+              {formatWeight(ffmKg, unit)}{" "}
+              <small className="text-[11px] font-semibold text-[var(--color-faint)]">{unit}</small>
+            </p>
+          </div>
+          <div className="bg-[var(--color-surface)] p-[12px_16px]">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)] mb-[4px]">
+              Fat Mass
+            </p>
+            <p className="disp text-[24px] leading-[0.85] num">
+              {formatWeight(latestWeightKg - ffmKg, unit)}{" "}
+              <small className="text-[11px] font-semibold text-[var(--color-faint)]">{unit}</small>
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 }

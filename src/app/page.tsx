@@ -269,6 +269,20 @@ export default async function Dashboard({
     tz,
   ).catch(() => null);
 
+  // HR-zone anchor for workout charts: her OBSERVED max across all workouts
+  // (her thesis: own data over the 220−age population formula; age is used
+  // only if set AND higher than anything observed).
+  const zoneMaxHr = await (async () => {
+    try {
+      const agg = await prisma.healthKitWorkout.aggregate({ _max: { maxHeartRate: true } });
+      const observed = agg._max.maxHeartRate ?? null;
+      const byAge = profile?.age ? 220 - profile.age : null;
+      return Math.max(observed ?? 0, byAge ?? 0) || null;
+    } catch {
+      return null;
+    }
+  })();
+
   // Pull the active Hyrox plan + today's session recommendation. Renders
   // nothing if no active plan exists, so non-Hyrox users see no change.
   const hyroxToday = await getHyroxToday(viewDate);
@@ -414,6 +428,7 @@ export default async function Dashboard({
           tz={tz}
           checkin={checkin}
           signals={signals}
+          zoneMaxHr={zoneMaxHr}
           viewDate={viewDate}
           isConnected={isConnected}
           lastSyncIso={lastSync?.syncDate.toISOString() ?? null}
@@ -614,6 +629,7 @@ export default async function Dashboard({
           trainingWorkouts.map((w) => (
             <WorkoutCard
               key={w.id}
+              zoneMaxHr={zoneMaxHr}
               workout={{
                 id: w.id,
                 name: w.name,
