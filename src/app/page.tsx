@@ -479,6 +479,7 @@ export default async function Dashboard({
             maxHeartRate: w.maxHeartRate,
             minHeartRate: w.minHeartRate,
             fuelLine: fuelLineByWorkoutId[w.id] ?? null,
+            route: parseRoute(w.routeJson),
           }))}
           hrCharts={hrChartsByWorkoutId}
           sleepTargetTime={sleepTargetTime}
@@ -654,6 +655,7 @@ export default async function Dashboard({
             <WorkoutCard
               key={w.id}
               zoneMaxHr={zoneMaxHr}
+              route={parseRoute(w.routeJson)}
               workout={{
                 id: w.id,
                 name: w.name,
@@ -757,4 +759,15 @@ export default async function Dashboard({
       </div>
     </>
   );
+}
+
+/** Parse a stored [[lat,lng],...] route; null on anything malformed. */
+function parseRoute(json: string | null | undefined): [number, number][] | null {
+  if (!json) return null;
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) && v.length >= 2 ? (v as [number, number][]) : null;
+  } catch {
+    return null;
+  }
 }
