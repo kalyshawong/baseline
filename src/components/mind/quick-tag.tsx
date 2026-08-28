@@ -62,6 +62,11 @@ export function QuickTag({
           tag,
           category,
           metadata: buildMetadata(),
+          // Literal wall time + day; the server interprets them in the
+          // user's canonical timezone (see /api/tags resolveTagTimestamp).
+          // timestamp kept as legacy fallback for stale bundles.
+          time: timeUnknown ? null : tagTime,
+          date: dateStr,
           timestamp: buildTimestamp(),
         }),
       });

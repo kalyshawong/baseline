@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
-import { getLocalDay, getRequestTz } from "@/lib/date-utils";
+import { getLocalDay, getLocalDayStr, getRequestTz, getUserTz, wallTimeToUtc } from "@/lib/date-utils";
 import { estimateMacros } from "@/lib/usda";
 import { apiError } from "@/lib/utils";
 
@@ -27,7 +27,7 @@ const VALID_MEAL_SOURCES = ["home_cooked", "takeout", "restaurant", "pre_package
 
 export async function POST(request: NextRequest) {
   try {
-    const { text, mealType, eatenAt, date, timeUnknown, source } = await request.json();
+    const { text, mealType, eatenAt, date, time, timeUnknown, source } = await request.json();
 
     if (!text || typeof text !== "string") {
       return NextResponse.json({ error: "text is required" }, { status: 400 });
@@ -56,10 +56,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const timeUnknownFlag = timeUnknown === true;
+    // User.timezone (canonical) → bl_tz cookie → server fallback. The
+    // user-level setting is what finally beats a submitting device whose OS
+    // clock (and therefore cookie) is wrong.
+    const tz = await getUserTz();
+    // The calendar day this log belongs to — the page's date param, else
+    // today as seen in the user's timezone.
+    const dayStr =
+      typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
+        ? date
+        : getLocalDayStr(tz);
+
     let eatenTime: Date;
-    if (eatenAt == null) {
+    if (typeof time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+      // Preferred path (clients ≥2026-08-26): the client sends the literal
+      // HH:MM wall time it showed the user, and the SERVER interprets it in
+      // the viewer's timezone. A submitting device with a wrong OS timezone
+      // can no longer corrupt eaten-times ("Florentine dinner" incident:
+      // a UTC+2 device turned a typed 7:30 PM into 1:30 AM HKT).
+      eatenTime = wallTimeToUtc(dayStr, timeUnknownFlag ? "00:00" : time, tz);
+    } else if (eatenAt == null) {
       eatenTime = new Date();
     } else {
+      // Legacy fallback (older clients / stale PWA bundles): a client-built
+      // ISO instant, trusted as-is.
       eatenTime = new Date(eatenAt);
       if (Number.isNaN(eatenTime.getTime())) {
         return NextResponse.json(
@@ -68,18 +89,13 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    const timeUnknownFlag = timeUnknown === true;
 
     // Estimate macros from plain text via Claude
     const estimates = await estimateMacros(text);
 
-    // Use provided date or derive from eatenAt time
-    let logDay: Date;
-    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      logDay = new Date(date + "T00:00:00.000Z");
-    } else {
-      logDay = getLocalDay(await getRequestTz());
-    }
+    // The log day is dayStr (page date param, else viewer-tz today) as a UTC
+    // midnight anchor for the userId_day unique key.
+    const logDay = new Date(dayStr + "T00:00:00.000Z");
 
     // Upsert day's NutritionLog
     let log = await prisma.nutritionLog.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: logDay } } });
@@ -133,11 +149,16 @@ export async function POST(request: NextRequest) {
       include: { entries: { orderBy: { eatenAt: "asc" } } },
     });
 
-    // Auto-tag for experiment integration
-    const eatenHour = eatenTime.getHours();
+    // Auto-tag for experiment integration. Label rendered in the VIEWER's
+    // timezone — the old server-local getHours() produced flipped labels
+    // ("11:00pm" for an 11:00 AM HKT meal) because the server clock isn't
+    // hers. Intl also fixes the 12-hour edge cases (midnight/noon).
     const timeLabel = timeUnknownFlag
       ? "sometime today"
-      : `${eatenHour > 12 ? eatenHour - 12 : eatenHour}:${String(eatenTime.getMinutes()).padStart(2, "0")}${eatenHour >= 12 ? "pm" : "am"}`;
+      : eatenTime
+          .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })
+          .toLowerCase()
+          .replace(" ", "");
     await prisma.activityTag.create({
       data: {
         userId: await getCurrentUserId(),
@@ -171,6 +192,44 @@ export async function POST(request: NextRequest) {
       },
       log: updated,
     });
+  } catch (error) {
+    const { status, body } = apiError(error);
+    return NextResponse.json(body, { status });
+  }
+}
+
+// PATCH { date?: "YYYY-MM-DD", mealsComplete: boolean } — day-level
+// confirmation that the logged meals are everything eaten that day.
+// Unconfirmed days stay "unknown": the engine must never read an absent
+// meal as a skipped meal (many people eat 1–2 meals a day). Confirmed
+// days let gaps count as real fasting windows.
+export async function PATCH(request: NextRequest) {
+  try {
+    const { date, mealsComplete } = await request.json();
+
+    if (typeof mealsComplete !== "boolean") {
+      return NextResponse.json(
+        { error: "mealsComplete must be a boolean" },
+        { status: 400 }
+      );
+    }
+
+    const tz = await getUserTz();
+    const dayStr =
+      typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
+        ? date
+        : getLocalDayStr(tz);
+    const logDay = new Date(dayStr + "T00:00:00.000Z");
+    const userId = await getCurrentUserId();
+
+    const log = await prisma.nutritionLog.upsert({
+      where: { userId_day: { userId, day: logDay } },
+      create: { userId, day: logDay, calories: 0, protein: 0, carbs: 0, fat: 0, mealsComplete },
+      update: { mealsComplete },
+    });
+
+    revalidateNutritionPages();
+    return NextResponse.json({ date: dayStr, mealsComplete: log.mealsComplete });
   } catch (error) {
     const { status, body } = apiError(error);
     return NextResponse.json(body, { status });

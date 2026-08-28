@@ -57,6 +57,13 @@ model User {
   // this gives a single "day 0" for the top-level "still learning" banner.
   baselineStartedAt DateTime?
 
+  // Canonical IANA timezone for interpreting user-entered wall times (meal
+  // "time eaten", etc.). Takes authority over the submitting device's bl_tz
+  // cookie — a device with a wrong OS clock poisons its own cookie too, so
+  // only a user-level setting can see through it ("Florentine dinner"
+  // incident, 2026-08-26). Null = fall back to bl_tz.
+  timezone String?
+
   // back-relations
   ouraToken                OuraToken?
   profile                  UserProfile?
@@ -357,6 +364,10 @@ model NutritionLog {
   protein   Float    @default(0)
   carbs     Float    @default(0)
   fat       Float    @default(0)
+  // True = the user confirmed this day's entries are EVERYTHING eaten.
+  // False = unknown — many people eat 1–2 meals a day, so a missing meal
+  // must never be read as a skipped meal or as incomplete logging.
+  mealsComplete Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

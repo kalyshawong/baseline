@@ -52,6 +52,11 @@ export function MobileQuickTag({
           tag,
           category,
           metadata: timeUnknown ? { timeUnknown: true } : undefined,
+          // Literal wall time + day; the server interprets them in the
+          // user's canonical timezone (see /api/tags resolveTagTimestamp).
+          // timestamp kept as legacy fallback for stale bundles.
+          time: timeUnknown ? null : time,
+          date: dateStr,
           timestamp: buildTimestamp(),
         }),
       });

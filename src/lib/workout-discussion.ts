@@ -207,11 +207,7 @@ export async function buildWorkoutDiscussionStarter(
   // dropped the band entirely and the model treated the entries as
   // useless — see the May 28 audit on food→performance analysis.)
   if (nutritionLog && nutritionLog.entries.length > 0) {
-    lines.push("");
-    lines.push(
-      `Food log that day (${nutritionLog.entries.length} entries, ${Math.round(nutritionLog.calories)} cal total). User's meal-time convention: breakfast = before noon, lunch = 12-5pm, dinner = 5pm onward. Treat "time unknown" entries' meal_type as a coarse time band.`,
-    );
-    for (const entry of nutritionLog.entries) {
+    const entryLine = (entry: (typeof nutritionLog.entries)[number]): string => {
       const time = entry.timeUnknown
         ? `${entry.mealType} (time unknown)`
         : formatClockTime(entry.eatenAt);
@@ -219,9 +215,35 @@ export async function buildWorkoutDiscussionStarter(
       if (entry.protein > 0) macros.push(`${Math.round(entry.protein)}g protein`);
       if (entry.carbs > 0) macros.push(`${Math.round(entry.carbs)}g carbs`);
       if (entry.fat > 0) macros.push(`${Math.round(entry.fat)}g fat`);
+      return `- ${time} · ${entry.description} · ${Math.round(entry.calories)} cal${macros.length > 0 ? ` · ${macros.join(", ")}` : ""}`;
+    };
+    // Split around the session start: a meal eaten after the workout cannot
+    // have fueled it and must not enter the pre-workout narrative (added
+    // 2026-08-26 after a post-run 7:30 PM dinner, carrying corrupted
+    // early-AM timestamps, was narrated as middle-of-the-night pre-run
+    // eating). Time-unknown entries stay in the candidate list — their
+    // meal_type band still bounds them.
+    const before = nutritionLog.entries.filter(
+      (e) => e.timeUnknown || e.eatenAt.getTime() <= startedAt.getTime(),
+    );
+    const after = nutritionLog.entries.filter(
+      (e) => !e.timeUnknown && e.eatenAt.getTime() > startedAt.getTime(),
+    );
+    lines.push("");
+    lines.push(
+      `Food log that day (${nutritionLog.entries.length} entries, ${Math.round(nutritionLog.calories)} cal total). User's meal-time convention: breakfast = before noon, lunch = 12-5pm, dinner = 5pm onward. Treat "time unknown" entries' meal_type as a coarse time band.`,
+    );
+    lines.push(
+      before.length > 0
+        ? "Eaten BEFORE this workout (candidate fuel):"
+        : "Nothing logged before this workout.",
+    );
+    for (const entry of before) lines.push(entryLine(entry));
+    if (after.length > 0) {
       lines.push(
-        `- ${time} · ${entry.description} · ${Math.round(entry.calories)} cal${macros.length > 0 ? ` · ${macros.join(", ")}` : ""}`,
+        "Eaten AFTER this workout ended (recovery intake — not relevant to how the workout went):",
       );
+      for (const entry of after) lines.push(entryLine(entry));
     }
   }
 

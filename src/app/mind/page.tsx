@@ -210,6 +210,8 @@ export default async function MindPage({
                 }
               />
               <NutritionLog
+                dateStr={viewDateStr}
+                mealsComplete={nutritionLog?.mealsComplete ?? false}
                 entries={(nutritionLog?.entries ?? []).map((e) => ({
                   id: e.id,
                   description: e.description,
@@ -341,6 +343,8 @@ export default async function MindPage({
             />
 
             <NutritionLog
+              dateStr={viewDateStr}
+              mealsComplete={nutritionLog?.mealsComplete ?? false}
               entries={(nutritionLog?.entries ?? []).map((e) => ({
                 id: e.id,
                 description: e.description,
