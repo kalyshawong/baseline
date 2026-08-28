@@ -52,6 +52,7 @@ interface OuraSleep {
 interface OuraSleepPeriod {
   id: string;
   day: string;
+  bedtime_start: string | null;
   bedtime_end: string | null;
   total_sleep_duration: number | null;
   rem_sleep_duration: number | null;
@@ -368,6 +369,9 @@ export async function syncOuraData(lookbackDays = 7): Promise<{
 
       const periodFields = period
         ? {
+            // Real clock instants (river chart + regularity, 2026-08-28)
+            bedtimeStart: period.bedtime_start ? new Date(period.bedtime_start) : null,
+            bedtimeEnd: period.bedtime_end ? new Date(period.bedtime_end) : null,
             totalSleepDuration: period.total_sleep_duration,
             remSleepDuration: period.rem_sleep_duration,
             deepSleepDuration: period.deep_sleep_duration,

@@ -204,6 +204,9 @@ model DailySleep {
   lightSleepDuration Int?
   sleepEfficiency    Int?
   latency            Int?
+  // Sleep TIMING (2026-08-28, river chart + regularity): real clock instants.
+  bedtimeStart       DateTime?
+  bedtimeEnd         DateTime?
   averageHeartRate   Float?
   lowestHeartRate    Int?
   averageHrv         Int?
