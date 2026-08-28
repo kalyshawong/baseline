@@ -27,6 +27,7 @@ import { EveningCheckin } from "@/components/dashboard/evening-checkin";
 import { getEveningCheckinData, type CheckinData } from "@/lib/evening-checkin";
 import { DailySignalsCard } from "@/components/dashboard/daily-signals-card";
 import { getDailySignals, type DailySignals } from "@/lib/daily-signals";
+import { SleepRiver, type RiverNight } from "@/components/dashboard/sleep-river";
 import { unstable_cache } from "next/cache";
 
 /**
@@ -269,6 +270,25 @@ export default async function Dashboard({
     tz,
   ).catch(() => null);
 
+  // Sleep river nights (option B redesign, 2026-08-28): last 14 nights with
+  // real bedtimes, up to the viewed date.
+  const riverNights: RiverNight[] = await prisma.dailySleep
+    .findMany({
+      where: { day: { lte: viewDate }, bedtimeStart: { not: null }, bedtimeEnd: { not: null } },
+      orderBy: { day: "desc" },
+      take: 14,
+      select: { day: true, bedtimeStart: true, bedtimeEnd: true, totalSleepDuration: true },
+    })
+    .then((rows) =>
+      rows.map((r) => ({
+        dayStr: r.day.toISOString().slice(0, 10),
+        startIso: r.bedtimeStart!.toISOString(),
+        endIso: r.bedtimeEnd!.toISOString(),
+        tstSec: r.totalSleepDuration,
+      })),
+    )
+    .catch(() => []);
+
   // HR-zone anchor for workout charts: her OBSERVED max across all workouts
   // (her thesis: own data over the 220−age population formula; age is used
   // only if set AND higher than anything observed).
@@ -429,6 +449,7 @@ export default async function Dashboard({
           checkin={checkin}
           signals={signals}
           zoneMaxHr={zoneMaxHr}
+          riverNights={riverNights}
           viewDate={viewDate}
           isConnected={isConnected}
           lastSyncIso={lastSync?.syncDate.toISOString() ?? null}
@@ -600,6 +621,9 @@ export default async function Dashboard({
             goalCals={null}
           />
         </div>
+
+        {/* Sleep river — when you slept, not a score (option B redesign) */}
+        {riverNights.length >= 3 && <SleepRiver nights={riverNights} tz={tz} />}
 
         {/* Sleep */}
         <SleepCard

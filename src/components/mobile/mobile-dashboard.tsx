@@ -10,6 +10,7 @@ import { EveningCheckin } from "@/components/dashboard/evening-checkin";
 import type { CheckinData } from "@/lib/evening-checkin";
 import { DailySignalsCard } from "@/components/dashboard/daily-signals-card";
 import type { DailySignals } from "@/lib/daily-signals";
+import { SleepRiver, type RiverNight } from "@/components/dashboard/sleep-river";
 
 /**
  * Mobile "Today" screen — implements the Claude Design "Baseline iOS"
@@ -57,6 +58,8 @@ export type MobileDashboardProps = {
   signals?: DailySignals | null;
   /** HR-zone anchor (observed max HR) for workout charts. */
   zoneMaxHr?: number | null;
+  /** Sleep river nights (option B redesign). */
+  riverNights?: RiverNight[];
   viewDate: Date;
   isConnected: boolean;
   lastSyncIso: string | null;
@@ -365,6 +368,11 @@ export function MobileDashboard(p: MobileDashboardProps) {
                 <div><div className="k">Active Time</div><div className="v num">{activeTimeMin ?? "—"}<small> m</small></div></div>
               </div>
             </div>
+          )}
+
+          {/* Sleep river — when you slept, not a score (option B redesign) */}
+          {p.riverNights && p.riverNights.length >= 3 && (
+            <SleepRiver nights={p.riverNights} tz={p.tz ?? "UTC"} />
           )}
 
           {/* Sleep detail */}
