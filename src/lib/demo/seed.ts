@@ -9,10 +9,13 @@ import { mdeForPairs, permutationP, pEffectGtSWC, type Assignment } from "@/lib/
  * Rebuilds `usr_demo` from the solo tenant: delete everything the demo owns,
  * then re-copy with three transforms —
  *
- *   1. DATE SHIFT. Every timestamp moves forward by the same whole number of
- *      days so the source's last night of sleep lands on (UTC today + 1).
- *      "Today" is therefore populated for a visitor in any timezone until the
- *      next daily reseed. Internal spacing (sleep → workout → meal) is kept.
+ *   1. DATE SHIFT. "Today" is the most recent source day with both a run and
+ *      a strength workout (the showcase day). Every timestamp moves forward by
+ *      the same whole number of days so that day lands on UTC today; one more
+ *      source day is kept as "tomorrow" for visitors ahead of UTC, and
+ *      everything later is left out. Instants recorded in Hong Kong also get
+ *      +12h so they keep their lived wall-clock time for a US viewer.
+ *      Internal spacing (sleep → workout → meal) is kept.
  *   2. REMOVAL. Cycle logs, chat history, sync/device records, intimate and
  *      alcohol tags, alcohol food entries, sleep-context life tags, GPS
  *      routes and EVERY free-text field are dropped or nulled.
@@ -60,6 +63,11 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 const utcMidnight = (d: Date) => new Date(iso(d) + "T00:00:00.000Z");
 
 export interface SeedReport {
+  /** Source day shown as "today", and how it was chosen. */
+  showcaseDay: string;
+  showcasePick: "override" | "run+strength" | "last-sleep-day";
+  todayDay: string;
+  redatedSessions: number;
   anchorDay: string;
   sourceLastDay: string;
   shiftDays: number;
@@ -75,20 +83,80 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
   const db = raw();
   const SRC = { userId: SOLO_USER_ID };
 
+  // ---- wall-clock correction ------------------------------------------------
+  // The source was recorded in two places (New York and Hong Kong). Demo
+  // visitors are overwhelmingly on US time, where a 2:27 PM Hong Kong run
+  // would render as 2:27 AM. Each night's bedtime tells us where that day was
+  // lived: a bedtime of 11:00–23:59 UTC is a Hong Kong night. Instants from
+  // those days get +12h so they keep their lived wall-clock time for a US
+  // viewer. Calendar-day fields are never corrected.
+  const [bedtimes, allHk, allSessions] = await Promise.all([
+    db.dailySleep.findMany({ where: SRC, select: { day: true, bedtimeStart: true }, orderBy: { day: "asc" } }),
+    db.healthKitWorkout.findMany({ where: SRC, select: { name: true, startedAt: true } }),
+    db.workoutSession.findMany({ where: SRC, select: { date: true } }),
+  ]);
+  if (bedtimes.length === 0) throw new Error("Source tenant has no sleep data — nothing to seed from");
+  const awayDays: { t: number; away: boolean }[] = bedtimes
+    .filter((b) => b.bedtimeStart != null)
+    .map((b) => ({ t: b.day.getTime(), away: (b.bedtimeStart as Date).getUTCHours() >= 11 }));
+  const corrMs = (d: Date): number => {
+    const t = utcMidnight(d).getTime();
+    let away = false;
+    for (const a of awayDays) {
+      if (a.t > t + DAY) break;
+      away = a.away;
+    }
+    return away ? 12 * 3_600_000 : 0;
+  };
+  /** Lived calendar day of an instant (US-Eastern wall clock after correction). */
+  const livedDay = (d: Date) => iso(new Date(d.getTime() + corrMs(d) - 4 * 3_600_000));
+
+  // ---- showcase day → "today" -----------------------------------------------
+  // "Today" in the demo is the most recent lived day with BOTH a run and a
+  // strength workout (and a night of sleep) — the product's core loop on one
+  // screen. DEMO_SHOWCASE_DAY=YYYY-MM-DD (a source date) overrides the pick.
+  // One further source day is kept and lands on "tomorrow", so a visitor whose
+  // local date is already ahead of UTC still opens onto data.
+  const sleepDays = new Set(bedtimes.map((b) => iso(b.day)));
+  const kinds = new Map<string, { run: boolean; strength: boolean }>();
+  for (const w of allHk) {
+    const k = livedDay(w.startedAt);
+    const e = kinds.get(k) ?? { run: false, strength: false };
+    if (/run/i.test(w.name)) e.run = true;
+    if (/strength/i.test(w.name)) e.strength = true;
+    kinds.set(k, e);
+  }
+  const sessionDays = new Set(allSessions.map((x) => iso(x.date)));
+  const bothDays = [...kinds.entries()]
+    .filter(([k, e]) => e.run && (e.strength || sessionDays.has(k)) && sleepDays.has(k))
+    .map(([k]) => k)
+    .sort();
+  const override = process.env.DEMO_SHOWCASE_DAY;
+  const showcaseKey =
+    (override && sleepDays.has(override) ? override : undefined) ??
+    bothDays.at(-1) ??
+    iso(bedtimes[bedtimes.length - 1].day);
+  const showcase = new Date(showcaseKey + "T00:00:00.000Z");
+
   // ---- anchor + shift ------------------------------------------------------
-  const lastSleep = await db.dailySleep.aggregate({ where: SRC, _max: { day: true } });
-  const sourceLast = lastSleep._max.day;
-  if (!sourceLast) throw new Error("Source tenant has no sleep data — nothing to seed from");
-  const anchor = new Date(utcMidnight(now).getTime() + DAY);
+  const sourceLast = new Date(showcase.getTime() + DAY); // last source day kept
+  const anchor = new Date(utcMidnight(now).getTime() + DAY); // where sourceLast lands
   const shiftMs = anchor.getTime() - sourceLast.getTime();
   const srcCutoff = new Date(sourceLast.getTime() + DAY); // exclusive, for instants
-  const sh = (d: Date) => new Date(d.getTime() + shiftMs);
+  const DAY_FIELDS = new Set([
+    "day", "date", "firstDay", "lastDay", "raceDate", "startDate", "blockStartDate", "deadline", "endDate",
+  ]);
+  const shDay = (d: Date) => new Date(d.getTime() + shiftMs);
+  const sh = (d: Date) => new Date(d.getTime() + shiftMs + corrMs(d));
 
-  /** Generic row transform: shift every Date, retarget the tenant, prefix the
-   *  id and the named foreign keys, then apply per-model overrides. */
+  /** Generic row transform: shift every Date (calendar-day fields by whole
+   *  days, instants also by the wall-clock correction), retarget the tenant,
+   *  prefix the id and the named foreign keys, then apply overrides. */
   const tx = (row: Row, fks: string[] = [], overrides: Row = {}): Row => {
     const out: Row = {};
-    for (const [k, v] of Object.entries(row)) out[k] = v instanceof Date ? sh(v) : v;
+    for (const [k, v] of Object.entries(row)) {
+      out[k] = v instanceof Date ? (DAY_FIELDS.has(k) ? shDay(v) : sh(v)) : v;
+    }
     out.userId = DEMO_USER_ID;
     if (typeof out.id === "string") out.id = did(out.id);
     else delete out.id; // autoincrement
@@ -156,6 +224,27 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
       hrSeen.add(key);
       hrRows.push({ userId: DEMO_USER_ID, bpm: s.bpm, source: s.source, timestamp: sh(s.timestamp) });
     }
+  }
+
+  // In-app strength log on the showcase day. If the watch recorded a strength
+  // workout that day but the sets were entered in the app the NEXT day (a
+  // back-logged session), re-date those sessions onto the workout they
+  // describe, so the day shows the lift and its sets together.
+  const showcaseStrength = hkWorkouts.find(
+    (w) => livedDay(w.startedAt) === showcaseKey && /strength/i.test(w.name),
+  );
+  const hasSessionOnShowcase = sessions.some((x) => x.date.getTime() === showcase.getTime());
+  let redatedSessions = 0;
+  if (showcaseStrength && !hasSessionOnShowcase) {
+    sessions
+      .filter((x) => x.date.getTime() === sourceLast.getTime())
+      .forEach((x, i) => {
+        x.date = showcase;
+        x.startedAt = new Date(showcaseStrength.startedAt.getTime() + i * 60_000);
+        x.completedAt = x.completedAt ? showcaseStrength.endedAt : null;
+        x.durationMin ??= Math.round(showcaseStrength.durationSeconds / 60);
+        redatedSessions++;
+      });
   }
 
   // ---- transforms -----------------------------------------------------------
@@ -238,7 +327,7 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
     const m = new Map<string, number>();
     for (const r of rows) {
       const v = pick(r);
-      if (typeof v === "number") m.set(iso(sh(r.day)), v);
+      if (typeof v === "number") m.set(iso(shDay(r.day)), v);
     }
     return m;
   };
@@ -280,12 +369,12 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
   ].filter((e): e is NonNullable<typeof e> => e !== null);
 
   // ---- synthetic coach conversation (numbers from the demo's latest night) --
-  const lastNight = sleep.find((s) => s.day.getTime() === sourceLast.getTime());
+  const lastNight = sleep.find((s) => s.day.getTime() === showcase.getTime());
   const recentHrv = sleep
-    .filter((s) => s.averageHrv != null && s.day.getTime() > sourceLast.getTime() - 14 * DAY)
+    .filter((s) => s.averageHrv != null && s.day.getTime() <= showcase.getTime() && s.day.getTime() > showcase.getTime() - 14 * DAY)
     .map((s) => s.averageHrv as number);
   const hrvAvg = recentHrv.length ? Math.round(recentHrv.reduce((a, b) => a + b, 0) / recentHrv.length) : null;
-  const lastReadiness = readiness.find((r) => r.day.getTime() === sourceLast.getTime());
+  const lastReadiness = readiness.find((r) => r.day.getTime() === showcase.getTime());
   const chatAt = new Date(anchor.getTime() - DAY + 13 * 3_600_000);
   const coachAnswer = [
     "Sample conversation, written for this demo from the profile's latest numbers.",
@@ -313,10 +402,10 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
           email: DEMO_EMAIL,
           passwordHash: null,
           timezone: "America/New_York",
-          baselineStartedAt: srcUser?.baselineStartedAt ? sh(srcUser.baselineStartedAt) : null,
+          baselineStartedAt: srcUser?.baselineStartedAt ? shDay(srcUser.baselineStartedAt) : null,
         },
         update: {
-          baselineStartedAt: srcUser?.baselineStartedAt ? sh(srcUser.baselineStartedAt) : null,
+          baselineStartedAt: srcUser?.baselineStartedAt ? shDay(srcUser.baselineStartedAt) : null,
         },
       });
 
@@ -480,6 +569,10 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
   );
 
   return {
+    showcaseDay: showcaseKey,
+    showcasePick: override && sleepDays.has(override) ? "override" : bothDays.length ? "run+strength" : "last-sleep-day",
+    todayDay: iso(new Date(anchor.getTime() - DAY)),
+    redatedSessions,
     anchorDay: iso(anchor),
     sourceLastDay: iso(sourceLast),
     shiftDays: Math.round(shiftMs / DAY),
