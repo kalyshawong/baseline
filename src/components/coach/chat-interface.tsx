@@ -209,7 +209,8 @@ export function ChatInterface({
         }
         const data = await res.json();
         setMessages((prev) => [...prev, data.message]);
-        if (!currentSessionId) {
+        // data.sessionId is null for the read-only demo (nothing persisted)
+        if (!currentSessionId && data.sessionId) {
           setCurrentSessionId(data.sessionId);
           window.history.replaceState(null, "", `/coach?session=${data.sessionId}`);
           router.refresh();

@@ -6,6 +6,8 @@ import { apiError } from "@/lib/utils";
 import { withAnthropicRetry } from "@/lib/anthropic-retry";
 import { COACH_TOOLS, runCoachTool } from "@/lib/coach-tools";
 import { getCurrentUserId } from "@/lib/current-user";
+import { DEMO_USER_ID } from "@/lib/demo/constants";
+import { demoCoachReply } from "@/lib/demo/coach";
 
 const client = new Anthropic();
 
@@ -27,11 +29,14 @@ function checkRateLimit(key: string): boolean {
   return true;
 }
 
-// Context cache: reuse for 5 minutes (keyed by focusGoalId)
+// Context cache: reuse for 5 minutes. Keyed by USER + focusGoalId — this is a
+// module global shared by every request on the instance, and the context
+// block is the user's full health picture. Keyed by goal alone (pre
+// 2026-09-21) a second account could be served the first account's context.
 let cachedContext: { key: string; text: string; expiry: number } | null = null;
 
 async function getCachedContext(focusGoalId?: string | null): Promise<string> {
-  const cacheKey = focusGoalId ?? "all";
+  const cacheKey = `${await getCurrentUserId()}:${focusGoalId ?? "all"}`;
   if (cachedContext && cachedContext.key === cacheKey && Date.now() < cachedContext.expiry) {
     return cachedContext.text;
   }
@@ -70,6 +75,22 @@ export async function POST(request: NextRequest) {
         { error: `mode must be one of: ${VALID_COACH_MODES.join(", ")}` },
         { status: 400 }
       );
+    }
+
+    // Public demo: canned reply, no Anthropic call, nothing persisted. Runs
+    // before the key check and the rate limiter so demo traffic can neither
+    // spend tokens nor eat real users' rate budget.
+    if ((await getCurrentUserId()) === DEMO_USER_ID) {
+      return NextResponse.json({
+        sessionId: sessionId ?? null,
+        message: {
+          id: `demo-${Date.now()}`,
+          role: "assistant",
+          content: demoCoachReply(message),
+          createdAt: new Date(),
+        },
+        demo: true,
+      });
     }
 
     if (!process.env.ANTHROPIC_API_KEY) {

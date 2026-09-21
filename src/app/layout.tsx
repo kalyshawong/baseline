@@ -8,6 +8,7 @@ import { NativeHealthInit } from "@/components/native/native-health-init";
 import { TzCookie } from "@/components/tz-cookie";
 import { DayRollover } from "@/components/day-rollover";
 import { MobileTabBar } from "@/components/mobile/mobile-tab-bar";
+import { DemoBanner } from "@/components/demo-banner";
 
 const bebasNeue = Bebas_Neue({
   weight: "400",
@@ -68,6 +69,7 @@ export default function RootLayout({
         <NativeHealthInit />
         <TzCookie />
         <DayRollover buildSha={process.env.VERCEL_GIT_COMMIT_SHA ?? "dev"} />
+        <DemoBanner />
         <div className="hidden md:block">
           <Nav />
         </div>
