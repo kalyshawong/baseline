@@ -114,6 +114,81 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         return pts
     }
 
+    // MARK: - Run detail: km splits + walk breaks (2026-09-21)
+
+    /// Distance samples recorded BY this workout (Watch writes one every few
+    /// seconds), in time order. Empty for treadmill runs without distance and
+    /// for third-party workouts that only wrote a total.
+    private func distanceSamples(for workout: HKWorkout) async -> [HKQuantitySample] {
+        guard let type = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) else { return [] }
+        return await withCheckedContinuation { cont in
+            let pred = HKQuery.predicateForObjects(from: workout)
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+            let q = HKSampleQuery(sampleType: type, predicate: pred, limit: HKObjectQueryNoLimit,
+                                  sortDescriptors: [sort]) { _, samples, _ in
+                cont.resume(returning: (samples as? [HKQuantitySample]) ?? [])
+            }
+            store.execute(q)
+        }
+    }
+
+    /// Splits: seconds spent on each WHOLE km, walking the cumulative distance
+    /// and interpolating inside the sample that crosses each km mark.
+    /// Walk breaks: contiguous stretches slower than 11:00/km lasting ≥ 20 s
+    /// (a jog never drops that slow; a walk never gets that fast). Returns nil
+    /// when the workout carries no usable distance samples.
+    private func runDetail(for workout: HKWorkout) async -> (splits: [Int], walkCount: Int, walkSeconds: Int)? {
+        let samples = await distanceSamples(for: workout)
+        guard samples.count >= 2 else { return nil }
+        let km = HKUnit.meterUnit(with: .kilo)
+
+        var cumKm = 0.0
+        var nextMark = 1.0
+        var lastMarkTime = workout.startDate
+        var splits: [Int] = []
+        var walkCount = 0, walkSeconds = 0.0
+        var inWalk = false, walkRun = 0.0
+
+        for s in samples {
+            let d = s.quantity.doubleValue(for: km)
+            let dur = s.endDate.timeIntervalSince(s.startDate)
+            guard d.isFinite, d >= 0 else { continue }
+
+            // km marks crossed inside this sample
+            let before = cumKm
+            cumKm += d
+            while cumKm >= nextMark, d > 0 {
+                let frac = (nextMark - before) / d
+                let t = s.startDate.addingTimeInterval(max(0, min(1, frac)) * dur)
+                splits.append(Int(t.timeIntervalSince(lastMarkTime).rounded()))
+                lastMarkTime = t
+                nextMark += 1
+            }
+
+            // walk detection on per-sample pace
+            let pace = d > 0 ? dur / d : Double.infinity // s per km
+            if dur > 0 && pace > 660 {
+                walkRun += dur
+                if !inWalk && walkRun >= 20 { inWalk = true; walkCount += 1 }
+                if inWalk { walkSeconds += dur }
+            } else {
+                inWalk = false; walkRun = 0
+            }
+        }
+        guard !splits.isEmpty || walkCount > 0 else { return nil }
+        return (splits, walkCount, Int(walkSeconds.rounded()))
+    }
+
+    /// One-time backfill: the first sync after this build walks 180 days of
+    /// workouts (not 14) so every past run gets its route + splits + walk
+    /// breaks. Afterwards the trailing-14-day window applies as before.
+    private var workoutLookbackDays: Int {
+        UserDefaults.standard.bool(forKey: "bl_run_detail_backfilled") ? 14 : 180
+    }
+    private func markRunDetailBackfilled() {
+        UserDefaults.standard.set(true, forKey: "bl_run_detail_backfilled")
+    }
+
     // MARK: - JS API
 
     @objc func requestAuthorization(_ call: CAPPluginCall) {
@@ -248,9 +323,12 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         // Workout rows are few and the server upserts by UUID, so re-sends are
         // free — and this is what lets routes appear for recent runs after an
         // app update, instead of only for workouts newer than the last sync.
+        // (180 days on the first sync after the run-detail build — see
+        // workoutLookbackDays.)
         var workouts: [[String: Any]] = []
+        let lookback = workoutLookbackDays
         let workoutWindow = HKQuery.predicateForSamples(
-            withStart: Calendar.current.date(byAdding: .day, value: -14, to: Date()),
+            withStart: Calendar.current.date(byAdding: .day, value: -lookback, to: Date()),
             end: nil, options: .strictStartDate)
         let recentWorkouts: [HKSample] = try await withCheckedThrowingContinuation { cont in
             let q = HKSampleQuery(
@@ -287,6 +365,12 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
                 let route = await routePoints(for: w)
                 if !route.isEmpty { entry["route"] = route }
             default: break
+            }
+            // Run detail: km splits + walk breaks from the workout's own
+            // distance samples (runs only).
+            if w.workoutActivityType == .running, let rd = await runDetail(for: w) {
+                if !rd.splits.isEmpty { entry["splits"] = rd.splits }
+                entry["walkBreaks"] = ["count": rd.walkCount, "seconds": rd.walkSeconds]
             }
             workouts.append(entry)
         }
@@ -334,6 +418,7 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
             throw NSError(domain: "bl", code: 1, userInfo: [NSLocalizedDescriptionKey: "sync POST failed"])
         }
         commitWatermark(syncStart) // only advance the watermark after a successful POST
+        if lookback > 14 { markRunDetailBackfilled() } // the 180-day backfill landed
         return total
     }
 

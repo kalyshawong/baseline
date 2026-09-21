@@ -49,6 +49,7 @@ import { analyzeSoreness } from "@/lib/soreness-analysis";
 import { MobileCycleCard } from "@/components/mobile/mobile-cycle-card";
 import { MinCard } from "@/components/min-card";
 import { kgToLb } from "@/lib/tdee";
+import { RunLandmarksSettings } from "@/components/body/run-landmarks-settings";
 
 function formatDuration(seconds: number | null): string {
   if (seconds == null) return "—";
@@ -815,6 +816,13 @@ export default async function BodyPage({
           vo2MaxDate={latestVO2Max?.day
             ? `Updated ${latestVO2Max.day.toLocaleDateString()}`
             : null}
+        />
+        <RunLandmarksSettings
+          initial={{
+            runMevKm: profile?.runMevKm ?? null,
+            runMavKm: profile?.runMavKm ?? null,
+            runMrvKm: profile?.runMrvKm ?? null,
+          }}
         />
       </div>
 

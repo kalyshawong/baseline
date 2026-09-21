@@ -49,6 +49,10 @@ export async function POST(request: NextRequest) {
         ? validateNumber(body.dailyCalorieTarget, "dailyCalorieTarget", { min: 800, max: 8000, integer: true })
         : null,
       body.sex !== undefined ? validateEnum(body.sex, SEX, "sex") : null,
+      // Weekly run-volume landmarks (km). Null clears one.
+      ...(["runMevKm", "runMavKm", "runMrvKm"] as const).map((k) =>
+        body[k] !== undefined && body[k] !== null ? validateNumber(body[k], k, { min: 0, max: 400 }) : null,
+      ),
       body.experienceLevel !== undefined
         ? validateEnum(body.experienceLevel, EXPERIENCE_LEVEL, "experienceLevel")
         : null,
@@ -64,6 +68,13 @@ export async function POST(request: NextRequest) {
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
+    const lm = ["runMevKm", "runMavKm", "runMrvKm"].map((k) => body[k]).filter((v) => v != null);
+    if (lm.length > 0 && lm.length < 3) {
+      return NextResponse.json({ error: "Set all three run landmarks (MEV, MAV, MRV) or none" }, { status: 400 });
+    }
+    if (lm.length === 3 && !(lm[0] <= lm[1] && lm[1] <= lm[2])) {
+      return NextResponse.json({ error: "Run landmarks must satisfy MEV ≤ MAV ≤ MRV" }, { status: 400 });
+    }
 
     const allowed = [
       "bodyWeightKg",
@@ -78,6 +89,9 @@ export async function POST(request: NextRequest) {
       "dailyCalorieTarget",
       "unit",
       "hrvBaselineChoice",
+      "runMevKm",
+      "runMavKm",
+      "runMrvKm",
     ] as const;
 
     const data: Record<string, unknown> = {};

@@ -77,6 +77,11 @@ interface WorkoutEntry {
   };
   /** GPS route from the native module: downsampled [[lat,lng],...]. */
   route?: [number, number][];
+  /** Run detail from the native module (2026-09-21): seconds per whole km,
+   *  computed from the workout's own distance samples, and walk breaks
+   *  (sustained stretches slower than walking pace). */
+  splits?: number[];
+  walkBreaks?: { count: number; seconds: number };
 }
 
 /**
@@ -534,6 +539,27 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
       updateData.routeJson = JSON.stringify(w.route.slice(0, 400));
     }
 
+    // Run detail (native module only). Same rule as the route: absent stays
+    // absent; a later sync without it never nulls what an earlier one sent.
+    if (
+      Array.isArray(w.splits) &&
+      w.splits.length > 0 &&
+      w.splits.length <= 200 &&
+      w.splits.every((v) => Number.isFinite(v) && v > 0)
+    ) {
+      updateData.splitsJson = JSON.stringify(w.splits.map((v) => Math.round(v)));
+    }
+    if (
+      w.walkBreaks &&
+      Number.isInteger(w.walkBreaks.count) &&
+      w.walkBreaks.count >= 0 &&
+      Number.isFinite(w.walkBreaks.seconds) &&
+      w.walkBreaks.seconds >= 0
+    ) {
+      updateData.walkBreakCount = w.walkBreaks.count;
+      updateData.walkBreakSeconds = Math.round(w.walkBreaks.seconds);
+    }
+
     await prisma.healthKitWorkout.upsert({
       where: { userId_externalId: { userId: userId, externalId: w.id } },
       update: updateData,
@@ -551,6 +577,9 @@ async function processWorkouts(workouts: WorkoutEntry[]): Promise<number> {
         maxHeartRate: maxHR,
         minHeartRate: minHR,
         routeJson: (updateData.routeJson as string | undefined) ?? null,
+        splitsJson: (updateData.splitsJson as string | undefined) ?? null,
+        walkBreakCount: (updateData.walkBreakCount as number | undefined) ?? null,
+        walkBreakSeconds: (updateData.walkBreakSeconds as number | undefined) ?? null,
       },
     });
     count++;
