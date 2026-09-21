@@ -9,6 +9,7 @@
  */
 
 import { prisma } from "./db";
+import { DemoReadOnlyError } from "./demo/constants";
 import type { HyroxPlan } from "@prisma/client";
 
 /**
@@ -24,10 +25,17 @@ export async function maybeArchivePlan(plan: HyroxPlan): Promise<HyroxPlan> {
     return plan;
   }
 
-  return prisma.hyroxPlan.update({
-    where: { id: plan.id },
-    data: { status: "archived" },
-  });
+  try {
+    return await prisma.hyroxPlan.update({
+      where: { id: plan.id },
+      data: { status: "archived" },
+    });
+  } catch (err) {
+    // This runs on GET paths. The read-only demo tenant refuses the write;
+    // show the plan as archived for this render instead of failing the page.
+    if (err instanceof DemoReadOnlyError) return { ...plan, status: "archived" };
+    throw err;
+  }
 }
 
 function startOfDay(d: Date): Date {

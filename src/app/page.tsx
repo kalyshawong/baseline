@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
-import { getCurrentUserId } from "@/lib/current-user";
+import { getCurrentUserId, runAsUser } from "@/lib/current-user";
 import { getScoreForDate } from "@/lib/baseline-score";
 import { TodayCallHero } from "@/components/dashboard/today-call-hero";
 import { DoSection } from "@/components/dashboard/do-section";
@@ -38,11 +38,17 @@ import { unstable_cache } from "next/cache";
  * date-nav then reuses 7 of 8 cached days — ~1 fresh compute per step.
  */
 const getCachedScoreOverall = unstable_cache(
-  async (dayIso: string): Promise<number | null> => {
-    const s = await getScoreForDate(new Date(dayIso + "T00:00:00.000Z"));
+  // userId is an ARGUMENT, so it is part of the cache key, and the compute is
+  // pinned to that tenant with runAsUser. Before 2026-09-21 this resolved the
+  // tenant from inside the cache scope, where auth() throws — every
+  // non-Kalysha session silently received Kalysha's scores.
+  async (userId: string, dayIso: string): Promise<number | null> => {
+    const s = await runAsUser(userId, () =>
+      getScoreForDate(new Date(dayIso + "T00:00:00.000Z")),
+    );
     return s?.overall ?? null;
   },
-  ["dashboard-spark-score-v1"],
+  ["dashboard-spark-score-v2"],
   { revalidate: 600 },
 );
 
@@ -420,9 +426,11 @@ export default async function Dashboard({
 
   // 7-day baseline-score trend for the mobile hero sparkline + "vs 7-day avg"
   // delta. Real data — computes the score for each of the prior 8 days.
+  const sparkUserId = await getCurrentUserId();
   const scoreOveralls = await Promise.all(
     Array.from({ length: 8 }, (_, i) =>
       getCachedScoreOverall(
+        sparkUserId,
         new Date(viewDate.getTime() - (7 - i) * 86_400_000)
           .toISOString()
           .slice(0, 10),

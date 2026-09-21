@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { headers } from "next/headers";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 // --- Session-backed tenant resolution (Phase 2 flip, 2026-08-25) ---
 //
@@ -22,7 +23,27 @@ import { headers } from "next/headers";
 
 export const SOLO_USER_ID = "usr_kalysha";
 
-export const getCurrentUserId = cache(async (): Promise<string> => {
+// --- Explicit tenant override (2026-09-21) ---
+//
+// Some code runs where the request can't be read: inside `unstable_cache`
+// (auth()/headers() throw there) and in background jobs. Before this existed
+// those paths fell through to fallback 3 and silently resolved to Kalysha —
+// which handed HER cached dashboard scores to any other signed-in user.
+// `runAsUser` pins the tenant for everything awaited inside `fn`, and is
+// checked BEFORE the per-request memo so it can never be shadowed by it.
+const tenantOverride = new AsyncLocalStorage<{ userId: string }>();
+
+export function runAsUser<T>(userId: string, fn: () => Promise<T>): Promise<T> {
+  return tenantOverride.run({ userId }, fn);
+}
+
+export async function getCurrentUserId(): Promise<string> {
+  const pinned = tenantOverride.getStore();
+  if (pinned) return pinned.userId;
+  return resolveRequestUserId();
+}
+
+const resolveRequestUserId = cache(async (): Promise<string> => {
   // 1) Session. Dynamic import keeps auth's Node-only deps (bcrypt, prisma)
   // out of any module graph that must stay edge/script-safe.
   try {

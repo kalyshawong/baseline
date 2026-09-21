@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { DEMO_USER_ID, DEMO_EMAIL } from "@/lib/demo/constants";
 
 /**
  * Auth.js v5 — credentials (email + bcrypt password) with JWT sessions.
@@ -38,6 +39,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const ok = await compare(password, user.passwordHash);
         if (!ok) return null;
         return { id: user.id, email: user.email };
+      },
+    }),
+    // Public demo: no credentials, always resolves to the read-only demo
+    // tenant (src/lib/demo/constants.ts). Only reachable via /demo. It can
+    // never yield any other user — the id is a constant, not a lookup.
+    Credentials({
+      id: "demo",
+      name: "Demo",
+      credentials: {},
+      async authorize() {
+        return { id: DEMO_USER_ID, email: DEMO_EMAIL };
       },
     }),
   ],

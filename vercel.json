@@ -3,6 +3,10 @@
     {
       "path": "/api/keepalive",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/demo/reseed",
+      "schedule": "0 7 * * *"
     }
   ]
 }

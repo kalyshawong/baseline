@@ -119,6 +119,11 @@ export function apiError(error: unknown): { status: number; body: { error: strin
     return { status: 400, body: { error: "Invalid JSON in request body" } };
   }
 
+  // Public demo tenant tried to write (see src/lib/demo/constants.ts)
+  if (error instanceof Error && error.name === "DemoReadOnlyError") {
+    return { status: 403, body: { error: "This is a read-only demo — changes aren't saved." } };
+  }
+
   // Prisma: record not found
   if (
     typeof error === "object" &&

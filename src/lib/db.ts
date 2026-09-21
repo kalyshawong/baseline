@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { getCurrentUserId } from "@/lib/current-user";
+import { DEMO_USER_ID, DemoReadOnlyError } from "@/lib/demo/constants";
 
 /**
  * Prisma client with TENANT ISOLATION baked in (2026-08-26).
@@ -42,6 +43,18 @@ const OWNED_MODELS = new Set([
   "WorkoutTemplate",
 ]);
 
+/**
+ * Every Prisma operation that mutates. While the current user is the public
+ * demo tenant, all of these are refused on owned models — including the
+ * bare-unique `update`/`delete` that the scoping below lets pass through.
+ * The demo's rows are written only by src/lib/demo/seed.ts, which uses its
+ * own un-extended client.
+ */
+const WRITE_OPS = new Set([
+  "create", "createMany", "createManyAndReturn", "update", "updateMany",
+  "updateManyAndReturn", "upsert", "delete", "deleteMany",
+]);
+
 /** userId is nullable here: null = shared seed rows, visible to all users. */
 const SHARED_NULLABLE_MODELS = new Set(["Exercise"]);
 
@@ -54,6 +67,9 @@ function buildClient() {
         async $allOperations({ model, operation, args, query }) {
           if (!OWNED_MODELS.has(model)) return query(args);
           const userId = await getCurrentUserId();
+          if (userId === DEMO_USER_ID && WRITE_OPS.has(operation)) {
+            throw new DemoReadOnlyError();
+          }
           /* eslint-disable @typescript-eslint/no-explicit-any */
           const a = (args ?? {}) as any;
           const scope = SHARED_NULLABLE_MODELS.has(model)
