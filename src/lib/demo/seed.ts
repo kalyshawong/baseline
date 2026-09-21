@@ -16,10 +16,11 @@ import { mdeForPairs, permutationP, pEffectGtSWC, type Assignment } from "@/lib/
  *      everything later is left out. Instants recorded in Hong Kong also get
  *      +12h so they keep their lived wall-clock time for a US viewer.
  *      Internal spacing (sleep → workout → meal) is kept.
- *   2. REMOVAL. Cycle logs, chat history, sync/device records, intimate and
+ *   2. REMOVAL. Her real cycle logs, chat history, sync/device records, intimate and
  *      alcohol tags, alcohol food entries, sleep-context life tags, GPS
  *      routes and EVERY free-text field are dropped or nulled.
- *   3. SYNTHESIS. Profile, workout-note narratives + GI labels, two
+ *   3. SYNTHESIS. A made-up menstrual cycle (fixed 28-day pattern pinned to
+ *      the demo's today — NOT derived from the source's cycle logs), profile, workout-note narratives + GI labels, two
  *      experiments and one coach conversation are written fresh and say so.
  *      Body weight is scaled. Nothing synthetic is derived from removed data.
  *
@@ -87,7 +88,7 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
   // The source was recorded in two places (New York and Hong Kong). Demo
   // visitors are overwhelmingly on US time, where a 2:27 PM Hong Kong run
   // would render as 2:27 AM. Each night's bedtime tells us where that day was
-  // lived: a bedtime of 11:00–23:59 UTC is a Hong Kong night. Instants from
+  // lived: a bedtime of 12:00–21:59 UTC is a Hong Kong night. Instants from
   // those days get +12h so they keep their lived wall-clock time for a US
   // viewer. Calendar-day fields are never corrected.
   const [bedtimes, allHk, allSessions] = await Promise.all([
@@ -98,12 +99,15 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
   if (bedtimes.length === 0) throw new Error("Source tenant has no sleep data — nothing to seed from");
   const awayDays: { t: number; away: boolean }[] = bedtimes
     .filter((b) => b.bedtimeStart != null)
-    .map((b) => ({ t: b.day.getTime(), away: (b.bedtimeStart as Date).getUTCHours() >= 11 }));
+    .map((b) => {
+      const h = (b.bedtimeStart as Date).getUTCHours();
+      return { t: b.day.getTime(), away: h >= 12 && h < 22 }; // 8 PM – 6 AM Hong Kong
+    });
   const corrMs = (d: Date): number => {
     const t = utcMidnight(d).getTime();
     let away = false;
     for (const a of awayDays) {
-      if (a.t > t + DAY) break;
+      if (a.t > t) break; // the night you woke from that day decides where the day was lived
       away = a.away;
     }
     return away ? 12 * 3_600_000 : 0;
@@ -245,6 +249,30 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
         x.durationMin ??= Math.round(showcaseStrength.durationSeconds / 60);
         redatedSessions++;
       });
+  }
+
+  // A night (or a workout) must move as one piece: correcting its start and
+  // end separately splits them by 12h on the travel days where the home/away
+  // flag flips in between. Both ends take the correction of the row's anchor.
+  const shWith = (d: Date | null, anchorFor: Date) =>
+    d ? new Date(d.getTime() + shiftMs + corrMs(anchorFor)) : null;
+
+  // ---- synthetic cycle --------------------------------------------------------
+  // Made up on purpose (Kalysha, 2026-09-21): a fixed 28-day pattern pinned so
+  // the demo's today is always cycle day SYNTH_TODAY_CYCLE_DAY. It reads none of
+  // the source tenant's cycle logs, so it reveals nothing about her real cycle.
+  const SYNTH_CYCLE_LEN = 28;
+  const SYNTH_TODAY_CYCLE_DAY = 10;
+  const demoToday = new Date(anchor.getTime() - DAY);
+  const synthPhase = (demoDay: Date): string => {
+    const back = Math.round((demoToday.getTime() - utcMidnight(demoDay).getTime()) / DAY);
+    const cd = ((((SYNTH_TODAY_CYCLE_DAY - 1 - back) % SYNTH_CYCLE_LEN) + SYNTH_CYCLE_LEN) % SYNTH_CYCLE_LEN) + 1;
+    return cd <= 5 ? "menstrual" : cd <= 13 ? "follicular" : cd <= 16 ? "ovulation" : "luteal";
+  };
+  const cycleRows: Row[] = [];
+  for (let back = 150; back >= -1; back--) {
+    const day = new Date(demoToday.getTime() - back * DAY);
+    cycleRows.push({ userId: DEMO_USER_ID, day, phase: synthPhase(day), source: "manual" });
   }
 
   // ---- transforms -----------------------------------------------------------
@@ -453,7 +481,14 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
 
       await put("UserBaseline", t.userBaseline, baselines.map((r) => tx(r)));
       await put("DailyReadiness", t.dailyReadiness, readiness.map((r) => tx(r)));
-      await put("DailySleep", t.dailySleep, sleep.map((r) => tx(r)));
+      await put(
+        "DailySleep",
+        t.dailySleep,
+        sleep.map((r) =>
+          tx(r, [], { bedtimeStart: shWith(r.bedtimeStart, r.day), bedtimeEnd: shWith(r.bedtimeEnd, r.day) }),
+        ),
+      );
+      await put("CyclePhaseLog", t.cyclePhaseLog, cycleRows);
       await put("DailyActivity", t.dailyActivity, activity.map((r) => tx(r)));
       await put("DailyStress", t.dailyStress, stress.map((r) => tx(r)));
       await put("DailySpO2", t.dailySpO2, spo2.map((r) => tx(r)));
@@ -466,7 +501,7 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
       await put("NutritionLog", t.nutritionLog, nutLogRows);
       await put("NutritionEntry", t.nutritionEntry, nutEntryRows);
       await put("Exercise", t.exercise, exercises.map((r) => tx(r, [], { notes: null })));
-      await put("WorkoutSession", t.workoutSession, sessions.map((r) => tx(r, [], { notes: null, cyclePhase: null })));
+      await put("WorkoutSession", t.workoutSession, sessions.map((r) => tx(r, [], { notes: null, cyclePhase: synthPhase(shDay(r.date)) })));
       await put(
         "WorkoutSet",
         t.workoutSet,
@@ -514,7 +549,9 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
       await put(
         "HealthKitWorkout",
         t.healthKitWorkout,
-        hkWorkouts.map((r) => tx(r, [], { routeJson: null, externalId: did(r.externalId) })),
+        hkWorkouts.map((r) =>
+          tx(r, [], { routeJson: null, externalId: did(r.externalId), endedAt: shWith(r.endedAt, r.startedAt) }),
+        ),
       );
       await put("HeartRateZoneSummary", t.heartRateZoneSummary, zones.map((r) => tx(r, ["workoutId"])));
       await put("OuraWorkout", t.ouraWorkout, ouraWorkouts.map((r) => tx(r, [], { label: null })));

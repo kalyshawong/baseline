@@ -632,7 +632,7 @@ export default async function Dashboard({
         </div>
 
         {/* Sleep river — when you slept, not a score (option B redesign) */}
-        {riverNights.length >= 3 && <SleepRiver nights={riverNights} tz={tz} />}
+        {riverNights.length >= 3 && <SleepRiver nights={riverNights} tz={tz} wide />}
 
         {/* Sleep */}
         <SleepCard
