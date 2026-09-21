@@ -141,13 +141,19 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
 
   // Heart rate: only samples inside recent workout windows (the dashboard's
   // workout HR chart). The full 1.2M-row stream is not copied.
+  // Workout windows can overlap (watch + manual entry of the same session),
+  // so dedupe on the table's unique key.
   const hrRows: Row[] = [];
+  const hrSeen = new Set<string>();
   for (const w of hkWorkouts.slice(0, HR_WORKOUT_LOOKBACK)) {
     const samples = await db.heartRateSample.findMany({
       where: { ...SRC, timestamp: { gte: w.startedAt, lte: w.endedAt } },
       select: { bpm: true, source: true, timestamp: true },
     });
     for (const s of samples) {
+      const key = `${s.timestamp.getTime()}|${s.source}`;
+      if (hrSeen.has(key)) continue;
+      hrSeen.add(key);
       hrRows.push({ userId: DEMO_USER_ID, bpm: s.bpm, source: s.source, timestamp: sh(s.timestamp) });
     }
   }
