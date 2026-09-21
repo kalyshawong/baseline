@@ -1,4 +1,5 @@
 import type { HrvBaselineSummary } from "@/lib/training-call";
+import type { RunHrBaseline } from "@/lib/dashboard-desktop";
 
 /**
  * Permanent "Your baseline" reference card. Unlike the calibration prompt
@@ -28,15 +29,97 @@ function formatSleep(seconds: number): string {
   return `${h}h ${m}m`;
 }
 
-export function BaselineCard({ hrv }: { hrv: HrvBaselineSummary | null }) {
+export function BaselineCard({
+  hrv,
+  runHr,
+  fill,
+}: {
+  hrv: HrvBaselineSummary | null;
+  /** 60-day run heart rate across distances (desktop grid handoff). Her own
+   *  runs only; the read line appears only when the data shows the pattern. */
+  runHr?: RunHrBaseline | null;
+  /** Stretch to the row height in the desktop evidence grid. */
+  fill?: boolean;
+}) {
   if (!hrv) return null;
 
   const belowFloor = hrv.meanMs < TYPICAL_LOW_MS;
   const gapMs = TYPICAL_LOW_MS - hrv.meanMs;
   const pctBelow = Math.round((gapMs / TYPICAL_LOW_MS) * 100);
 
+  // Desktop evidence column — handoff markup (.dd .yb in dashboard-desktop.css).
+  if (fill) {
+    return (
+      <div className="panel tight yb">
+        <div className="ph">
+          <span className="ov">Your Baseline</span>
+          <span className="pill b">Your Normal</span>
+        </div>
+        <div className="big">
+          <span className="v num">{hrv.meanMs}</span>
+          <span className="u">ms HRV</span>
+          <span className="rng">
+            your range {hrv.minMs}–{hrv.maxMs} ms · {hrv.nNights} nights
+          </span>
+        </div>
+        <div className="ex">
+          {belowFloor ? (
+            <>
+              <b>≈{gapMs} ms ({pctBelow}%) below</b> the typical adult floor — reference range ~{TYPICAL_LOW_MS}–
+              {TYPICAL_HIGH_MS} ms (population prior, not your data).
+            </>
+          ) : (
+            <>
+              Sits inside the typical adult range (~{TYPICAL_LOW_MS}–{TYPICAL_HIGH_MS} ms, population prior).
+            </>
+          )}
+        </div>
+        {hrv.avgSleepSeconds != null && (
+          <>
+            <hr />
+            <div className="big">
+              <span className="v num" style={{ fontSize: 30 }}>
+                {formatSleep(hrv.avgSleepSeconds).toUpperCase()}
+              </span>
+              <span className="u">avg sleep</span>
+              <span className="rng">over {hrv.nSleepNights} nights</span>
+            </div>
+          </>
+        )}
+        <div className="ex">
+          {belowFloor ? "That low HRV is your set-point, not a deficit. " : ""}Baseline reads your day-to-day against
+          these numbers, not a population average.
+        </div>
+        {runHr && (
+          <>
+            <hr />
+            <div className="big">
+              <span className="v num" style={{ fontSize: 30 }}>
+                {runHr.avgHr}
+              </span>
+              <span className="u">bpm avg run HR</span>
+              <span className="rng">
+                {runHr.nRuns} runs ·{" "}
+                {runHr.minKm === runHr.maxKm ? `${runHr.minKm} km` : `${runHr.minKm} km to ${runHr.maxKm} km`} · 60 days
+              </span>
+            </div>
+            <div className="ex">
+              {runHr.flatAndHigh && (
+                <>
+                  <b>Same HR regardless of distance</b> —{" "}
+                </>
+              )}
+              {runHr.bands.map((b) => `${b.label} ${b.avgHr}`).join(" · ")}.
+              {runHr.flatAndHigh && <> Your easy runs aren&apos;t easy. A sign to slow them down and build a real Z2.</>}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <section className="insight-card insight-card-b">
+    <section className={`insight-card insight-card-b${fill ? " h-full" : ""}`}>
       <div className="flex items-center justify-between">
         <p className="ov">Your baseline</p>
         <span className="pill pill-b">your normal</span>
@@ -92,6 +175,33 @@ export function BaselineCard({ hrv }: { hrv: HrvBaselineSummary | null }) {
         That low HRV is your set-point, not a deficit. Baseline reads your
         day-to-day against these numbers, not a population average.
       </p>
+
+      {/* Run HR row — a set-point, not an alert: blue accent, no red. */}
+      {runHr && (
+        <>
+          <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-[var(--color-border)] pt-3">
+            <span className="disp num text-[30px] leading-none">
+              {runHr.avgHr}
+              <small className="ml-1 font-sans text-sm font-semibold text-[var(--color-text-muted)]">
+                bpm avg run HR
+              </small>
+            </span>
+            <span className="text-sm text-[var(--color-text-muted)]">
+              {runHr.nRuns} runs · {runHr.minKm === runHr.maxKm ? `${runHr.minKm} km` : `${runHr.minKm} km to ${runHr.maxKm} km`} · 60 days
+            </span>
+          </div>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--color-text-muted)]">
+            {runHr.flatAndHigh && (
+              <span className="font-semibold text-[var(--color-blue)]">Same HR regardless of distance</span>
+            )}
+            {runHr.flatAndHigh ? " — " : ""}
+            {runHr.bands.map((b) => `${b.label} ${b.avgHr}`).join(" · ")}.
+            {runHr.flatAndHigh && (
+              <> Your easy runs aren&apos;t easy. A sign to slow them down and build a real Z2.</>
+            )}
+          </p>
+        </>
+      )}
     </section>
   );
 }

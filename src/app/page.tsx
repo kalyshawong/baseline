@@ -3,15 +3,10 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId, runAsUser } from "@/lib/current-user";
 import { getScoreForDate } from "@/lib/baseline-score";
 import { TodayCallHero } from "@/components/dashboard/today-call-hero";
-import { DoSection } from "@/components/dashboard/do-section";
 import { TonightSection } from "@/components/dashboard/tonight-section";
 import { SleepRing } from "@/components/dashboard/sleep-ring";
 import { ActivityCard } from "@/components/dashboard/activity-card";
 import { CalorieBalanceCard } from "@/components/dashboard/calorie-balance-card";
-import { CycleCard } from "@/components/dashboard/cycle-card";
-import { MinCard } from "@/components/min-card";
-import { SleepCard } from "@/components/dashboard/sleep-card";
-import { WorkoutCard } from "@/components/dashboard/workout-card";
 import { ManualWorkoutEntry } from "@/components/dashboard/manual-workout-entry";
 import { HyroxCountdownCard } from "@/components/dashboard/hyrox-countdown-card";
 import { getHyroxToday } from "@/lib/hyrox-today";
@@ -25,10 +20,19 @@ import { getDownsampledHrForWorkout, type HrChartPoint } from "@/lib/workout-not
 import { MobileDashboard } from "@/components/mobile/mobile-dashboard";
 import { EveningCheckin } from "@/components/dashboard/evening-checkin";
 import { getEveningCheckinData, type CheckinData } from "@/lib/evening-checkin";
-import { DailySignalsCard } from "@/components/dashboard/daily-signals-card";
 import { getDailySignals, type DailySignals } from "@/lib/daily-signals";
 import { SleepRiver, type RiverNight } from "@/components/dashboard/sleep-river";
 import { unstable_cache } from "next/cache";
+import { SignalsTiles, SleepCompact, WorkoutCardDesktop } from "@/components/dashboard/desktop-cards";
+import { CycleCardDesktop } from "@/components/dashboard/cycle-card-desktop";
+import {
+  getWorkoutBaseline,
+  getStrengthSummary,
+  getWeeklyRunKm,
+  getRunHrBaseline,
+  workoutKind,
+  type WorkoutBaseline,
+} from "@/lib/dashboard-desktop";
 
 /**
  * Cached per-day baseline score for the mobile hero sparkline + delta.
@@ -424,6 +428,38 @@ export default async function Dashboard({
     };
   });
 
+  // Desktop grid (Claude Design handoff, 2026-09-21): each workout read against
+  // her own last 60 days, the logged strength session + weekly volume, weekly
+  // run distance, and the run-HR block on Your Baseline. All optional — a
+  // failure here must never take the dashboard down.
+  const baselineByWorkoutId: Record<string, WorkoutBaseline | null> = {};
+  let strengthSummary: Awaited<ReturnType<typeof getStrengthSummary>> = null;
+  let weeklyRunKm: number | null = null;
+  let runHrBaseline: Awaited<ReturnType<typeof getRunHrBaseline>> = null;
+  try {
+    const { end: dayEnd } = getLocalDayBounds(getDateStrFromParams(params, tz), tz);
+    const [baselines, strength, runKm, runHr] = await Promise.all([
+      Promise.all(
+        trainingWorkouts.map((w) =>
+          getWorkoutBaseline(w, zoneMaxHr, hrChartsByWorkoutId[w.id] ?? []).catch(() => null),
+        ),
+      ),
+      trainingWorkouts.some((w) => workoutKind(w.name) === "strength")
+        ? getStrengthSummary(viewDate, profile?.unit ?? null).catch(() => null)
+        : Promise.resolve(null),
+      trainingWorkouts.some((w) => workoutKind(w.name) === "run")
+        ? getWeeklyRunKm(dayEnd, viewDate).catch(() => null)
+        : Promise.resolve(null),
+      getRunHrBaseline(dayEnd, zoneMaxHr).catch(() => null),
+    ]);
+    trainingWorkouts.forEach((w, i) => (baselineByWorkoutId[w.id] = baselines[i]));
+    strengthSummary = strength;
+    weeklyRunKm = runKm;
+    runHrBaseline = runHr;
+  } catch {
+    /* desktop extras are best-effort */
+  }
+
   // 7-day baseline-score trend for the mobile hero sparkline + "vs 7-day avg"
   // delta. Real data — computes the score for each of the prior 8 days.
   const sparkUserId = await getCurrentUserId();
@@ -527,19 +563,26 @@ export default async function Dashboard({
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1320px] space-y-6 px-9 pt-6 pb-16">
+      {/* Desktop grid — Claude Design handoff 2026-09-21. Rows top → bottom:
+       * today (call · scores · actions) → today's evidence → signals →
+       * workouts → reference/history → tonight. Styles: dashboard-desktop.css,
+       * every rule scoped under .dd. */}
+      <div className="dd mx-auto max-w-[1320px] pb-12">
+      <div className="dash">
 
       {/* Evening check-in — self-hides outside evening hours */}
       {checkin && <EveningCheckin data={checkin} />}
 
-      {/* Daily signals — renders nothing when no line fired */}
-      {signals && <DailySignalsCard s={signals} />}
-
-      {/* Hero — the day's training call */}
+      {/* Row 1 · hero: call | scores | actions */}
       <TodayCallHero
           call={todayCall}
           isConnected={isConnected}
           flagPointer={flagPointer}
+          actions={[
+            { href: "/mind", label: "Log food" },
+            { href: "/mind", label: "Log workout" },
+            { href: "/coach", label: "Open coach" },
+          ]}
           evidence={[
             ...(score
               ? [
@@ -572,73 +615,10 @@ export default async function Dashboard({
           ]}
         />
 
-      {/* Permanent baseline reference — your HRV set-point, framed as your
-       * own normal rather than a population comparison. */}
-      <BaselineCard hrv={hrvBaseline} />
-
-      {/* Hyrox countdown — renders only when an active Hyrox plan
-       * exists. For a Hyrox athlete this is the most actionable card
-       * on the dashboard during the final 14 days. */}
-      {hyroxToday && (
-        <HyroxCountdownCard today={hyroxToday} />
-      )}
-
-      {/* Today's tally: ambient activity → specific workout (or manual
-       * entry fallback) → calorie balance. Each is its own card-level
-       * concept so they don't fight each other for visual weight. */}
-      <div className="grid gap-[14px]">
-        {/* Triple row: Activity / Cycle / Calories */}
-        <div className="grid grid-cols-[1.4fr_1fr_1.2fr] gap-[14px]">
-          <ActivityCard
-            tz={tz}
-            activity={
-              dayActivity
-                ? {
-                    totalCalories: dayActivity.totalCalories,
-                    activeCalories: dayActivity.activeCalories,
-                    steps: dayActivity.steps,
-                    highActivityTime: dayActivity.highActivityTime,
-                    mediumActivityTime: dayActivity.mediumActivityTime,
-                  }
-                : null
-            }
-            lastHkSync={
-              lastHkSync
-                ? {
-                    syncedAt: lastHkSync.syncedAt.toISOString(),
-                    status: lastHkSync.status,
-                  }
-                : null
-            }
-            lastOuraSync={lastSync?.syncDate ?? null}
-            ambientSessions={ambientWorkouts.map((w) => ({
-              id: w.id,
-              name: w.name,
-              durationSeconds: w.durationSeconds,
-              activeCalories: w.activeCalories,
-            }))}
-          />
-          <MinCard id="cycle-today-d" label="Cycle">
-            <CycleCard
-              phase={cyclePhase}
-              dayNumber={cycleDayNumber}
-              temperatureDeviationC={dayReadiness?.temperatureDeviation ?? null}
-            />
-          </MinCard>
-          <CalorieBalanceCard
-            caloriesIn={nutritionCalories}
-            caloriesOut={dayActivity?.totalCalories ?? null}
-            goal={profile?.goal ?? null}
-            goalCals={null}
-          />
-        </div>
-
-        {/* Sleep river — when you slept, not a score (option B redesign) */}
-        {riverNights.length >= 3 && <SleepRiver nights={riverNights} tz={tz} wide />}
-
-        {/* Sleep */}
-        <SleepCard
-          daySleep={
+      {/* Row 2 · evidence: sleep | your baseline | calories over cycle */}
+      <section className="evidence">
+        <SleepCompact
+          sleep={
             daySleep
               ? {
                   score: daySleep.score,
@@ -654,18 +634,43 @@ export default async function Dashboard({
               : null
           }
         />
+        <BaselineCard hrv={hrvBaseline} runHr={runHrBaseline} fill />
+        <div className="stack">
+          <CalorieBalanceCard
+            caloriesIn={nutritionCalories}
+            caloriesOut={dayActivity?.totalCalories ?? null}
+            goal={profile?.goal ?? null}
+            goalCals={null}
+          />
+          <CycleCardDesktop
+            phase={cyclePhase}
+            dayNumber={cycleDayNumber}
+            temperatureDeviationC={dayReadiness?.temperatureDeviation ?? null}
+          />
+        </div>
+      </section>
 
-        {/* Workout slot — one WorkoutCard per synced workout (most
-         * recent first), with each card carrying its own Notes editor
-         * and "Discuss with coach →" button scoped to that workout.
-         * When no workouts exist, the ManualWorkoutEntry fallback lets
-         * the athlete log a session without waiting for HAE/Strava. */}
+      {/* Row 2b · signals — renders nothing when no line fired */}
+      {signals && <SignalsTiles s={signals} />}
+
+      {/* Hyrox countdown — only when an active Hyrox plan exists */}
+      {hyroxToday && <HyroxCountdownCard today={hyroxToday} />}
+
+      {/* Row 3 · workouts, side by side; a single workout spans the row */}
+      <section className="workouts">
         {trainingWorkouts.length > 0 ? (
           trainingWorkouts.map((w) => (
-            <WorkoutCard
+            <WorkoutCardDesktop
               key={w.id}
+              tz={tz}
+              single={trainingWorkouts.length === 1}
               zoneMaxHr={zoneMaxHr}
               route={parseRoute(w.routeJson)}
+              hrChart={hrChartsByWorkoutId[w.id] ?? []}
+              fuelLine={fuelLineByWorkoutId[w.id] ?? null}
+              baseline={baselineByWorkoutId[w.id] ?? null}
+              strength={strengthSummary}
+              weeklyRunKm={weeklyRunKm}
               workout={{
                 id: w.id,
                 name: w.name,
@@ -679,12 +684,10 @@ export default async function Dashboard({
                 distance: w.distance,
                 distanceUnit: w.distanceUnit,
               }}
-              hrChart={hrChartsByWorkoutId[w.id] ?? []}
-              fuelLine={fuelLineByWorkoutId[w.id] ?? null}
             />
           ))
         ) : (
-          <div className="panel">
+          <div className="panel" style={{ gridColumn: "1 / -1" }}>
             <span className="ov">Workout</span>
             {ambientWorkouts.length > 0 ? (
               // Walks (and other ambient sessions) still get listed
@@ -752,20 +755,56 @@ export default async function Dashboard({
             <ManualWorkoutEntry />
           </div>
         )}
+      </section>
 
-      </div>
+      {/* Row 4 · reference: activity | 14-night sleep timing */}
+      <section className="reference">
+          <ActivityCard
+            tz={tz}
+            activity={
+              dayActivity
+                ? {
+                    totalCalories: dayActivity.totalCalories,
+                    activeCalories: dayActivity.activeCalories,
+                    steps: dayActivity.steps,
+                    highActivityTime: dayActivity.highActivityTime,
+                    mediumActivityTime: dayActivity.mediumActivityTime,
+                  }
+                : null
+            }
+            lastHkSync={
+              lastHkSync
+                ? {
+                    syncedAt: lastHkSync.syncedAt.toISOString(),
+                    status: lastHkSync.status,
+                  }
+                : null
+            }
+            lastOuraSync={lastSync?.syncDate ?? null}
+            trainingSessions={trainingWorkouts.map((w) => ({
+              id: w.id,
+              name: w.name,
+              durationSeconds: w.durationSeconds,
+              activeCalories: w.activeCalories,
+            }))}
+            ambientSessions={ambientWorkouts.map((w) => ({
+              id: w.id,
+              name: w.name,
+              durationSeconds: w.durationSeconds,
+              activeCalories: w.activeCalories,
+            }))}
+          />
+        {riverNights.length >= 3 && <SleepRiver nights={riverNights} tz={tz} wide />}
+      </section>
 
-      {/* Do — three deep-link CTAs (mid-day use mode). */}
-      <DoSection />
-
-      {/* Tonight — sleep target + one-line captured-today summary
-       * (evening use mode). Renders nothing if there's no data. */}
+      {/* Row 5 · tonight — renders nothing if there's no data */}
       <TonightSection
         sleepTargetTime={sleepTargetTime}
         workoutSummary={workoutSummary}
         mealCount={nutritionEntryCount}
         weightLoggedToday={weightLoggedToday}
       />
+      </div>
       </div>
     </main>
       </div>

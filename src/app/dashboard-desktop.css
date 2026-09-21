@@ -1,0 +1,217 @@
+/* ============================================================
+   Desktop dashboard grid — ported from the Claude Design handoff
+   "Baseline Dashboard — desktop grid (>=768px)", 2026-09-21.
+   Every rule is scoped under .dd (the desktop dashboard wrapper in
+   src/app/page.tsx) so nothing here can reach mobile or other pages.
+   Handoff token names are aliased to the app's --color-* variables.
+   ============================================================ */
+.dd{
+  --bg:var(--color-bg);--surf:var(--color-surface);--surf2:var(--color-surface-2);--line:var(--color-border);
+  --ink:var(--color-text);--dim:var(--color-text-muted);--faint:var(--color-faint);
+  --gold:var(--color-gold);--green:var(--color-green);--amber:var(--color-yellow);--red:var(--color-red);--blue:var(--color-blue);
+  --disp:var(--font-disp),"Bebas Neue",Impact,sans-serif;--sans:var(--font-sans),"Archivo",system-ui,sans-serif;
+}
+/* shared bits the handoff takes from baseline.css */
+.dd .panel.tight{padding:20px 22px}
+.dd .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.dd .pill{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:5px 12px;display:inline-flex;align-items:center;gap:6px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);white-space:nowrap}
+.dd .pill.g{background:var(--green);color:var(--bg)}
+.dd .pill.a{background:var(--amber);color:var(--bg)}
+.dd .pill.muted{background:var(--surf2);color:var(--dim)}
+/* ============================================================
+   BASELINE — Dashboard desktop grid (built on baseline.css)
+   Desktop only, ≥768px. 1320 max · 36px pad · 14px gaps.
+   ============================================================ */
+.dd .dash{display:grid;gap:14px;padding:20px 36px 0}
+.dd .pfoot{font-size:12px;font-weight:600;color:var(--faint);margin-top:auto;padding-top:12px;border-top:1px solid var(--line);letter-spacing:.03em}
+.dd .note{font-size:11.5px;color:var(--faint);line-height:1.45}
+.dd .k{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.dd .v{font-family:var(--disp);font-size:40px;line-height:.85}
+.dd .v small{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--faint);letter-spacing:0}
+.dd .more{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);text-decoration:none}
+.dd .more:hover{color:var(--gold)}
+/* ---- row 0 · signals ---- */
+.dd .signals{padding:14px 22px 16px}
+.dd .signals .ph{margin-bottom:10px}
+.dd .signals .ph .note{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:24px}
+.dd .sigs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.dd .sig{display:flex;align-items:center;gap:16px;background:var(--surf2);border-left:3px solid var(--amber);padding:10px 16px}
+.dd .sig .v{font-size:36px;color:var(--amber);white-space:nowrap;min-width:96px}
+.dd .sig .txt{font-size:13px;color:var(--dim);margin-top:3px}
+.dd .sig .txt b{color:var(--ink);font-weight:600}
+@media (max-width:900px){
+.dd .signals .ph .note{display:none}
+.dd .sigs{grid-template-columns:1fr}
+}
+/* ---- row 1 · hero: call | scores | actions ---- */
+.dd .hero{display:grid;grid-template-columns:minmax(0,1fr) 260px 240px;gap:14px}
+.dd .call{background:linear-gradient(135deg,color-mix(in oklch,var(--amber),var(--surf) 78%),var(--surf));border-left:6px solid var(--amber);padding:22px 28px;position:relative;overflow:hidden;box-shadow:0 0 60px -22px var(--amber),inset 0 1px 0 oklch(1 0 0/.05);display:flex;flex-direction:column}
+.dd .call .top{display:flex;align-items:center;justify-content:space-between}
+.dd .statusflag{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--bg);background:var(--amber);padding:5px 12px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+.dd .call .verdict{font-family:var(--disp);font-size:clamp(88px,9.5vw,124px);line-height:.82;color:var(--amber);margin:8px 0 6px;letter-spacing:.01em}
+.dd .call .read{font-size:17px;font-weight:500;max-width:560px}
+.dd .call .rec{font-size:15px;font-weight:700;color:var(--amber);margin-top:8px;text-transform:uppercase;letter-spacing:.02em}
+.dd .call .more{margin-top:auto;padding-top:16px}
+.dd .scorestack{display:grid;grid-template-rows:repeat(3,1fr);gap:14px}
+.dd .scard{padding:14px 20px;display:flex;flex-direction:column;justify-content:center;border-left:4px solid var(--line)}
+.dd .scard .n{font-family:var(--disp);font-size:44px;line-height:.9}
+.dd .scard .n small{font-family:var(--sans);font-size:14px;font-weight:600;color:var(--faint);letter-spacing:0}
+.dd .actstack{display:grid;grid-template-rows:repeat(3,1fr);gap:14px}
+.dd .act{padding:0 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;border-left:4px solid var(--gold);text-decoration:none}
+.dd .act:hover{background:var(--surf2)}
+.dd .act b{font-family:var(--disp);font-size:26px;letter-spacing:.02em;font-weight:400}
+.dd .act .ar{color:var(--gold);font-size:20px}
+/* ---- row 2 · evidence: sleep | your baseline | calories+cycle ---- */
+.dd .evidence{display:grid;grid-template-columns:1.1fr 1.15fr 1fr;gap:14px;align-items:stretch}
+.dd .evidence .panel{display:flex;flex-direction:column}
+.dd .evidence .stack{display:grid;grid-template-rows:auto 1fr;gap:14px}
+.dd .reference .a4{gap:22px 12px;align-content:start}
+.dd .reference .a4 .v{font-size:48px}
+/* ---- row 4 · reference: activity | 14-night timing ---- */
+.dd .reference{display:grid;grid-template-columns:1fr 2fr;gap:14px;align-items:stretch}
+.dd .reference .panel{display:flex;flex-direction:column}
+.dd .yb{border-left:4px solid var(--blue)}
+.dd .yb .pill.b{background:var(--blue);color:var(--bg)}
+.dd .yb .big{display:flex;align-items:baseline;gap:4px 8px;flex-wrap:wrap}
+.dd .yb .big .v{font-size:40px}
+.dd .yb .big .u{font-size:13px;font-weight:700;color:var(--ink);white-space:nowrap}
+.dd .yb .big .rng{font-size:12.5px;color:var(--dim);font-weight:500;white-space:nowrap}
+.dd .yb .ex{font-size:12.5px;color:var(--dim);margin-top:8px;line-height:1.45}
+.dd .yb .ex b{color:var(--blue);font-weight:600}
+.dd .yb .ex b.r{color:var(--red)}
+.dd .yb hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+.dd .sleep .dur{font-family:var(--disp);font-size:64px;line-height:.85}
+.dd .sleep .sub{font-weight:600;color:var(--dim);font-size:13px;margin-top:2px}
+.dd .sleep .scorebadge{background:var(--gold);color:var(--bg);font-family:var(--disp);font-size:26px;padding:5px 14px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);box-shadow:0 0 22px -6px var(--gold)}
+.dd .sm{padding:10px 14px;border-top:3px solid var(--red);background:color-mix(in oklch,var(--red),var(--surf) 90%);margin-top:14px;display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.dd .sm .v{color:var(--red);font-size:30px}
+.dd .sm .t{font-size:11.5px;font-weight:600;color:var(--faint);white-space:nowrap}
+.dd .stages{margin-top:14px}
+.dd .stages .bar{display:flex;height:10px;gap:3px}
+.dd .stages .bar i{display:block}
+.dd .stages .bar .deep{background:var(--blue)}
+.dd .stages .bar .rem{background:var(--gold)}
+.dd .stages .bar .light{background:var(--line)}
+.dd .stages .leg{display:flex;gap:16px;margin-top:8px;font-size:12px;font-weight:600;color:var(--dim);flex-wrap:wrap}
+.dd .stages .leg span{white-space:nowrap}
+.dd .stages .leg b{color:var(--ink)}
+.dd .stages .note{margin-top:6px}
+.dd .recov{font-size:12px;font-weight:600;color:var(--faint);letter-spacing:.03em;margin-top:auto;padding-top:12px;border-top:1px solid var(--line)}
+.dd .recov b{color:var(--ink)}
+/* 14-night timing chart */
+.dd .timing .axis,.dd .timing .row{display:grid;grid-template-columns:44px 1fr 38px;gap:10px;align-items:center}
+.dd .timing .axis{margin-bottom:4px}
+.dd .timing .axis .tk{position:relative;height:14px}
+.dd .timing .axis .tk span{position:absolute;transform:translateX(-50%);font-size:10px;font-weight:600;color:var(--faint)}
+.dd .timing .axis .tk span:first-child{transform:none}
+.dd .timing .axis .tk span:last-child{transform:translateX(-100%)}
+.dd .timing .row{height:15px}
+.dd .timing .row .d,.dd .timing .row .len{font-size:10.5px;font-weight:600;color:var(--faint);font-variant-numeric:tabular-nums}
+.dd .timing .row .len{text-align:right}
+.dd .timing .row.today .d{color:var(--ink);font-weight:800}
+.dd .timing .trk{position:relative;height:100%;background-image:repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px calc(100%/7))}
+.dd .timing .trk i{position:absolute;top:4px;height:7px;background:var(--green)}
+.dd .timing .trk i.b{background:var(--blue)}
+.dd .timing .trk i.r{background:var(--red)}
+.dd .timing .trk i.y{background:var(--gold)}
+.dd .timing .note{margin-top:auto;padding-top:10px}
+.dd .a4{display:grid;grid-template-columns:1fr 1fr;gap:14px 12px}
+.dd .cyc .state{display:flex;align-items:center;gap:9px;font-family:var(--disp);font-size:36px;color:var(--green)}
+.dd .cyc .state .dot{width:10px;height:10px;background:var(--green);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.dd .cyc .temp{margin-top:12px;display:flex;align-items:baseline;gap:12px}
+.dd .cyc .temp .v{font-size:32px}
+.dd .cyc .note{margin-top:auto;padding-top:8px}
+.dd .ph .hide{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);cursor:pointer}
+.dd .cal3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.dd .cal3 .c{text-align:center;background:var(--surf2);padding:12px 6px}
+.dd .cal3 .c .k{font-size:10px}
+.dd .cal3 .c .v{font-size:38px}
+.dd .cal3 .c .v.in{color:var(--green)}
+.dd .cal3 .c .v.out{color:var(--gold)}
+.dd .cal3 .c .v.net{color:var(--gold)}
+.dd .calbar{margin-top:12px;background:var(--gold);color:var(--bg);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;text-align:center;padding:9px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+/* ---- row 4 · workouts side by side ---- */
+.dd .workouts{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch}
+.dd .wk{display:flex;flex-direction:column;padding:18px 22px}
+.dd .wk .ph{margin-bottom:6px}
+.dd .wk .when{font-size:12px;font-weight:600;color:var(--faint);letter-spacing:.03em}
+.dd .wk .ttl{font-family:var(--disp);font-size:30px;line-height:.9;letter-spacing:.02em;margin-bottom:12px}
+.dd .wk .hr{display:flex;align-items:baseline;justify-content:space-between}
+.dd .wk .hr .v{color:var(--red);font-size:44px}
+.dd .wk .hr .rng{font-size:12px;font-weight:600;color:var(--dim);white-space:nowrap}
+.dd .wk .hr .rng b{color:var(--ink)}
+.dd .wk svg{display:block;width:100%;height:64px;margin-top:8px}
+.dd .zbar{display:flex;height:6px;gap:2px;margin-top:6px}
+.dd .zbar i{display:block}
+.dd .z1{background:var(--blue)}
+.dd .z2{background:var(--green)}
+.dd .z3{background:var(--gold)}
+.dd .z4{background:oklch(0.74 0.17 55)}
+.dd .z5{background:var(--red)}
+.dd .zleg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:10.5px;font-weight:600;color:var(--faint)}
+.dd .zleg b{font-weight:800}
+.dd .zleg .z1,.dd .zleg .z2,.dd .zleg .z3,.dd .zleg .z4,.dd .zleg .z5{background:none}
+.dd .zleg .z1{color:var(--blue)}
+.dd .zleg .z2{color:var(--green)}
+.dd .zleg .z3{color:var(--gold)}
+.dd .zleg .z4{color:oklch(0.74 0.17 55)}
+.dd .zleg .z5{color:var(--red)}
+.dd .wk .note{margin-top:4px}
+.dd .flag{margin-top:12px;display:flex;flex-direction:column;align-items:flex-start;gap:12px;background:color-mix(in oklch,var(--red),var(--surf) 86%);border-left:3px solid var(--red);padding:14px 16px}
+.dd .flag .k{color:var(--red)}
+.dd .flag .btn{background:var(--red);color:var(--ink);box-shadow:0 0 24px -8px var(--red)}
+.dd .flag .btn.ghost{background:var(--surf2);color:var(--dim);box-shadow:none}
+.dd .flag .txt{font-size:13px;color:var(--ink);margin-top:4px;text-wrap:pretty}
+.dd .flag .txt b{color:var(--red);font-weight:700}
+.dd .flag .acts{display:flex;gap:8px;flex-wrap:wrap}
+.dd .flag .btn{font-size:11px;padding:9px 14px;text-decoration:none;white-space:nowrap}
+.dd .vsb{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.dd .vsg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px}
+.dd .vsg .k{font-size:10px}
+.dd .vsg .v{font-size:28px;margin-top:3px}
+.dd .vsg .v.r{color:var(--red)}
+.dd .vsg .v.a{color:var(--amber)}
+.dd .vsg .sub{font-size:11px;color:var(--faint);margin-top:3px}
+.dd .tiles{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:10px;margin-top:14px}
+.dd .tile{background:var(--surf2);padding:10px 14px}
+.dd .tile .v{font-size:32px;margin-top:4px}
+.dd .wk .meta{margin-top:14px;display:grid;gap:10px}
+.dd .sess{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.dd .sess .ex{font-size:13px;color:var(--dim);margin-top:4px;line-height:1.45}
+.dd .vol{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.dd .pill.r{background:var(--red);color:var(--ink)}
+.dd .wk .meta .k{margin-bottom:3px}
+.dd .wk .meta .txt{font-size:13px;color:var(--dim)}
+.dd .wk .meta .txt b{color:var(--ink);font-weight:600}
+.dd .wk .meta .sub{display:flex;gap:16px;margin-top:4px;font-size:12px;color:var(--faint)}
+.dd .wk .meta .sub a{color:var(--dim)}
+.dd .wk .foot{margin-top:auto;padding-top:14px;display:flex;justify-content:space-between;align-items:center}
+.dd .wk .foot .more{color:var(--blue)}
+.dd .wk .foot .more:hover{color:var(--gold)}
+/* ---- row 5 · tonight ---- */
+.dd .tonight{display:flex;align-items:center;justify-content:space-between;padding:16px 26px;background:var(--surf2)}
+.dd .tonight .l{font-family:var(--disp);font-size:24px}
+.dd .tonight .l b{color:var(--gold)}
+.dd .tonight .r{font-size:12px;font-weight:600;color:var(--faint);letter-spacing:.04em;text-transform:uppercase}
+@media (max-width:1200px){
+.dd .hero{grid-template-columns:minmax(0,1fr) 220px 210px}
+.dd .reference{grid-template-columns:1fr 1.5fr}
+}
+@media (max-width:900px){
+.dd .hero{grid-template-columns:minmax(0,1fr) 200px}
+.dd .actstack{grid-column:1/-1;grid-template-rows:none;grid-template-columns:repeat(3,1fr)}
+.dd .act{padding:16px 20px}
+.dd .evidence,.dd .workouts{grid-template-columns:1fr 1fr}
+.dd .evidence .stack{grid-column:1/-1;grid-template-rows:none;grid-template-columns:1fr 1fr}
+.dd .reference{grid-template-columns:1fr}
+}
+
+/* ---- app-side additions (not in the handoff file) ---- */
+/* gridlines follow the data-driven axis instead of a fixed 14h one */
+.dd .timing .trk .gl{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
+.dd .timing .axis .tk span:first-child,.dd .timing .axis .tk span:last-child{transform:translateX(-50%)}
+/* existing cards reused inside the grid take the tight panel padding and fill their row */
+.dd .evidence > .panel,.dd .evidence .stack > .panel,.dd .reference > .panel{padding:20px 22px}
+.dd .reference > .panel .pfoot-line{margin-top:auto}
+.dd .wk .vsg .v.a{color:var(--amber)}
+.dd .flag .btn{display:inline-block}

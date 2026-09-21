@@ -57,8 +57,9 @@ export function SleepRiver({
   tz: string;
   /** Desktop panel. The default chart is an SVG scaled to its container, so
    *  its height grows with the panel's width (≈400px+ tall on desktop). `wide`
-   *  draws the same nights as fixed-height HTML rows instead: the card's
-   *  height no longer depends on how wide the window is. Tune WIDE_ROW_PX. */
+   *  draws the same nights as fixed-height HTML rows instead (styles:
+   *  dashboard-desktop.css `.dd .timing`), so the card's height no longer
+   *  depends on how wide the window is. */
   wide?: boolean;
 }) {
   if (nights.length < 3) return null;
@@ -107,84 +108,55 @@ export function SleepRiver({
   for (let t = Math.ceil(lo / 2) * 2; t <= hi; t += 2) ticks.push(t);
 
   if (wide) {
-    const WIDE_ROW_PX = 16;
+    // Desktop grid handoff (2026-09-21): fixed 15px rows, square 7px bars,
+    // styles in dashboard-desktop.css (.dd .timing). Height no longer
+    // depends on the panel's width. The axis stays data-driven (lo → hi).
     const pct = (v: number) => `${((v - lo) / range) * 100}%`;
-    const cols = "56px 1fr 46px";
+    const cls = (tst: number | null): string => {
+      if (tst == null || medTst == null) return "g";
+      const d = (tst - medTst) / 60;
+      return d < -90 ? "r" : d < -BAND_MIN ? "y" : d > BAND_MIN ? "b" : "g";
+    };
     return (
-      <div className="panel">
-        <div className="flex items-baseline justify-between">
-          <p className="ov">Sleep · when, not a score</p>
+      <div className="panel tight timing">
+        <div className="ph" style={{ marginBottom: 10 }}>
+          <span className="ov">Sleep · When, not a score</span>
           {medTst != null && (
-            <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-[var(--color-faint)]">
-              your median {fmtDur(medTst)}
+            <span className="ov" style={{ color: "var(--dim)" }}>
+              Your median {fmtDur(medTst)}
             </span>
           )}
         </div>
-        <div className="mt-2 font-mono text-[11px] leading-none">
-          {/* hour axis */}
-          <div className="grid" style={{ gridTemplateColumns: cols, height: 16 }}>
-            <span />
-            <div className="relative">
-              {ticks.map((t) => (
-                <span
-                  key={t}
-                  className="absolute top-0 -translate-x-1/2 text-[10px] text-[var(--color-faint)]"
-                  style={{ left: pct(t) }}
-                >
-                  {fmtHourTick(t)}
-                </span>
-              ))}
-            </div>
-            <span />
+        <div className="axis">
+          <span />
+          <div className="tk">
+            {ticks.map((t) => (
+              <span key={t} style={{ left: pct(t) }}>
+                {fmtHourTick(t)}
+              </span>
+            ))}
           </div>
-          {/* nights */}
-          <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0" style={{ left: 56, right: 46 }}>
-              {ticks.map((t) => (
-                <span
-                  key={t}
-                  className="absolute inset-y-0"
-                  style={{
-                    left: pct(t),
-                    borderLeft: `1px ${t === 12 ? "solid" : "dashed"} var(--color-border)`,
-                  }}
-                />
-              ))}
-            </div>
-            {spans.map((s, i) => {
-              const isLast = i === spans.length - 1;
-              const label = new Date(s.dayStr + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-              return (
-                <div
-                  key={s.dayStr}
-                  className="grid items-center"
-                  style={{ gridTemplateColumns: cols, height: WIDE_ROW_PX, opacity: isLast ? 1 : 0.82 }}
-                >
-                  <span className="pr-2 text-right" style={{ color: isLast ? "var(--color-text)" : "var(--color-faint)" }}>
-                    {label}
-                  </span>
-                  <div className="relative h-full">
-                    <span
-                      className="absolute top-1/2 -translate-y-1/2 rounded-full"
-                      style={{
-                        left: pct(s.x1),
-                        width: `max(2px, ${((s.x2 - s.x1) / range) * 100}%)`,
-                        height: 8,
-                        background: tone(s.tstSec),
-                        opacity: isLast ? 0.95 : 0.65,
-                      }}
-                    />
-                  </div>
-                  <span className="text-right text-[var(--color-faint)]">{fmtDur(s.tstSec)}</span>
-                </div>
-              );
-            })}
-          </div>
+          <span />
         </div>
-        <p className="mt-2 text-[10.5px] leading-snug text-[var(--color-faint)]">
+        {spans.map((s, i) => {
+          const label = new Date(s.dayStr + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+          return (
+            <div key={s.dayStr} className={`row${i === spans.length - 1 ? " today" : ""}`}>
+              <span className="d">{label}</span>
+              <div className="trk" style={{ backgroundImage: "none" }}>
+                {ticks.map((t) => (
+                  <span key={t} className="gl" style={{ left: pct(t) }} />
+                ))}
+                <i className={cls(s.tstSec)} style={{ left: pct(s.x1), width: `max(2px, ${((s.x2 - s.x1) / range) * 100}%)` }} />
+              </div>
+              <span className="len">{fmtDur(s.tstSec)}</span>
+            </div>
+          );
+        })}
+        <div className="note">
           Color = duration vs your own median (±{BAND_MIN}m band) · green in band · yellow/red short · blue long.
           Bedtime spread last 7 nights: ±{startSd}m{startSd > 60 ? " — drifting" : ""}.
-        </p>
+        </div>
       </div>
     );
   }

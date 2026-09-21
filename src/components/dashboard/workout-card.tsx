@@ -49,7 +49,7 @@ interface Props {
 
 /** Route glyph — the path itself, no map tiles, no API keys. Equirectangular
  *  projection with cos(lat) x-correction; start dot green, end dot red. */
-function RouteMap({ route }: { route: [number, number][] }) {
+export function RouteMap({ route }: { route: [number, number][] }) {
   const lats = route.map((p) => p[0]);
   const lngs = route.map((p) => p[1]);
   const latMid = (Math.min(...lats) + Math.max(...lats)) / 2;

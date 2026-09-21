@@ -30,6 +30,9 @@ interface ActivityCardProps {
   /** Walks / breathing / other low-intensity sessions for the day.
    *  Rendered as one summary line, not individual cards. */
   ambientSessions?: AmbientSession[];
+  /** Training workouts of the day, rolled into the footer line
+   *  ("2 WORKOUTS · 2H 12M · 592 CAL") — desktop grid handoff. */
+  trainingSessions?: AmbientSession[];
 }
 
 /**
@@ -82,7 +85,7 @@ function mostRecentTimestamp(
   return { time: formatTime(candidates[0].date, tz), dotClass: candidates[0].dotClass };
 }
 
-export function ActivityCard({ activity, lastHkSync, lastOuraSync, ambientSessions = [], tz }: ActivityCardProps) {
+export function ActivityCard({ activity, lastHkSync, lastOuraSync, ambientSessions = [], trainingSessions, tz }: ActivityCardProps) {
   const ts = mostRecentTimestamp(lastOuraSync, lastHkSync, tz);
 
   const hasOuraData = !!activity;
@@ -143,13 +146,24 @@ export function ActivityCard({ activity, lastHkSync, lastOuraSync, ambientSessio
        * summary line: "Walks: 3 sessions · 1h 33m · 178 cal." Each
        * individual session is still in HealthKitWorkout if the user
        * wants to query it directly via /coach. */}
-      {ambientSessions.length > 0 && (
-        <p className="text-xs font-semibold text-[var(--color-faint)] mt-4 pt-3 border-t border-[var(--color-border)] tracking-[0.03em] uppercase">
-          {summarizeAmbient(ambientSessions)}
+      {(ambientSessions.length > 0 || (trainingSessions?.length ?? 0) > 0) && (
+        <p className="pfoot-line text-xs font-semibold text-[var(--color-faint)] mt-4 pt-3 border-t border-[var(--color-border)] tracking-[0.03em] uppercase">
+          {[
+            trainingSessions && trainingSessions.length > 0 ? summarizeTraining(trainingSessions) : null,
+            ambientSessions.length > 0 ? summarizeAmbient(ambientSessions) : null,
+          ]
+            .filter(Boolean)
+            .join("  ·  ")}
         </p>
       )}
     </div>
   );
+}
+
+function summarizeTraining(sessions: AmbientSession[]): string {
+  const sec = sessions.reduce((a, s) => a + s.durationSeconds, 0);
+  const cal = sessions.reduce((a, s) => a + (s.activeCalories ?? 0), 0);
+  return `${sessions.length} ${sessions.length === 1 ? "workout" : "workouts"} · ${formatMinutes(sec)}${cal > 0 ? ` · ${Math.round(cal)} cal` : ""}`;
 }
 
 function summarizeAmbient(sessions: AmbientSession[]): string {

@@ -1,0 +1,178 @@
+/* ============================================================
+   BASELINE — Dashboard desktop grid (built on baseline.css)
+   Desktop only, ≥768px. 1320 max · 36px pad · 14px gaps.
+   ============================================================ */
+body{width:auto;max-width:1320px;padding-bottom:48px}
+.demo{text-align:center;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);padding:7px 0;background:var(--surf)}
+.dash{display:grid;gap:14px;padding:20px 36px 0}
+.pfoot{font-size:12px;font-weight:600;color:var(--faint);margin-top:auto;padding-top:12px;border-top:1px solid var(--line);letter-spacing:.03em}
+.note{font-size:11.5px;color:var(--faint);line-height:1.45}
+.k{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.v{font-family:var(--disp);font-size:40px;line-height:.85}
+.v small{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--faint);letter-spacing:0}
+.more{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);text-decoration:none}
+.more:hover{color:var(--gold)}
+
+/* ---- row 0 · signals ---- */
+.signals{padding:14px 22px 16px}
+.signals .ph{margin-bottom:10px}
+.signals .ph .note{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:24px}
+.sigs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.sig{display:flex;align-items:center;gap:16px;background:var(--surf2);border-left:3px solid var(--amber);padding:10px 16px}
+.sig .v{font-size:36px;color:var(--amber);white-space:nowrap;min-width:96px}
+.sig .txt{font-size:13px;color:var(--dim);margin-top:3px}
+.sig .txt b{color:var(--ink);font-weight:600}
+@media (max-width:900px){.signals .ph .note{display:none}.sigs{grid-template-columns:1fr}}
+
+/* ---- row 1 · hero: call | scores | actions ---- */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) 260px 240px;gap:14px}
+.call{background:linear-gradient(135deg,color-mix(in oklch,var(--amber),var(--surf) 78%),var(--surf));border-left:6px solid var(--amber);padding:22px 28px;position:relative;overflow:hidden;box-shadow:0 0 60px -22px var(--amber),inset 0 1px 0 oklch(1 0 0/.05);display:flex;flex-direction:column}
+.call .top{display:flex;align-items:center;justify-content:space-between}
+.statusflag{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--bg);background:var(--amber);padding:5px 12px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+.call .verdict{font-family:var(--disp);font-size:clamp(88px,9.5vw,124px);line-height:.82;color:var(--amber);margin:8px 0 6px;letter-spacing:.01em}
+.call .read{font-size:17px;font-weight:500;max-width:560px}
+.call .rec{font-size:15px;font-weight:700;color:var(--amber);margin-top:8px;text-transform:uppercase;letter-spacing:.02em}
+.call .more{margin-top:auto;padding-top:16px}
+.scorestack{display:grid;grid-template-rows:repeat(3,1fr);gap:14px}
+.scard{padding:14px 20px;display:flex;flex-direction:column;justify-content:center;border-left:4px solid var(--line)}
+.scard .n{font-family:var(--disp);font-size:44px;line-height:.9}
+.scard .n small{font-family:var(--sans);font-size:14px;font-weight:600;color:var(--faint);letter-spacing:0}
+.actstack{display:grid;grid-template-rows:repeat(3,1fr);gap:14px}
+.act{padding:0 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;border-left:4px solid var(--gold);text-decoration:none}
+.act:hover{background:var(--surf2)}
+.act b{font-family:var(--disp);font-size:26px;letter-spacing:.02em;font-weight:400}
+.act .ar{color:var(--gold);font-size:20px}
+
+/* ---- row 2 · evidence: sleep | your baseline | calories+cycle ---- */
+.evidence{display:grid;grid-template-columns:1.1fr 1.15fr 1fr;gap:14px;align-items:stretch}
+.evidence .panel{display:flex;flex-direction:column}
+.evidence .stack{display:grid;grid-template-rows:auto 1fr;gap:14px}
+.reference .a4{gap:22px 12px;align-content:start}
+.reference .a4 .v{font-size:48px}
+/* ---- row 4 · reference: activity | 14-night timing ---- */
+.reference{display:grid;grid-template-columns:1fr 2fr;gap:14px;align-items:stretch}
+.reference .panel{display:flex;flex-direction:column}
+.yb{border-left:4px solid var(--blue)}
+.yb .pill.b{background:var(--blue);color:var(--bg)}
+.yb .big{display:flex;align-items:baseline;gap:4px 8px;flex-wrap:wrap}
+.yb .big .v{font-size:40px}
+.yb .big .u{font-size:13px;font-weight:700;color:var(--ink);white-space:nowrap}
+.yb .big .rng{font-size:12.5px;color:var(--dim);font-weight:500;white-space:nowrap}
+.yb .ex{font-size:12.5px;color:var(--dim);margin-top:8px;line-height:1.45}
+.yb .ex b{color:var(--blue);font-weight:600}
+.yb .ex b.r{color:var(--red)}
+.yb hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+.sleep .dur{font-family:var(--disp);font-size:64px;line-height:.85}
+.sleep .sub{font-weight:600;color:var(--dim);font-size:13px;margin-top:2px}
+.sleep .scorebadge{background:var(--gold);color:var(--bg);font-family:var(--disp);font-size:26px;padding:5px 14px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);box-shadow:0 0 22px -6px var(--gold)}
+.sm{padding:10px 14px;border-top:3px solid var(--red);background:color-mix(in oklch,var(--red),var(--surf) 90%);margin-top:14px;display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.sm .v{color:var(--red);font-size:30px}
+.sm .t{font-size:11.5px;font-weight:600;color:var(--faint);white-space:nowrap}
+.stages{margin-top:14px}
+.stages .bar{display:flex;height:10px;gap:3px}
+.stages .bar i{display:block}
+.stages .bar .deep{background:var(--blue)}.stages .bar .rem{background:var(--gold)}.stages .bar .light{background:var(--line)}
+.stages .leg{display:flex;gap:16px;margin-top:8px;font-size:12px;font-weight:600;color:var(--dim);flex-wrap:wrap}
+.stages .leg span{white-space:nowrap}
+.stages .leg b{color:var(--ink)}
+.stages .note{margin-top:6px}
+.recov{font-size:12px;font-weight:600;color:var(--faint);letter-spacing:.03em;margin-top:auto;padding-top:12px;border-top:1px solid var(--line)}
+.recov b{color:var(--ink)}
+/* 14-night timing chart */
+.timing .axis,.timing .row{display:grid;grid-template-columns:44px 1fr 38px;gap:10px;align-items:center}
+.timing .axis{margin-bottom:4px}
+.timing .axis .tk{position:relative;height:14px}
+.timing .axis .tk span{position:absolute;transform:translateX(-50%);font-size:10px;font-weight:600;color:var(--faint)}
+.timing .axis .tk span:first-child{transform:none}.timing .axis .tk span:last-child{transform:translateX(-100%)}
+.timing .row{height:15px}
+.timing .row .d,.timing .row .len{font-size:10.5px;font-weight:600;color:var(--faint);font-variant-numeric:tabular-nums}
+.timing .row .len{text-align:right}
+.timing .row.today .d{color:var(--ink);font-weight:800}
+.timing .trk{position:relative;height:100%;background-image:repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px calc(100%/7))}
+.timing .trk i{position:absolute;top:4px;height:7px;background:var(--green)}
+.timing .trk i.b{background:var(--blue)}.timing .trk i.r{background:var(--red)}.timing .trk i.y{background:var(--gold)}
+.timing .note{margin-top:auto;padding-top:10px}
+
+.a4{display:grid;grid-template-columns:1fr 1fr;gap:14px 12px}
+.cyc .state{display:flex;align-items:center;gap:9px;font-family:var(--disp);font-size:36px;color:var(--green)}
+.cyc .state .dot{width:10px;height:10px;background:var(--green);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.cyc .temp{margin-top:12px;display:flex;align-items:baseline;gap:12px}
+.cyc .temp .v{font-size:32px}
+.cyc .note{margin-top:auto;padding-top:8px}
+.ph .hide{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);cursor:pointer}
+.cal3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.cal3 .c{text-align:center;background:var(--surf2);padding:12px 6px}
+.cal3 .c .k{font-size:10px}
+.cal3 .c .v{font-size:38px}
+.cal3 .c .v.in{color:var(--green)}.cal3 .c .v.out{color:var(--gold)}.cal3 .c .v.net{color:var(--gold)}
+.calbar{margin-top:12px;background:var(--gold);color:var(--bg);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;text-align:center;padding:9px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+
+/* ---- row 4 · workouts side by side ---- */
+.workouts{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch}
+.wk{display:flex;flex-direction:column;padding:18px 22px}
+.wk .ph{margin-bottom:6px}
+.wk .when{font-size:12px;font-weight:600;color:var(--faint);letter-spacing:.03em}
+.wk .ttl{font-family:var(--disp);font-size:30px;line-height:.9;letter-spacing:.02em;margin-bottom:12px}
+.wk .hr{display:flex;align-items:baseline;justify-content:space-between}
+.wk .hr .v{color:var(--red);font-size:44px}
+.wk .hr .rng{font-size:12px;font-weight:600;color:var(--dim);white-space:nowrap}
+.wk .hr .rng b{color:var(--ink)}
+.wk svg{display:block;width:100%;height:64px;margin-top:8px}
+.zbar{display:flex;height:6px;gap:2px;margin-top:6px}
+.zbar i{display:block}
+.z1{background:var(--blue)}.z2{background:var(--green)}.z3{background:var(--gold)}.z4{background:oklch(0.74 0.17 55)}.z5{background:var(--red)}
+.zleg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:10.5px;font-weight:600;color:var(--faint)}
+.zleg b{font-weight:800}
+.zleg .z1,.zleg .z2,.zleg .z3,.zleg .z4,.zleg .z5{background:none}
+.zleg .z1{color:var(--blue)}.zleg .z2{color:var(--green)}.zleg .z3{color:var(--gold)}.zleg .z4{color:oklch(0.74 0.17 55)}.zleg .z5{color:var(--red)}
+.wk .note{margin-top:4px}
+.flag{margin-top:12px;display:flex;flex-direction:column;align-items:flex-start;gap:12px;background:color-mix(in oklch,var(--red),var(--surf) 86%);border-left:3px solid var(--red);padding:14px 16px}
+.flag .k{color:var(--red)}
+.flag .btn{background:var(--red);color:var(--ink);box-shadow:0 0 24px -8px var(--red)}
+.flag .btn.ghost{background:var(--surf2);color:var(--dim);box-shadow:none}
+.flag .txt{font-size:13px;color:var(--ink);margin-top:4px;text-wrap:pretty}
+.flag .txt b{color:var(--red);font-weight:700}
+.flag .acts{display:flex;gap:8px;flex-wrap:wrap}
+.flag .btn{font-size:11px;padding:9px 14px;text-decoration:none;white-space:nowrap}
+.vsb{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.vsg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px}
+.vsg .k{font-size:10px}
+.vsg .v{font-size:28px;margin-top:3px}
+.vsg .v.r{color:var(--red)}.vsg .v.a{color:var(--amber)}
+.vsg .sub{font-size:11px;color:var(--faint);margin-top:3px}
+.tiles{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:10px;margin-top:14px}
+.tile{background:var(--surf2);padding:10px 14px}
+.tile .v{font-size:32px;margin-top:4px}
+.wk .meta{margin-top:14px;display:grid;gap:10px}
+.sess{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.sess .ex{font-size:13px;color:var(--dim);margin-top:4px;line-height:1.45}
+.vol{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.pill.r{background:var(--red);color:var(--ink)}
+.wk .meta .k{margin-bottom:3px}
+.wk .meta .txt{font-size:13px;color:var(--dim)}
+.wk .meta .txt b{color:var(--ink);font-weight:600}
+.wk .meta .sub{display:flex;gap:16px;margin-top:4px;font-size:12px;color:var(--faint)}
+.wk .meta .sub a{color:var(--dim)}
+.wk .foot{margin-top:auto;padding-top:14px;display:flex;justify-content:space-between;align-items:center}
+.wk .foot .more{color:var(--blue)}
+.wk .foot .more:hover{color:var(--gold)}
+
+/* ---- row 5 · tonight ---- */
+.tonight{display:flex;align-items:center;justify-content:space-between;padding:16px 26px;background:var(--surf2)}
+.tonight .l{font-family:var(--disp);font-size:24px}
+.tonight .l b{color:var(--gold)}
+.tonight .r{font-size:12px;font-weight:600;color:var(--faint);letter-spacing:.04em;text-transform:uppercase}
+
+/* ---- breakpoints ---- */
+@media (max-width:1200px){
+  .hero{grid-template-columns:minmax(0,1fr) 220px 210px}
+  .reference{grid-template-columns:1fr 1.5fr}
+}
+@media (max-width:900px){
+  .hero{grid-template-columns:minmax(0,1fr) 200px}
+  .actstack{grid-column:1/-1;grid-template-rows:none;grid-template-columns:repeat(3,1fr)}
+  .act{padding:16px 20px}
+  .evidence,.workouts{grid-template-columns:1fr 1fr}
+  .evidence .stack{grid-column:1/-1;grid-template-rows:none;grid-template-columns:1fr 1fr}
+  .reference{grid-template-columns:1fr}
+}

@@ -20,7 +20,11 @@ export function TodayCallHero({
   isConnected,
   evidence,
   flagPointer,
+  actions,
 }: {
+  /** Desktop grid handoff (2026-09-21): the three main actions ride in the
+   *  hero row as a third column so they sit above the fold. */
+  actions?: { href: string; label: string }[];
   call: TrainingCall | null;
   isConnected: boolean;
   evidence?: EvidenceItem[];
@@ -52,10 +56,16 @@ export function TodayCallHero({
   );
 
   return (
-    <div className="grid grid-cols-[1fr_320px] gap-[14px]">
+    <div
+      className={
+        actions?.length
+          ? "grid grid-cols-[minmax(0,1fr)_260px_240px] gap-[14px] max-[1200px]:grid-cols-[minmax(0,1fr)_220px_210px] max-[900px]:grid-cols-[minmax(0,1fr)_200px]"
+          : "grid grid-cols-[1fr_320px] gap-[14px]"
+      }
+    >
       {/* Left: amber gradient call band */}
       <div
-        className="relative overflow-hidden border-l-[6px] border-[var(--color-yellow)] px-8 py-7"
+        className={`relative flex flex-col overflow-hidden border-l-[6px] border-[var(--color-yellow)] ${actions?.length ? "px-7 py-[22px]" : "px-8 py-7"}`}
         style={{
           background:
             "linear-gradient(135deg, color-mix(in oklch, var(--color-yellow), var(--color-surface) 78%), var(--color-surface))",
@@ -71,7 +81,9 @@ export function TodayCallHero({
         </div>
 
         {/* The verdict — massive Bebas Neue */}
-        <p className="disp mt-2 text-[140px] leading-[0.82] text-[var(--color-yellow)]">
+        <p
+          className={`disp mt-2 leading-[0.82] text-[var(--color-yellow)] ${actions?.length ? "text-[clamp(88px,9.5vw,124px)]" : "text-[140px]"}`}
+        >
           {call.verdict.toUpperCase()}
         </p>
 
@@ -130,7 +142,7 @@ export function TodayCallHero({
             >
               <span className="ov mb-0.5">{item.label}</span>
               <span
-                className={`disp num text-[52px] leading-[0.9] ${
+                className={`disp num ${actions?.length ? "text-[44px]" : "text-[52px]"} leading-[0.9] ${
                   isGreen
                     ? "text-[var(--color-green)]"
                     : "text-[var(--color-text)]"
@@ -147,6 +159,22 @@ export function TodayCallHero({
           );
         })}
       </div>
+
+      {/* Action stack — Log food / Log workout / Open coach */}
+      {actions && actions.length > 0 && (
+        <div className="grid grid-rows-3 gap-[14px] max-[900px]:col-span-full max-[900px]:grid-cols-3 max-[900px]:grid-rows-none">
+          {actions.map((a) => (
+            <Link
+              key={a.label}
+              href={a.href}
+              className="panel flex items-center justify-between border-l-4 border-[var(--color-gold)] !px-5 !py-0 transition duration-150 ease-out-strong hover:bg-[var(--color-surface-2)] active:scale-[0.98] max-[900px]:!py-4"
+            >
+              <b className="disp text-[26px] font-normal tracking-[0.02em]">{a.label.toUpperCase()}</b>
+              <span className="text-xl text-[var(--color-gold)]" aria-hidden="true">→</span>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Archivo } from "next/font/google";
 import "./globals.css";
 import "./mobile.css";
+import "./dashboard-desktop.css";
 import { Nav } from "@/components/nav";
 import { PwaRegister } from "@/components/pwa-register";
 import { NativeHealthInit } from "@/components/native/native-health-init";
