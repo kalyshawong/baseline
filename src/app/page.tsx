@@ -486,6 +486,8 @@ export default async function Dashboard({
             avgHeartRate: w.avgHeartRate,
             maxHeartRate: w.maxHeartRate,
             minHeartRate: w.minHeartRate,
+            distance: w.distance,
+            distanceUnit: w.distanceUnit,
             fuelLine: fuelLineByWorkoutId[w.id] ?? null,
             route: parseRoute(w.routeJson),
           }))}
@@ -674,6 +676,8 @@ export default async function Dashboard({
                 avgHeartRate: w.avgHeartRate,
                 maxHeartRate: w.maxHeartRate,
                 minHeartRate: w.minHeartRate,
+                distance: w.distance,
+                distanceUnit: w.distanceUnit,
               }}
               hrChart={hrChartsByWorkoutId[w.id] ?? []}
               fuelLine={fuelLineByWorkoutId[w.id] ?? null}

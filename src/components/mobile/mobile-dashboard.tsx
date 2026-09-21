@@ -90,6 +90,8 @@ export type MobileDashboardProps = {
     avgHeartRate: number | null;
     maxHeartRate: number | null;
     minHeartRate: number | null;
+    distance?: number | null;
+    distanceUnit?: string | null;
     fuelLine?: string | null;
     route?: [number, number][] | null;
   }[];

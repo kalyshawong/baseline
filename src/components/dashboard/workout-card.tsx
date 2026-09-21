@@ -31,6 +31,9 @@ interface Props {
     avgHeartRate: number | null;
     maxHeartRate: number | null;
     minHeartRate: number | null;
+    /** Distance as recorded (runs, walks, rows…). Null/0 → no distance tile. */
+    distance?: number | null;
+    distanceUnit?: string | null;
   };
   /** Downsampled HR curve. Empty array when no samples exist for the window. */
   hrChart: Array<{ t: number; bpm: number }>;
@@ -108,6 +111,22 @@ function formatTime(iso: string): string {
   });
 }
 
+/** Distance tile value. Metres are shown as km from 1000 m up (matches the
+ *  ambient-workout rows on the dashboard); other units pass through. */
+function formatDistance(
+  distance: number | null | undefined,
+  unit: string | null | undefined,
+): { value: string; unit: string } | null {
+  if (distance == null || !(distance > 0)) return null;
+  const u = (unit ?? "").toLowerCase();
+  if (u === "m") {
+    return distance >= 1000
+      ? { value: (distance / 1000).toFixed(2), unit: "km" }
+      : { value: `${Math.round(distance)}`, unit: "m" };
+  }
+  return { value: distance.toFixed(2), unit: u || "km" };
+}
+
 function formatDuration(seconds: number): string {
   const totalMin = Math.round(seconds / 60);
   const h = Math.floor(totalMin / 60);
@@ -120,6 +139,8 @@ export function WorkoutCard({ workout, hrChart, fuelLine, zoneMaxHr, route }: Pr
   const timeRange = `${formatTime(workout.startedAt)} – ${formatTime(workout.endedAt)}`;
   const durationStr = formatDuration(workout.durationSeconds);
   const hasHrData = workout.avgHeartRate != null;
+  const distanceStr = formatDistance(workout.distance, workout.distanceUnit);
+  const isRun = /run/i.test(workout.name);
   const hasHrChart = hrChart.length > 1;
 
   // Time-in-zone from the (evenly downsampled) curve — % of samples per zone.
@@ -145,21 +166,7 @@ export function WorkoutCard({ workout, hrChart, fuelLine, zoneMaxHr, route }: Pr
       </h2>
       <p className="mt-1 text-sm text-[var(--color-text-muted)]">{timeRange}</p>
 
-      {/* Stat grid: duration + active calories */}
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <Stat label="Duration" value={durationStr} />
-        <Stat
-          label="Active cal"
-          value={
-            workout.activeCalories != null
-              ? `${Math.round(workout.activeCalories)}`
-              : "—"
-          }
-          unit={workout.activeCalories != null ? "cal" : undefined}
-        />
-      </div>
-
-      {/* HR feature block — bigger type, range below */}
+      {/* HR feature block FIRST (her call, 2026-09-21) — bigger type, range below */}
       {hasHrData && (
         <div className="mt-5">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
@@ -257,6 +264,21 @@ export function WorkoutCard({ workout, hrChart, fuelLine, zoneMaxHr, route }: Pr
         </div>
       )}
 
+      {/* Stat grid: duration + distance (when recorded) + active calories */}
+      <div className={`mt-5 grid gap-3 ${distanceStr ? "grid-cols-3" : "grid-cols-2"}`}>
+        <Stat label="Duration" value={durationStr} />
+        {distanceStr && <Stat label="Distance" value={distanceStr.value} unit={distanceStr.unit} />}
+        <Stat
+          label="Active cal"
+          value={
+            workout.activeCalories != null
+              ? `${Math.round(workout.activeCalories)}`
+              : "—"
+          }
+          unit={workout.activeCalories != null ? "cal" : undefined}
+        />
+      </div>
+
       {/* GPS route — path shape only, no tiles */}
       {route && route.length >= 2 && <RouteMap route={route} />}
 
@@ -264,7 +286,7 @@ export function WorkoutCard({ workout, hrChart, fuelLine, zoneMaxHr, route }: Pr
       {fuelLine && (
         <div className="mt-4 border-t border-[var(--color-border)] pt-3">
           <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)]">
-            Pre-run fuel
+            {isRun ? "Pre-run fuel" : "Pre-workout fuel"}
           </p>
           <p className="mt-1 text-[12.5px] leading-relaxed text-[var(--color-text-muted)]">
             {fuelLine}
