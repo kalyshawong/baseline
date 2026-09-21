@@ -104,13 +104,9 @@ export function BaselineCard({
               </span>
             </div>
             <div className="ex">
-              {runHr.flatAndHigh && (
-                <>
-                  <b>Same HR regardless of distance</b> —{" "}
-                </>
-              )}
+              <b>{runHr.flat ? "Same HR regardless of distance" : "HR moves with distance"}</b> —{" "}
               {runHr.bands.map((b) => `${b.label} ${b.avgHr}`).join(" · ")}.
-              {runHr.flatAndHigh && <> Your easy runs aren&apos;t easy. A sign to slow them down and build a real Z2.</>}
+              {runHr.aboveZ2 && <> Your easy runs aren&apos;t easy. A sign to slow them down and build a real Z2.</>}
             </div>
           </>
         )}
@@ -191,14 +187,12 @@ export function BaselineCard({
             </span>
           </div>
           <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--color-text-muted)]">
-            {runHr.flatAndHigh && (
-              <span className="font-semibold text-[var(--color-blue)]">Same HR regardless of distance</span>
-            )}
-            {runHr.flatAndHigh ? " — " : ""}
+            <span className="font-semibold text-[var(--color-blue)]">
+              {runHr.flat ? "Same HR regardless of distance" : "HR moves with distance"}
+            </span>
+            {" — "}
             {runHr.bands.map((b) => `${b.label} ${b.avgHr}`).join(" · ")}.
-            {runHr.flatAndHigh && (
-              <> Your easy runs aren&apos;t easy. A sign to slow them down and build a real Z2.</>
-            )}
+            {runHr.aboveZ2 && <> Your easy runs aren&apos;t easy. A sign to slow them down and build a real Z2.</>}
           </p>
         </>
       )}

@@ -7,6 +7,8 @@ import {
   workoutKind,
   type WorkoutBaseline,
   type StrengthSummary,
+  type RunDetail,
+  type RunZones,
 } from "@/lib/dashboard-desktop";
 import { WorkoutNotesBlock } from "@/components/dashboard/workout-notes-block";
 import { RouteMap } from "@/components/dashboard/workout-card";
@@ -346,6 +348,8 @@ export function WorkoutCardDesktop({
   baseline,
   strength,
   weeklyRunKm,
+  runDetail,
+  runZones,
   route,
   single,
 }: {
@@ -357,6 +361,11 @@ export function WorkoutCardDesktop({
   baseline: WorkoutBaseline | null;
   strength: StrengthSummary | null;
   weeklyRunKm: number | null;
+  /** Splits + walk breaks when the workout carries them (demo today; real
+   *  users once the native sync walks HealthKit segments backwards). */
+  runDetail?: RunDetail | null;
+  /** Weekly run-volume landmarks from the profile; null → plain weekly km. */
+  runZones?: RunZones | null;
   /** GPS route [[lat,lng],...] from the native module. Null → no map. */
   route?: [number, number][] | null;
   /** Only workout of the day → span both columns. */
@@ -505,15 +514,44 @@ export function WorkoutCardDesktop({
         <div className="sess">
           <div className="k">What you did</div>
           <div className="ex">
-            {km.toFixed(2)} km at {fmtPace(w.durationSeconds / km)}/km
+            {runDetail?.walkBreakCount ? "Run with walk breaks" : "Steady run"} · {km.toFixed(2)} km at{" "}
+            {fmtPace(w.durationSeconds / km)}/km
+            {runDetail?.walkBreakCount ? (
+              <>
+                {" "}· {runDetail.walkBreakCount} walk {runDetail.walkBreakCount === 1 ? "break" : "breaks"}
+                {runDetail.walkBreakSeconds != null && (
+                  <> ({Math.floor(runDetail.walkBreakSeconds / 60)}m {runDetail.walkBreakSeconds % 60}s)</>
+                )}
+              </>
+            ) : null}
+            {runDetail?.splits && runDetail.splits.length > 0 && (
+              <> · splits {runDetail.splits.map((s) => fmtPace(s)).join(" / ")}</>
+            )}
           </div>
           {weeklyRunKm != null && (
             <>
               <div className="k" style={{ marginTop: 10 }}>
-                Weekly run volume
+                Weekly run volume{runZones ? " · vs your MEV / MAV / MRV" : ""}
               </div>
               <div className="vol">
-                <span className="pill muted">{weeklyRunKm} km this week</span>
+                {runZones ? (
+                  <>
+                    <span className={`pill ${VOLUME_PILL[runZones.status].cls}`}>
+                      {weeklyRunKm} km · {VOLUME_PILL[runZones.status].label} ({
+                        runZones.status === "below_mev" || runZones.status === "at_mev"
+                          ? `${runZones.mev} km`
+                          : runZones.status === "in_mav"
+                            ? `${runZones.mav} km`
+                            : `${runZones.mrv} km`
+                      })
+                    </span>
+                    <span className="pill muted">
+                      MAV {runZones.mav} km · MRV {runZones.mrv} km
+                    </span>
+                  </>
+                ) : (
+                  <span className="pill muted">{weeklyRunKm} km this week</span>
+                )}
               </div>
             </>
           )}

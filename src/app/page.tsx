@@ -31,6 +31,8 @@ import {
   getWeeklyRunKm,
   getRunHrBaseline,
   workoutKind,
+  parseRunDetail,
+  classifyRunVolume,
   type WorkoutBaseline,
 } from "@/lib/dashboard-desktop";
 
@@ -671,6 +673,8 @@ export default async function Dashboard({
               baseline={baselineByWorkoutId[w.id] ?? null}
               strength={strengthSummary}
               weeklyRunKm={weeklyRunKm}
+              runDetail={parseRunDetail(w)}
+              runZones={weeklyRunKm != null ? classifyRunVolume(weeklyRunKm, profile) : null}
               workout={{
                 id: w.id,
                 name: w.name,

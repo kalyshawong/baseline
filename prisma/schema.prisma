@@ -519,6 +519,11 @@ model UserProfile {
   dailyCalorieTarget Int?
   unit               String   @default("lb")
   hrvBaselineChoice  String   @default("pending") // pending | personalized | standard
+  // Weekly run-volume landmarks in km (desktop grid handoff). Null = not set;
+  // the run card then shows plain weekly km.
+  runMevKm           Float?
+  runMavKm           Float?
+  runMrvKm           Float?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -718,6 +723,12 @@ model HealthKitWorkout {
   distanceUnit    String?
   // GPS route (2026-08-28): downsampled [[lat,lng],...] JSON, <=300 points
   routeJson       String?
+  // Run detail (2026-09-21, desktop grid handoff). Nullable; populated for
+  // the demo tenant by the seed today, for real users by a later native
+  // sync that walks HealthKit segments backwards.
+  splitsJson      String?  // JSON number[] — seconds per km, last entry may be a partial km
+  walkBreakCount  Int?
+  walkBreakSeconds Int?
   avgHeartRate    Int?
   maxHeartRate    Int?
   minHeartRate    Int?

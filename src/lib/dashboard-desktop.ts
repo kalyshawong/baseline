@@ -10,15 +10,18 @@ import { volumeZones, classifyVolume, compoundContributions, type VolumeStatus }
  * own last 60 days, the strength session + weekly volume, and the run-HR
  * block on Your Baseline.
  *
- * Rule for everything here: the user's own data or nothing. A comparison
- * needs MIN_HISTORY prior workouts of the same kind; below that the block is
- * simply absent. Nothing falls back to a population number or a made-up one.
+ * Every block the handoff draws is rendered whenever the user has ANY prior
+ * workout of the same kind in the window (Kalysha, 2026-09-21: implement the
+ * handoff as drawn — no extra gates). The session count is shown next to the
+ * comparison so a thin history reads as thin. Nothing falls back to a
+ * population number.
  */
 
 const DAY = 86_400_000;
 const WINDOW_DAYS = 60;
-const MIN_HISTORY = 4;
+const MIN_HISTORY = 1;
 const ZONE_HISTORY = 6; // prior workouts whose HR curve we read for zone share
+const FLAG_PCT_SLOWER = 15; // run flag threshold (handoff: "far off pace")
 
 export type WorkoutKind = "run" | "strength" | "other";
 export type Tone = "ink" | "amber" | "red";
@@ -179,8 +182,8 @@ export async function getWorkoutBaseline(
         sub: `your usual ${fmtPace(usual)}/km`,
         tone,
       });
-      const hrNotLower = w.avgHeartRate != null && hrs.length > 0 && w.avgHeartRate >= mean(hrs);
-      if (tone === "red" && pct >= 15 && hrNotLower && w.avgHeartRate != null) {
+      // Handoff: the flag fires when a run is far off her usual pace.
+      if (pct >= FLAG_PCT_SLOWER && w.avgHeartRate != null) {
         flag = { paceStr: fmtPace(pace), avgHr: w.avgHeartRate, pctSlower: pct, usualPaceStr: fmtPace(usual) };
       }
     }
@@ -287,6 +290,47 @@ export async function getStrengthSummary(viewDate: Date, unit: string | null): P
   return { exercises, weekly };
 }
 
+export interface RunDetail {
+  splits: number[] | null; // seconds per km
+  walkBreakCount: number | null;
+  walkBreakSeconds: number | null;
+}
+
+export function parseRunDetail(w: {
+  splitsJson: string | null;
+  walkBreakCount: number | null;
+  walkBreakSeconds: number | null;
+}): RunDetail | null {
+  let splits: number[] | null = null;
+  if (w.splitsJson) {
+    try {
+      const v = JSON.parse(w.splitsJson);
+      if (Array.isArray(v) && v.every((x) => typeof x === "number")) splits = v;
+    } catch {
+      /* malformed → no splits */
+    }
+  }
+  if (!splits && w.walkBreakCount == null) return null;
+  return { splits, walkBreakCount: w.walkBreakCount, walkBreakSeconds: w.walkBreakSeconds };
+}
+
+export interface RunZones {
+  mev: number;
+  mav: number;
+  mrv: number;
+  status: "below_mev" | "at_mev" | "in_mav" | "above_mav" | "at_mrv" | "above_mrv";
+}
+
+export function classifyRunVolume(
+  km: number,
+  p: { runMevKm: number | null; runMavKm: number | null; runMrvKm: number | null } | null,
+): RunZones | null {
+  if (!p || p.runMevKm == null || p.runMavKm == null || p.runMrvKm == null) return null;
+  const status =
+    km < p.runMevKm ? "below_mev" : km < p.runMavKm ? "at_mev" : km <= p.runMrvKm ? "in_mav" : "above_mrv";
+  return { mev: p.runMevKm, mav: p.runMavKm, mrv: p.runMrvKm, status };
+}
+
 /** Run distance logged so far this week (Mon → viewed day), in km. */
 export async function getWeeklyRunKm(viewDayEnd: Date, viewDate: Date): Promise<number | null> {
   const weekStart = new Date(viewDate);
@@ -312,8 +356,10 @@ export interface RunHrBaseline {
   minKm: number;
   maxKm: number;
   bands: { label: string; avgHr: number; n: number }[];
-  /** True when HR barely moves with distance AND sits above her Z2 ceiling. */
-  flatAndHigh: boolean;
+  /** HR barely moves with distance (band spread ≤ 6 bpm, or one band). */
+  flat: boolean;
+  /** Average run HR sits above her Z2 ceiling (0.7 × observed max). */
+  aboveZ2: boolean;
 }
 
 export async function getRunHrBaseline(viewDayEnd: Date, zoneMaxHr: number | null): Promise<RunHrBaseline | null> {
@@ -326,7 +372,7 @@ export async function getRunHrBaseline(viewDayEnd: Date, zoneMaxHr: number | nul
     .filter((r) => workoutKind(r.name) === "run")
     .map((r) => ({ hr: r.avgHeartRate as number, km: toKm(r.distance, r.distanceUnit) }))
     .filter((r): r is { hr: number; km: number } => r.km != null && r.km >= 1);
-  if (runs.length < MIN_HISTORY) return null;
+  if (runs.length < 2) return null;
 
   const defs: [string, (k: number) => boolean][] = [
     ["under 5 km", (k) => k < 5],
@@ -349,6 +395,7 @@ export async function getRunHrBaseline(viewDayEnd: Date, zoneMaxHr: number | nul
     minKm: Math.round(Math.min(...runs.map((r) => r.km))),
     maxKm: Math.round(Math.max(...runs.map((r) => r.km))),
     bands,
-    flatAndHigh: spread != null && spread <= 6 && z2Ceiling != null && avgHr > z2Ceiling,
+    flat: spread == null || spread <= 6,
+    aboveZ2: z2Ceiling != null && avgHr > z2Ceiling,
   };
 }

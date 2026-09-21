@@ -60,6 +60,11 @@ function mulberry32(seed: number) {
 }
 
 const did = (id: string) => `demo_${id}`;
+const hash = (str: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+  return h >>> 0;
+};
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const utcMidnight = (d: Date) => new Date(iso(d) + "T00:00:00.000Z");
 
@@ -347,8 +352,38 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
         bodyFatPct: null,
         heightCm: 168,
         age: 27,
+        // Weekly run-volume landmarks (demo only, 2026-09-21). Real users set
+        // their own; until then their run card shows plain weekly km.
+        runMevKm: 16,
+        runMavKm: 24,
+        runMrvKm: 32,
       })
     : null;
+
+  // Run detail (demo only): km splits and walk breaks are not in the source
+  // data yet (a later native sync will walk HealthKit segments backwards for
+  // real users). For the demo, derive plausible splits from each run's own
+  // pace — deterministic per workout, summing to its duration — and give the
+  // runs whose sample note mentions walking two walk breaks.
+  const runDetailFor = (r: { id: string; name: string; durationSeconds: number; distance: number | null; distanceUnit: string | null }) => {
+    if (!/run/i.test(r.name) || r.distance == null || r.distance <= 0) return {};
+    const km = (r.distanceUnit ?? "km").toLowerCase() === "m" ? r.distance / 1000 : r.distance;
+    if (km < 1) return {};
+    const rand = mulberry32(hash(r.id));
+    const full = Math.floor(km);
+    const avg = r.durationSeconds / km;
+    // whole-km splits only (the handoff shows five for a 5.45 km run):
+    // slightly slower each km, ±4% noise, scaled to the time spent on full kms
+    const raw = Array.from({ length: full }, (_, i) => avg * (1 + 0.01 * i + (rand() - 0.5) * 0.08));
+    const scale = (avg * full) / raw.reduce((a, b) => a + b, 0);
+    const splits = raw.map((v) => Math.round(v * scale));
+    const walks = avg > 420 ? 2 : 0; // slower than 7:00/km → the walk-break runs
+    return {
+      splitsJson: JSON.stringify(splits),
+      walkBreakCount: walks,
+      walkBreakSeconds: walks ? 220 : 0,
+    };
+  };
 
   // ---- synthetic experiments (values pulled from the demo's real dailies) ---
   const byDay = <T extends { day: Date }>(rows: T[], pick: (r: T) => number | null | undefined) => {
@@ -550,7 +585,12 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
         "HealthKitWorkout",
         t.healthKitWorkout,
         hkWorkouts.map((r) =>
-          tx(r, [], { routeJson: null, externalId: did(r.externalId), endedAt: shWith(r.endedAt, r.startedAt) }),
+          tx(r, [], {
+            routeJson: null,
+            externalId: did(r.externalId),
+            endedAt: shWith(r.endedAt, r.startedAt),
+            ...runDetailFor(r),
+          }),
         ),
       );
       await put("HeartRateZoneSummary", t.heartRateZoneSummary, zones.map((r) => tx(r, ["workoutId"])));
