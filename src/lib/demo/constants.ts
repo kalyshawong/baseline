@@ -14,6 +14,11 @@
 export const DEMO_USER_ID = "usr_demo";
 export const DEMO_EMAIL = "demo@baseline.invalid";
 
+/** The demo's "usual" run pace, 6:00/km (Kalysha, 2026-09-23). The demo
+ *  reads each run against this fixed pace instead of its 60-day history, so a
+ *  slow day shows the "Did something happen?" flag. Not her real pace. */
+export const DEMO_USUAL_RUN_PACE_SEC = 360;
+
 export function isDemoUserId(id: string | null | undefined): boolean {
   return id === DEMO_USER_ID;
 }

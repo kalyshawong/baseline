@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId, runAsUser } from "@/lib/current-user";
+import { DEMO_USUAL_RUN_PACE_SEC, isDemoUserId } from "@/lib/demo/constants";
 import { getDownsampledHrForWorkout } from "@/lib/workout-notes";
 import { volumeZones, classifyVolume, compoundContributions, type VolumeStatus } from "@/lib/training";
 
@@ -172,9 +173,11 @@ export async function getWorkoutBaseline(
       .filter((v): v is number => v != null);
     if (paces.length >= MIN_HISTORY) {
       const pace = w.durationSeconds / km;
-      const usual = mean(paces);
+      // Demo: a fixed usual pace instead of its history (see constants.ts).
+      const demo = isDemoUserId(await getCurrentUserId());
+      const usual = demo ? DEMO_USUAL_RUN_PACE_SEC : mean(paces);
       const pct = Math.round(((pace - usual) / usual) * 100);
-      const tone = toneFor(pace, paces, "high");
+      const tone = demo ? (pct >= FLAG_PCT_SLOWER ? "red" : "ink") : toneFor(pace, paces, "high");
       stats.push({
         label: "Pace",
         value: `${pct > 0 ? "+" : pct < 0 ? "−" : ""}${Math.abs(pct)}%`,

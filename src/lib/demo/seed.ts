@@ -256,6 +256,96 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
       });
   }
 
+  // ---- showcase strength = an upper day (Kalysha, 2026-09-23) ---------------
+  // The demo's lift is a made-up upper day, one exercise per muscle in her
+  // order: lats → mid back → lower back → rear delts → delts → chest →
+  // biceps → triceps. Sets and reps follow the hypertrophy evidence: 3 hard
+  // sets per exercise, 8–15 reps a few reps short of failure (Schoenfeld et al.
+  // 2017, 2021), overhead triceps extension over pushdowns for the long head
+  // (Maeo et al. 2023). Loads are her own most recent working weight on that
+  // exercise when she has one. Whatever she really logged that day is replaced.
+  const UPPER_DAY: { name: string; sets: number; reps: number; fallbackKg: number }[] = [
+    { name: "Lat Pulldown", sets: 3, reps: 10, fallbackKg: 32 },
+    { name: "Seated Cable Row", sets: 3, reps: 10, fallbackKg: 32 },
+    { name: "Back Extension", sets: 3, reps: 12, fallbackKg: 0 },
+    { name: "Rear Delt Fly", sets: 3, reps: 15, fallbackKg: 7 },
+    { name: "Dumbbell Shoulder Press", sets: 3, reps: 8, fallbackKg: 18 },
+    { name: "Dumbbell Bench Press", sets: 3, reps: 8, fallbackKg: 30 },
+    { name: "Bicep Curl", sets: 3, reps: 10, fallbackKg: 11 },
+    { name: "Overhead Tricep Extension", sets: 3, reps: 12, fallbackKg: 14 },
+  ];
+  const catalog = await db.exercise.findMany({
+    where: { userId: null, name: { in: UPPER_DAY.map((e) => e.name) } },
+    select: { id: true, name: true },
+  });
+  const catalogId = new Map(catalog.map((e) => [e.name, e.id]));
+  const exName = new Map(exercises.map((e) => [e.id, e.name]));
+  for (const e of catalog) exName.set(e.id, e.name);
+  const lastKg = new Map<string, number>();
+  for (const st of [...sets].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())) {
+    const n = exName.get(st.exerciseId);
+    if (n && !st.isWarmup && st.weight > 0 && !lastKg.has(n)) lastKg.set(n, st.weight);
+  }
+  const showcaseSessions = sessions.filter((x) => x.date.getTime() === showcase.getTime());
+  if (showcaseSessions.length > 0 || showcaseStrength) {
+    const host =
+      showcaseSessions[0] ??
+      (() => {
+        const w = showcaseStrength!;
+        const row = {
+          id: "synth_upper_day",
+          userId: SOLO_USER_ID,
+          date: showcase,
+          startedAt: w.startedAt,
+          completedAt: w.endedAt,
+          durationMin: Math.round(w.durationSeconds / 60),
+          readinessScore: null,
+          cyclePhase: null,
+          sessionRPE: null,
+          sessionVolume: null,
+          notes: null,
+          templateName: null,
+          createdAt: w.startedAt,
+          updatedAt: w.startedAt,
+        } as (typeof sessions)[number];
+        sessions.push(row);
+        return row;
+      })();
+    const drop = new Set(showcaseSessions.map((x) => x.id));
+    for (let i = sessions.length - 1; i >= 0; i--) {
+      if (sessions[i].id !== host.id && drop.has(sessions[i].id)) sessions.splice(i, 1);
+    }
+    for (let i = sets.length - 1; i >= 0; i--) if (drop.has(sets[i].sessionId)) sets.splice(i, 1);
+    let k = 0;
+    let volume = 0;
+    for (const ex of UPPER_DAY) {
+      const exerciseId = catalogId.get(ex.name);
+      if (!exerciseId) continue;
+      const kg = lastKg.get(ex.name) ?? ex.fallbackKg;
+      for (let n = 1; n <= ex.sets; n++) {
+        const at = new Date(host.startedAt.getTime() + k++ * 150_000);
+        volume += kg * ex.reps;
+        sets.push({
+          id: `synth_upper_${k}`,
+          userId: SOLO_USER_ID,
+          sessionId: host.id,
+          exerciseId,
+          setNumber: n,
+          reps: ex.reps,
+          weight: kg,
+          rpe: 8,
+          restSeconds: 90,
+          isWarmup: false,
+          isPR: false,
+          notes: null,
+          createdAt: at,
+        });
+      }
+    }
+    host.templateName = "Upper";
+    host.sessionVolume = Math.round(volume);
+  }
+
   // A night (or a workout) must move as one piece: correcting its start and
   // end separately splits them by 12h on the travel days where the home/away
   // flag flips in between. Both ends take the correction of the row's anchor.
