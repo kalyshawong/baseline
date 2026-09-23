@@ -259,20 +259,20 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
   // ---- showcase strength = an upper day (Kalysha, 2026-09-23) ---------------
   // The demo's lift is a made-up upper day, one exercise per muscle in her
   // order: lats → mid back → lower back → rear delts → delts → chest →
-  // biceps → triceps. Sets and reps follow the hypertrophy evidence: 3 hard
-  // sets per exercise, 8–15 reps a few reps short of failure (Schoenfeld et al.
-  // 2017, 2021), overhead triceps extension over pushdowns for the long head
+  // biceps → triceps. 3 hard sets per exercise in her 6–8 rep range
+  // (compounds 6, isolation 8), a rep or two short of failure; overhead
+  // triceps extension over pushdowns for the long head
   // (Maeo et al. 2023). Loads are her own most recent working weight on that
   // exercise when she has one. Whatever she really logged that day is replaced.
-  const UPPER_DAY: { name: string; sets: number; reps: number; fallbackKg: number }[] = [
-    { name: "Lat Pulldown", sets: 3, reps: 10, fallbackKg: 32 },
-    { name: "Seated Cable Row", sets: 3, reps: 10, fallbackKg: 32 },
-    { name: "Back Extension", sets: 3, reps: 12, fallbackKg: 0 },
-    { name: "Rear Delt Fly", sets: 3, reps: 15, fallbackKg: 7 },
-    { name: "Dumbbell Shoulder Press", sets: 3, reps: 8, fallbackKg: 18 },
-    { name: "Dumbbell Bench Press", sets: 3, reps: 8, fallbackKg: 30 },
-    { name: "Bicep Curl", sets: 3, reps: 10, fallbackKg: 11 },
-    { name: "Overhead Tricep Extension", sets: 3, reps: 12, fallbackKg: 14 },
+  const UPPER_DAY: { name: string; sets: number; reps: number; fallbackKg: number; kg?: number }[] = [
+    { name: "Lat Pulldown", sets: 3, reps: 6, fallbackKg: 41, kg: 90 / 2.20462 }, // 90 lb (Kalysha)
+    { name: "Seated Cable Row", sets: 3, reps: 6, fallbackKg: 32 },
+    { name: "Back Extension", sets: 3, reps: 8, fallbackKg: 0 },
+    { name: "Rear Delt Fly", sets: 3, reps: 8, fallbackKg: 7 },
+    { name: "Dumbbell Shoulder Press", sets: 3, reps: 6, fallbackKg: 18 },
+    { name: "Dumbbell Bench Press", sets: 3, reps: 6, fallbackKg: 30 },
+    { name: "Bicep Curl", sets: 3, reps: 8, fallbackKg: 11 },
+    { name: "Overhead Tricep Extension", sets: 3, reps: 8, fallbackKg: 14 },
   ];
   const catalog = await db.exercise.findMany({
     where: { userId: null, name: { in: UPPER_DAY.map((e) => e.name) } },
@@ -321,7 +321,7 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
     for (const ex of UPPER_DAY) {
       const exerciseId = catalogId.get(ex.name);
       if (!exerciseId) continue;
-      const kg = lastKg.get(ex.name) ?? ex.fallbackKg;
+      const kg = ex.kg ?? lastKg.get(ex.name) ?? ex.fallbackKg;
       for (let n = 1; n <= ex.sets; n++) {
         const at = new Date(host.startedAt.getTime() + k++ * 150_000);
         volume += kg * ex.reps;
