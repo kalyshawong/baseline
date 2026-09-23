@@ -493,7 +493,15 @@ export function WorkoutCardDesktop({
       {kind === "strength" && strength && (
         <div className="sess">
           <div className="k">What you did</div>
-          <div className="ex">{strength.exercises.join(" · ")}</div>
+          <ul className="exl">
+            {strength.exercises.map((e) => (
+              <li key={e.name}>
+                <span className="n">{e.name}</span>
+                <span className="s num">{e.scheme}</span>
+                <span className="w num">{e.load ?? "BW"}</span>
+              </li>
+            ))}
+          </ul>
           {strength.weekly.length > 0 && (
             <>
               <div className="k" style={{ marginTop: 10 }}>

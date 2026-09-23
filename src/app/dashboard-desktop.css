@@ -178,6 +178,10 @@
 .dd .wk .meta{margin-top:14px;display:grid;gap:10px}
 .dd .sess{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .dd .sess .ex{font-size:13px;color:var(--dim);margin-top:4px;line-height:1.45}
+.dd .sess .exl{list-style:none;margin:6px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));column-gap:28px}
+.dd .sess .exl li{display:grid;grid-template-columns:1fr 44px 52px;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.dd .sess .exl .n{color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd .sess .exl .s,.dd .sess .exl .w{color:var(--dim);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .dd .vol{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .dd .pill.r{background:var(--red);color:var(--ink)}
 .dd .wk .meta .k{margin-bottom:3px}

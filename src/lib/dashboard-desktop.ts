@@ -242,8 +242,8 @@ export async function getWorkoutBaseline(
 // ---------------------------------------------------------------------------
 
 export interface StrengthSummary {
-  /** "Bench Press 4×8 @ 50 kg" — one entry per exercise, in logged order. */
-  exercises: string[];
+  /** One entry per exercise, in logged order: name · "4×8" · "50 kg" (null = bodyweight). */
+  exercises: { name: string; scheme: string; load: string | null }[];
   weekly: { group: string; sets: number; status: VolumeStatus }[];
 }
 
@@ -276,8 +276,8 @@ export async function getStrengthSummary(viewDate: Date, unit: string | null): P
   const exercises = [...byExercise.entries()].map(([name, e]) => {
     const sameReps = e.reps.every((r) => r === e.reps[0]);
     const scheme = sameReps ? `${e.reps.length}×${e.reps[0]}` : `${e.reps.length} sets`;
-    const load = e.weight > 0 ? ` @ ${Math.round(lb ? e.weight * 2.20462 : e.weight)} ${lb ? "lb" : "kg"}` : "";
-    return `${name} ${scheme}${load}`;
+    const load = e.weight > 0 ? `${Math.round(lb ? e.weight * 2.20462 : e.weight)} ${lb ? "lb" : "kg"}` : null;
+    return { name, scheme, load };
   });
 
   const muscleSets: Record<string, number> = {};
