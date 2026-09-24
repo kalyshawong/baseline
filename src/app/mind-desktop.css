@@ -231,3 +231,7 @@
 .mm .tuned button{margin-left:auto;background:none;border:none;border-bottom:1px solid var(--line);color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;padding:0}
 .mm .tuned button:hover{color:var(--gold);border-color:var(--gold)}
 .mm .chips{display:flex;flex-wrap:wrap;gap:8px}
+/* "11:00 AM" needs more than the handoff's 44px time column */
+.mm .tl li{grid-template-columns:58px 16px minmax(0,1fr) auto 18px}
+.mm .tl::before{left:66px}
+.mm .linklike{text-transform:none;letter-spacing:0;font-size:12px}
