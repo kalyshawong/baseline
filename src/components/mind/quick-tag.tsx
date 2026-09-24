@@ -22,7 +22,8 @@ function currentTimeString(): string {
 export function QuickTag({
   dateStr,
   frequentTags = [],
-}: { dateStr?: string; frequentTags?: { tag: string; category: string }[] } = {}) {
+  bare = false,
+}: { dateStr?: string; frequentTags?: { tag: string; category: string }[]; bare?: boolean } = {}) {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -90,6 +91,96 @@ export function QuickTag({
     e.preventDefault();
     if (!customTag.trim()) return;
     handleTag("custom", customTag.trim());
+  }
+
+  // Desktop Mind handoff (2026-09-23): the Tag tab of the merged Log panel.
+  // Same actions; one time row serves chip taps and custom tags alike.
+  if (bare) {
+    return (
+      <div>
+        {flash && <div className="flash">Tagged: {flash}</div>}
+        {frequentTags.length > 0 && (
+          <div className="qt-your">
+            <div className="lbl2">Your tags</div>
+            <div className="chips">
+              {frequentTags.map((f) => (
+                <button key={f.tag} type="button" onClick={() => handleTag(f.category, f.tag)} disabled={isPending} className="tagchip">
+                  {f.tag}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="chips">
+          {presets.map((p) => (
+            <button
+              key={p.category}
+              type="button"
+              onClick={() => {
+                const next = activeCategory === p.category ? null : p.category;
+                setActiveCategory(next);
+                if (next) setTagTime(currentTimeString());
+              }}
+              className={`tagchip ${activeCategory === p.category ? "on" : ""}`}
+            >
+              {p.category}
+            </button>
+          ))}
+        </div>
+        {activeCategory && (
+          <div className="drill">
+            <div className="chips">
+              {presets
+                .find((p) => p.category === activeCategory)
+                ?.tags.map((tag) => (
+                  <button key={tag} type="button" onClick={() => handleTag(activeCategory, tag)} disabled={isPending} className="tagchip disabled:opacity-50">
+                    {tag}
+                  </button>
+                ))}
+            </div>
+            <input
+              type="text"
+              value={tagNotes}
+              onChange={(e) => setTagNotes(e.target.value)}
+              placeholder="Notes (duration, amount, context...)"
+              className="field"
+            />
+          </div>
+        )}
+        <form onSubmit={handleCustomSubmit}>
+          <div className="row">
+            <input
+              type="text"
+              value={customTag}
+              onChange={(e) => setCustomTag(e.target.value)}
+              placeholder="Custom tag (e.g. cold shower, sauna)"
+              className="field"
+            />
+          </div>
+          <div className="row">
+            <input
+              type="time"
+              value={tagTime}
+              onChange={(e) => setTagTime(e.target.value)}
+              disabled={timeUnknown}
+              aria-label="Tag time"
+              className="timefield"
+              style={{ flex: 1 }}
+            />
+            <button type="button" onClick={() => setTagTime(currentTimeString())} disabled={timeUnknown} className="linklike">
+              Now
+            </button>
+            <button type="submit" disabled={isPending || !customTag.trim()} className="btn disabled:opacity-30">
+              Tag
+            </button>
+          </div>
+          <label className="check" style={{ marginTop: 10 }}>
+            <input type="checkbox" checked={timeUnknown} onChange={(e) => setTimeUnknown(e.target.checked)} />
+            Sometime today — don&apos;t remember time
+          </label>
+        </form>
+      </div>
+    );
   }
 
   return (

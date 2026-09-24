@@ -31,7 +31,7 @@ function currentTimeString(): string {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
+export function NutritionInput({ dateStr, bare = false }: { dateStr?: string; bare?: boolean } = {}) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [mealType, setMealType] = useState<string>("snack");
@@ -85,6 +85,80 @@ export function NutritionInput({ dateStr }: { dateStr?: string } = {}) {
         setError(err instanceof Error ? err.message : "Something went wrong");
       }
     });
+  }
+
+  const resultsList = results && results.length > 0 && (
+    <ul className="items-l" style={{ padding: "10px 0 0" }}>
+      {results.map((r, i) => (
+        <li key={i} style={{ gridTemplateColumns: "minmax(0,1fr) auto" }}>
+          <div className="in">
+            <b>{r.description}</b>
+            <span>{r.foodName}</span>
+          </div>
+          <span className="mac">
+            <span className="cal">{r.calories}</span>
+            <span className="cp">{r.protein}p</span>
+            <span className="cc">{r.carbs}c</span>
+            <span className="cf">{r.fat}f</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+
+  // Desktop Mind handoff (2026-09-23): the Food tab of the merged Log panel.
+  if (bare) {
+    const short: Record<string, string> = { home_cooked: "Home", pre_packaged: "Packaged" };
+    return (
+      <form onSubmit={handleSubmit}>
+        <div className="lbl2">Meal</div>
+        <div className="seg c4">
+          {mealTypes.map((mt) => (
+            <button key={mt.id} type="button" onClick={() => setMealType(mt.id)} className={`opt ${mealType === mt.id ? "on" : ""}`}>
+              {mt.label}
+            </button>
+          ))}
+        </div>
+        <div className="lbl2">From</div>
+        <div className="seg c4">
+          {mealSources.map((ms) => (
+            <button key={ms.id} type="button" onClick={() => setSource(ms.id)} className={`opt ${source === ms.id ? "on" : ""}`}>
+              {short[ms.id] ?? ms.label}
+            </button>
+          ))}
+        </div>
+        <div className="row" style={{ marginTop: 14, justifyContent: "space-between" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12.5, color: "var(--dim)", fontWeight: 600 }}>
+            Time eaten
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              disabled={timeUnknown}
+              aria-label="Time eaten"
+              className="timefield"
+            />
+          </span>
+          <label className="check">
+            <input type="checkbox" checked={timeUnknown} onChange={(e) => setTimeUnknown(e.target.checked)} />
+            Forgot time
+          </label>
+        </div>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="3 eggs, 200g ground beef, 1 cup rice, 1 avocado"
+          rows={2}
+          className="field"
+          style={{ marginTop: 10 }}
+        />
+        <button type="submit" disabled={isPending || !text.trim()} className="btn block disabled:opacity-30" style={{ marginTop: 10 }}>
+          {isPending ? "Estimating macros..." : "Log Meal"}
+        </button>
+        {error && <p className="err">{error}</p>}
+        {resultsList}
+      </form>
+    );
   }
 
   return (

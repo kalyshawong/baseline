@@ -20,6 +20,8 @@ export interface LifeContextLog {
 }
 
 interface Props {
+  /** Desktop Mind handoff: render inside the Log panel's Context tab. */
+  bare?: boolean;
   dateStr: string;
   defs: LifeContextDef[];
   todayLogs: LifeContextLog[];
@@ -276,7 +278,7 @@ function ManageRow({
 
 // --- Main card ---
 
-export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
+export function LifeContextCard({ dateStr, defs, todayLogs, bare = false }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -369,10 +371,10 @@ export function LifeContextCard({ dateStr, defs, todayLogs }: Props) {
   }
 
   return (
-    <div className="panel">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="ov" style={{ color: "var(--color-gold)" }}>Life Context</p>
-        <div className="flex gap-3">
+    <div className={bare ? undefined : "panel"}>
+      <div className={bare ? "p-h" : "mb-3 flex items-center justify-between"} style={bare ? { marginBottom: 10 } : undefined}>
+        <p className="ov" style={bare ? undefined : { color: "var(--color-gold)" }}>Life {bare ? "context" : "Context"}</p>
+        <div className="flex gap-3" style={bare ? { gap: 14 } : undefined}>
           {defs.length > 0 && (
             <button
               type="button"

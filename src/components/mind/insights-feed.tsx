@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import type { CollectingTag, Insight, InsightMetric } from "@/lib/insights";
 import type { TestedFinding } from "@/lib/tested-findings";
 import type { HrvCvCalibration } from "@/lib/training-call";
+import { testedDelta } from "@/lib/tested-format";
+
+export { testedDelta };
 
 /**
  * Findings feed — implements "Baseline Findings Redesign.html" (2026-08-26),
@@ -29,19 +32,7 @@ const tierToPill: Record<string, string> = {
 
 type Filter = "all" | "patterns" | "collecting" | "tested";
 
-/** Mean paired difference in display units (redesign tested-card headline). */
-function testedDelta(t: TestedFinding): string | null {
-  if (t.meanDiff == null) return null;
-  const d = t.meanDiff;
-  const sign = d >= 0 ? "+" : "−";
-  if (t.metric === "totalSleepDuration") return `${sign}${Math.round(Math.abs(d) / 60)} min`;
-  if (t.metric === "lowestHeartRate") return `${sign}${Math.abs(Math.round(d * 10) / 10)} bpm`;
-  if (t.metric === "hrvVsBaseline") return `${sign}${Math.abs(Math.round(d * 10) / 10)} ms`;
-  if (t.metric === "temperatureDeviation") return `${sign}${Math.abs(Math.round(d * 100) / 100)}°C`;
-  return `${sign}${Math.abs(Math.round(d * 10) / 10)}`;
-}
-
-function testedHeadline(t: TestedFinding): { title: React.ReactNode; body: string } {
+export function testedHeadline(t: TestedFinding): { title: React.ReactNode; body: string } {
   const delta = testedDelta(t);
   const felt =
     t.feltDelta == null
@@ -171,12 +162,12 @@ function TestedCard({ t }: { t: TestedFinding }) {
 }
 
 /** AUDIT §2.1.5: no p-value is zero — floor the display at <0.001. */
-function fmtP(p: number | undefined | null): string {
+export function fmtP(p: number | undefined | null): string {
   if (p == null) return "—";
   return p < 0.001 ? "q<0.001" : `q=${p}`;
 }
 
-function formatMetricValue(value: number, metric: string): string {
+export function formatMetricValue(value: number, metric: string): string {
   if (metric === "totalSleepDuration") {
     const h = Math.floor(value / 3600);
     const m = Math.floor((value % 3600) / 60);
@@ -188,7 +179,7 @@ function formatMetricValue(value: number, metric: string): string {
   return String(Math.round(value));
 }
 
-function deltaLabel(m: InsightMetric): string {
+export function deltaLabel(m: InsightMetric): string {
   const diff = m.taggedMedian - m.untaggedMedian;
   if (m.metric === "totalSleepDuration") {
     const min = Math.round(Math.abs(diff) / 60);
@@ -200,7 +191,7 @@ function deltaLabel(m: InsightMetric): string {
   return `${diff >= 0 ? "+" : "−"}${Math.abs(Math.round(diff))}`;
 }
 
-function testThisHref(insight: Insight): string {
+export function testThisHref(insight: Insight): string {
   const m = insight.metrics[0];
   const params = new URLSearchParams({
     title: `Does "${insight.tag}" move my ${m?.metricLabel ?? "metrics"}?`,
@@ -212,7 +203,7 @@ function testThisHref(insight: Insight): string {
   return `/mind/experiments/new?${params.toString()}`;
 }
 
-function CalibrationCard({ c }: { c: HrvCvCalibration }) {
+export function CalibrationCard({ c }: { c: HrvCvCalibration }) {
   const router = useRouter();
   const [saving, setSaving] = useState<null | "personalized" | "standard">(null);
 
@@ -548,7 +539,7 @@ export function InsightsFeed({
 }
 
 /** Featured pattern hero (redesign .ffeat). */
-function FeaturedFinding({
+export function FeaturedFinding({
   insight,
   hidden,
   onToggleHide,

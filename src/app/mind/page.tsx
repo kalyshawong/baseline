@@ -9,8 +9,13 @@ import { getFlags } from "@/lib/flags";
 import { FlagsFeed } from "@/components/mind/flags-feed";
 import { QuickTag } from "@/components/mind/quick-tag";
 import { TagTimeline } from "@/components/mind/tag-timeline";
-import { TodayContext } from "@/components/mind/today-context";
+import { phaseInfo } from "@/components/mind/today-context";
 import { InsightsFeed } from "@/components/mind/insights-feed";
+import { testedDelta } from "@/lib/tested-format";
+import { LogPanel } from "@/components/mind/desktop/log-panel";
+import { Intake } from "@/components/mind/desktop/intake";
+import { MindFindings } from "@/components/mind/desktop/findings";
+import type { TestedFinding } from "@/lib/tested-findings";
 import { DiagnoseCard } from "@/components/mind/diagnose-card";
 import { GiPatternsCard } from "@/components/mind/gi-patterns-card";
 import { analyzeMealGi } from "@/lib/meal-gi";
@@ -151,6 +156,43 @@ export default async function MindPage({
   const sleepLabel = slSec != null ? `${Math.floor(slSec / 3600)}h ${Math.floor((slSec % 3600) / 60)}m` : "—";
   const phaseNote = cyclePhase.phase ? PHASE_NOTE[cyclePhase.phase] ?? null : null;
 
+  // Desktop handoff bits
+  const deskPhase = cyclePhase.phase ? phaseInfo[cyclePhase.phase] ?? null : null;
+  const lifeDefs = lifeContextDefs.map((d) => ({
+    id: d.id,
+    label: d.label,
+    category: d.category,
+    emoji: d.emoji ?? null,
+    color: d.color ?? null,
+    groupKey: d.groupKey ?? null,
+    archived: d.archived,
+  }));
+  const lifeLogs = lifeContextLogs.map((l) => ({
+    id: l.id,
+    defId: l.defId,
+    day: typeof l.day === "string" ? l.day : (l.day as unknown as Date).toISOString(),
+  }));
+  const foodEntries = (nutritionLog?.entries ?? []).map((e) => ({
+    id: e.id,
+    description: e.description,
+    foodName: e.foodName,
+    calories: e.calories,
+    protein: e.protein,
+    carbs: e.carbs,
+    fat: e.fat,
+    mealType: e.mealType,
+    source: e.source ?? null,
+    eatenAt: e.eatenAt.toISOString(),
+    timeUnknown: e.timeUnknown,
+  }));
+  // Finished experiments carry their verdict (and pairs) from the tested
+  // findings, so a finished row never reads "0 days logged" next to a result.
+  const testedByExp = new Map(
+    testedFindings.tested
+      .filter((t) => t.source === "experiment")
+      .map((t) => [t.href?.split("/").pop() ?? t.id, t] as const),
+  );
+
   return (
     <>
       {/* ═══════════ MOBILE (Baseline iOS — Mind) ═══════════ */}
@@ -289,234 +331,221 @@ export default async function MindPage({
         </div>
       </div>
 
-      {/* ═══════════ DESKTOP (unchanged) ═══════════ */}
+      {/* ═══════════ DESKTOP — Claude Design Mind handoff (2026-09-23) ═══════════
+       * Reading order: today → what I logged → what it's telling me → what I'm
+       * testing. Styles: mind-desktop.css, scoped under .mm. */}
       <div className="hidden md:block">
-      {/* ── Page header ── */}
-      <div className="flex items-center justify-between" style={{ paddingTop: "26px" }}>
-        <div>
-          <h1 className="disp text-[46px] leading-[0.9] tracking-[0.02em] whitespace-nowrap">MIND MODE</h1>
-          <p className="mt-[3px] text-[14px] font-medium text-[var(--color-text-muted)]">
-            Structured self-experimentation
-          </p>
-        </div>
-        <Suspense>
-          <DateNav basePath="/mind" />
-        </Suspense>
-      </div>
-
-      {/* ── Context bar (full-width) ── */}
-      <div className="mt-4">
-        <TodayContext
-          data={{
-            readinessScore: dayReadiness?.score ?? null,
-            sleepScore: daySleep?.score ?? null,
-            totalSleep: daySleep?.totalSleepDuration ?? null,
-            averageHrv: daySleep?.averageHrv ?? null,
-            stressSummary: dayStress?.daySummary ?? null,
-            cyclePhase: cyclePhase.phase,
-          }}
-        />
-      </div>
-
-      {/* ── Two-column split — design: .wb ── */}
-      <div className="grid grid-cols-[360px_1fr] gap-4 pt-4 items-start">
-        {/* ═══ LEFT: Inputs / Log ═══ */}
-        <div>
-          <ColHead>Inputs &middot; Log</ColHead>
-
-          <div className="flex flex-col gap-[14px]">
-            <QuickTag dateStr={viewDateStr} frequentTags={frequentTags} />
-            <NutritionInput dateStr={viewDateStr} />
-
-            <MacroSummary
-              data={
-                nutritionLog
-                  ? {
-                      calories: nutritionLog.calories,
-                      protein: nutritionLog.protein,
-                      carbs: nutritionLog.carbs,
-                      fat: nutritionLog.fat,
-                      entryCount: nutritionLog.entries.length,
-                    }
-                  : null
-              }
-            />
-
-            <NutritionLog
-              dateStr={viewDateStr}
-              mealsComplete={nutritionLog?.mealsComplete ?? false}
-              entries={(nutritionLog?.entries ?? []).map((e) => ({
-                id: e.id,
-                description: e.description,
-                foodName: e.foodName,
-                calories: e.calories,
-                protein: e.protein,
-                carbs: e.carbs,
-                fat: e.fat,
-                mealType: e.mealType,
-                source: e.source,
-                eatenAt: e.eatenAt.toISOString(),
-                timeUnknown: e.timeUnknown,
-              }))}
-            />
-
-            <LifeContextCard
-              key={viewDateStr}
-              dateStr={viewDateStr}
-              defs={lifeContextDefs.map((d) => ({
-                id: d.id,
-                label: d.label,
-                category: d.category,
-                emoji: d.emoji ?? null,
-                color: d.color ?? null,
-                groupKey: d.groupKey ?? null,
-                archived: d.archived,
-              }))}
-              todayLogs={lifeContextLogs.map((l) => ({
-                id: l.id,
-                defId: l.defId,
-                day: typeof l.day === "string" ? l.day : (l.day as unknown as Date).toISOString(),
-              }))}
-            />
-
-            <TagTimeline
-              tags={dayTags.map((t) => ({
-                id: t.id,
-                tag: t.tag,
-                category: t.category,
-                timestamp: t.timestamp.toISOString(),
-                metadata: t.metadata ?? null,
-                experiment: t.experiment ? { id: t.experiment.id, title: t.experiment.title } : null,
-              }))}
-            />
-          </div>
-        </div>
-
-        {/* ═══ RIGHT: Findings ═══ */}
-        <div>
-          <ColHead>Findings</ColHead>
-
-          {/* Flags */}
-          {flags.length > 0 && (
-            <div className="mb-6">
-              <FlagsFeed flags={flags} />
+        <div className="mm mx-auto max-w-[1320px] pb-12">
+          <div className="pagebar" style={{ padding: "28px 36px 0", gap: 20 }}>
+            <div>
+              <h1>MIND MODE</h1>
+              <div className="sub">Structured self-experimentation</div>
             </div>
-          )}
+            <Suspense>
+              <DateNav basePath="/mind" />
+            </Suspense>
+          </div>
 
-          {/* Insights feed with filter bar + featured finding */}
-          <DiagnoseCard />
-              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} tested={testedFindings.tested} calibration={hrvCalibration} />
-
-          {/* Pre-workout meal -> GI patterns (backward analyzer + "test this") */}
-          {mealGi && <GiPatternsCard result={mealGi} />}
-
-          {/* Active Experiments + Environment — side by side tiles per design */}
-          <div className="grid grid-cols-2 gap-[14px] mt-[14px]">
-            <div className="panel">
-              <p className="ov mb-3">Active Experiments</p>
-              {active.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-muted)]">
-                  No active experiments.{" "}
-                  <Link href="/mind/experiments/new" className="linklike">
-                    Start from a template.
-                  </Link>
-                </p>
+          <section className="today">
+            <div className="c">
+              <div className="k">Readiness</div>
+              <div className="v num">{dayReadiness?.score ?? "—"}</div>
+            </div>
+            <div className="c">
+              <div className="k">Sleep</div>
+              <div className="v num">{sleepLabel}</div>
+            </div>
+            <div className="c">
+              <div className="k">HRV</div>
+              <div className="v num">
+                {daySleep?.averageHrv != null ? Math.round(daySleep.averageHrv) : "—"}
+                {daySleep?.averageHrv != null && <small> ms</small>}
+              </div>
+            </div>
+            <div className="c">
+              <div className="k">Stress</div>
+              <div className="v">
+                {dayStress?.daySummary
+                  ? dayStress.daySummary.charAt(0).toUpperCase() + dayStress.daySummary.slice(1)
+                  : "—"}
+              </div>
+            </div>
+            <div className="c phase">
+              {deskPhase ? (
+                <>
+                  <span className="ph-pill">{deskPhase.label}</span>
+                  <span className="note">{deskPhase.note}</span>
+                </>
               ) : (
-                <div className="space-y-2">
-                  {active.map((exp) => {
-                    const treatmentDays = exp._count.logs;
-                    const progress = Math.min(100, Math.round((treatmentDays / (exp.minDays * 2)) * 100));
+                <span className="note">No cycle data</span>
+              )}
+            </div>
+          </section>
+
+          <main className="mind">
+            {/* ═══ LEFT: Log ═══ */}
+            <div className="col">
+              <div className="colhead">Log</div>
+              <LogPanel
+                tz={tz}
+                tag={<QuickTag bare dateStr={viewDateStr} frequentTags={frequentTags} />}
+                food={<NutritionInput bare dateStr={viewDateStr} />}
+                ctx={
+                  <LifeContextCard
+                    bare
+                    key={viewDateStr}
+                    dateStr={viewDateStr}
+                    defs={lifeDefs}
+                    todayLogs={lifeLogs}
+                  />
+                }
+                tags={dayTags.map((t) => ({
+                  id: t.id,
+                  tag: t.tag,
+                  category: t.category,
+                  timestamp: t.timestamp.toISOString(),
+                  timeUnknown: tagTimeUnknown(t.metadata),
+                  experimentTitle: t.experiment?.title ?? null,
+                }))}
+              />
+              <Intake
+                tz={tz}
+                dateStr={viewDateStr}
+                mealsComplete={nutritionLog?.mealsComplete ?? false}
+                totals={
+                  nutritionLog
+                    ? { calories: nutritionLog.calories, protein: nutritionLog.protein, carbs: nutritionLog.carbs, fat: nutritionLog.fat }
+                    : null
+                }
+                entries={foodEntries}
+              />
+            </div>
+
+            {/* ═══ RIGHT: Findings, then Experiments ═══ */}
+            <div className="col">
+              <MindFindings
+                insights={insights.patterns}
+                collecting={insights.collecting}
+                tested={testedFindings.tested}
+                calibration={hrvCalibration}
+                mealGi={mealGi}
+                alerts={
+                  <>
+                    {flags.length > 0 && <FlagsFeed flags={flags} />}
+                    <DiagnoseCard />
+                  </>
+                }
+              />
+
+              <div className="colhead" style={{ marginTop: 14 }}>
+                Experiments
+              </div>
+              <div className="p">
+                <div className="p-h">
+                  <span className="ov">Active</span>
+                  <span className="k">{active.length} running</span>
+                </div>
+                {active.length === 0 ? (
+                  <p className="empty">
+                    No active experiments.{" "}
+                    <Link href="/mind/experiments/new" className="linklike">
+                      Start from a template.
+                    </Link>
+                  </p>
+                ) : (
+                  active.map((exp) => {
+                    const days = exp._count.logs;
+                    const progress = Math.min(100, Math.round((days / (exp.minDays * 2)) * 100));
                     return (
-                      <Link
-                        key={exp.id}
-                        href={`/mind/experiments/${exp.id}`}
-                        className="block bg-[var(--color-surface-2)] p-3 text-xs transition hover:bg-white/10"
-                      >
-                        <div className="flex items-start justify-between">
+                      <Link key={exp.id} href={`/mind/experiments/${exp.id}`} className="xa">
+                        <div className="top">
                           <div>
-                            <p className="font-medium text-sm">{exp.title}</p>
-                            <p className="mt-1 text-[var(--color-text-muted)]">{exp.hypothesis}</p>
+                            <div className="t">{exp.title}</div>
+                            <div className="d">{exp.hypothesis}</div>
                           </div>
-                          <span className={statusColors[exp.status]}>{exp.status}</span>
+                          <span className="pill g">Active</span>
                         </div>
-                        <div className="mt-2">
-                          <div className="flex justify-between text-[var(--color-text-muted)]">
-                            <span>{treatmentDays} days logged</span>
-                            <span>{progress}%</span>
+                        <div className="prog">
+                          <div className="bar">
+                            <i style={{ width: `${progress}%` }} />
                           </div>
-                          <div className="mt-1 h-1.5 bg-[var(--color-surface)]">
-                            <div
-                              className="h-full transition-all"
-                              style={{ width: `${progress}%`, background: "var(--color-green)" }}
-                            />
+                          <div className="k">
+                            <span>{days} days logged</span>
+                            <span>{progress}%</span>
                           </div>
                         </div>
                       </Link>
                     );
-                  })}
+                  })
+                )}
+                {others.length > 0 && (
+                  <>
+                    <div className="p-h" style={{ margin: "20px 0 0" }}>
+                      <span className="ov">Finished</span>
+                    </div>
+                    <ul className="xlist">
+                      {others.map((exp) => {
+                        const r = testedByExp.get(exp.id);
+                        return (
+                          <li key={exp.id}>
+                            <Link href={`/mind/experiments/${exp.id}`}>
+                              <div className="t">
+                                {exp.title}
+                                <span>
+                                  {r ? `${r.blocks} pairs · ${r.outcomeLabel}` : `${exp._count.logs} days logged`}
+                                </span>
+                              </div>
+                              <span className={`res${r && r.decision.startsWith("inconclusive") ? " dim" : ""}`}>
+                                {r ? verdictLabel(r) : ""}
+                              </span>
+                              <span className="pill muted">{exp.status}</span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
+              </div>
+
+              {latestEnv ? (
+                <EnvCard
+                  latest={{
+                    pm25: latestEnv.pm25,
+                    temperature: latestEnv.temperature,
+                    humidity: latestEnv.humidity,
+                    noiseDb: latestEnv.noiseDb,
+                    timestamp: latestEnv.timestamp.toISOString(),
+                  }}
+                />
+              ) : (
+                <div className="env">
+                  <span className="k">Environment</span>No sensor data yet.
+                  <span className="linklike">Connect your ESP32</span>
                 </div>
               )}
             </div>
-
-            <EnvCard
-              latest={
-                latestEnv
-                  ? {
-                      pm25: latestEnv.pm25,
-                      temperature: latestEnv.temperature,
-                      humidity: latestEnv.humidity,
-                      noiseDb: latestEnv.noiseDb,
-                      timestamp: latestEnv.timestamp.toISOString(),
-                    }
-                  : null
-              }
-            />
-          </div>
-
-          {/* All Experiments (compact list below tiles) */}
-          {others.length > 0 && (
-            <div className="mt-4">
-              <div className="mb-3 flex items-center gap-3">
-                <p className="ov shrink-0">All Experiments</p>
-                <div className="h-px flex-1 bg-[var(--color-border)]" />
-              </div>
-              <div className="space-y-2">
-                {others.map((exp) => (
-                  <Link
-                    key={exp.id}
-                    href={`/mind/experiments/${exp.id}`}
-                    className="panel flex items-center justify-between !py-3 transition hover:brightness-110"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{exp.title}</p>
-                      <p className="text-xs text-[var(--color-text-muted)]">
-                        {exp._count.logs} days logged
-                      </p>
-                    </div>
-                    <span className={statusColors[exp.status]}>{exp.status}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
+          </main>
         </div>
-      </div>
       </div>
     </>
   );
 }
 
-/** Column header — gold overline with trailing line. Design: .colhead */
-function ColHead({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mb-[13px] flex items-center gap-3">
-      <p
-        className="text-[11px] font-extrabold uppercase tracking-[0.2em] shrink-0"
-        style={{ color: "var(--color-gold)" }}
-      >
-        {children}
-      </p>
-      <div className="h-px flex-1 bg-[var(--color-border)]" />
-    </div>
-  );
+function tagTimeUnknown(metadata: string | null): boolean {
+  if (!metadata) return false;
+  try {
+    const v = JSON.parse(metadata);
+    return !!v && typeof v === "object" && v.timeUnknown === true;
+  } catch {
+    return false;
+  }
+}
+
+function verdictLabel(t: TestedFinding): string {
+  const p = `P ${t.randTestP < 0.001 ? "<0.001" : t.randTestP}`;
+  if (t.decision === "effect_found") return `Effect ${testedDelta(t) ?? ""} · ${p}`.replace("  ", " ");
+  if (t.decision === "no_effect_at_mde") return `No effect · ${p}`;
+  if (t.decision === "inconclusive_low_adherence") return "Too few days";
+  return `Inconclusive · ${p}`;
 }

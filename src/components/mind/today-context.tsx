@@ -3,7 +3,7 @@
  * Design ref: Baseline Mind.html → .ctxbar
  */
 
-const phaseInfo: Record<string, { label: string; note: string }> = {
+export const phaseInfo: Record<string, { label: string; note: string }> = {
   menstrual: {
     label: "Menstrual",
     note: "Energy lowest — prioritize recovery experiments, not high-load interventions.",
