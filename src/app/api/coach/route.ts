@@ -5,7 +5,7 @@ import { buildCoachContext, COACH_SYSTEM_PROMPT, goalSystemPromptSection } from 
 import { apiError } from "@/lib/utils";
 import { withAnthropicRetry } from "@/lib/anthropic-retry";
 import { COACH_TOOLS, runCoachTool } from "@/lib/coach-tools";
-import { getCurrentUserId } from "@/lib/current-user";
+import { getCurrentUserId, SOLO_USER_ID } from "@/lib/current-user";
 import { DEMO_USER_ID } from "@/lib/demo/constants";
 import { demoCoachReply } from "@/lib/demo/coach";
 
@@ -100,12 +100,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Rate limit check
-    if (!checkRateLimit("coach")) {
+    // Rate limits (2026-09-25). Per user — the old single "coach" bucket let
+    // one account's burst block everyone. Plus a rolling 24h cap per account,
+    // counted from stored messages so it holds across serverless instances:
+    // every message is an Anthropic call billed to one key. Owner exempt.
+    const coachUserId = await getCurrentUserId();
+    if (!checkRateLimit(`coach:${coachUserId}`)) {
       return NextResponse.json(
         { error: "Rate limit exceeded — max 10 messages per minute" },
         { status: 429 }
       );
+    }
+    if (coachUserId !== SOLO_USER_ID) {
+      const dailyLimit = Number(process.env.COACH_DAILY_LIMIT ?? 50);
+      const sent = await prisma.chatMessage.count({
+        where: { role: "user", createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+      });
+      if (sent >= dailyLimit) {
+        return NextResponse.json(
+          { error: `Daily coach limit reached (${dailyLimit} messages in 24 hours). Try again tomorrow.` },
+          { status: 429 }
+        );
+      }
     }
 
     // Create or fetch the session
