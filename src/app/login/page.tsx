@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { AuthError } from "next-auth";
+import { DEMO_USER_ID } from "@/lib/demo/constants";
 
 /**
  * Login — credentials (email + password). Styled to the Baseline system;
@@ -12,8 +13,10 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const session = await auth();
-  if (session) redirect("/");
+  // A public demo session must still be able to reach the form — otherwise a
+  // browser that once opened /demo can never get back to a real account.
+  const session = (await auth()) as { userId?: string } | null;
+  if (session?.userId && session.userId !== DEMO_USER_ID) redirect("/");
   const params = await searchParams;
   const failed = params.error != null;
 

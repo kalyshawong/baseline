@@ -25,7 +25,10 @@ export async function DemoBanner() {
         whiteSpace: "normal",
       }}
     >
-      Demo · sample data · read-only
+      Demo · sample data · read-only ·{" "}
+      <a href="/login" style={{ textDecoration: "underline" }}>
+        Sign in
+      </a>
     </div>
   );
 }

@@ -31,7 +31,9 @@ function demoRefusal(req: NextRequest): NextResponse | null {
     pathname.startsWith("/api/auth/oura") || pathname.startsWith("/api/sync");
   const mutating = !["GET", "HEAD", "OPTIONS"].includes(method);
   const allowedPost =
-    pathname === "/api/coach" || pathname.startsWith("/api/auth/");
+    pathname === "/api/coach" ||
+    pathname.startsWith("/api/auth/") ||
+    pathname === "/login"; // sign-in server action: swaps the demo session for a real one
   if (blockedGet || (mutating && !allowedPost)) {
     return NextResponse.json(
       { error: "This is a read-only demo — changes aren't saved." },
