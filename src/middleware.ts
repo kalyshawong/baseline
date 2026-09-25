@@ -7,8 +7,7 @@ import { DEMO_USER_ID } from "@/lib/demo/constants";
  *
  * Order of acceptance:
  *   1. Valid Auth.js JWT session cookie (the real mechanism)
- *   2. Native-shell UA token (until the iOS webview has a proven login session)
- *   3. Legacy HTTP Basic passcode (SITE_PASSWORD — kept during migration;
+ *   2. Legacy HTTP Basic passcode (SITE_PASSWORD — kept during migration;
  *      remove once login is verified everywhere)
  *
  * Unauthenticated page requests redirect to /login; API requests get 401.
@@ -87,13 +86,12 @@ export async function middleware(req: NextRequest) {
   // 1) Auth.js session
   if (token) return NextResponse.next();
 
-  // 2) Native iOS shell UA token (transition — see capacitor.config.ts)
-  const uaToken = process.env.NATIVE_APP_UA_TOKEN;
-  if (uaToken && (req.headers.get("user-agent") ?? "").includes(uaToken)) {
-    return NextResponse.next();
-  }
+  // (The native iOS shell's UA token used to pass here and resolve to
+  // Kalysha's account. Removed 2026-09-25: the token ships inside every
+  // TestFlight build, so any tester — or anyone who read it — got her data.
+  // The app now signs in like a browser; its session cookie persists.)
 
-  // 3) Legacy Basic-Auth passcode (transition)
+  // 2) Legacy Basic-Auth passcode (transition)
   const authHeader = req.headers.get("authorization");
   if (authHeader?.startsWith("Basic ")) {
     try {

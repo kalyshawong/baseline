@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { dateStrToUTC } from "@/lib/date-utils";
 import { apiError } from "@/lib/utils";
-import { getCurrentUserId } from "@/lib/current-user";
+import { getCurrentUserId, runAsUser } from "@/lib/current-user";
+import { verifySyncToken } from "@/lib/sync-token";
+import { auth } from "@/auth";
+import { DEMO_USER_ID } from "@/lib/demo/constants";
 
 // Allow up to 5 minutes for large backfills (e.g. 16-day HAE re-exports).
 export const maxDuration = 300;
@@ -702,45 +705,31 @@ async function processCycleTracking(entries: CycleEntry[]): Promise<number> {
 
 // --- Route handlers ---
 
+/**
+ * Auth (2026-09-25): `Authorization: Bearer <per-user sync token>` minted by
+ * /api/native/sync-token for the signed-in user (src/lib/sync-token.ts). The
+ * token decides whose account the data lands in; everything below runs pinned
+ * to that user with runAsUser, so no helper can fall back to another tenant.
+ * The old shared HEALTHKIT_SYNC_KEY is no longer accepted: its value had
+ * shipped in the client bundle and it mapped every sender to one account.
+ */
 export async function POST(request: NextRequest) {
-  const userId = await getCurrentUserId();
+  const authHeader = request.headers.get("authorization") ?? "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const userId = bearer ? verifySyncToken(bearer) : null;
+  if (!userId || userId === DEMO_USER_ID) {
+    console.error(
+      `[HealthKit] 401 unauthorized — headerPresent=${authHeader !== ""}, tokenShape=${bearer.startsWith("bst1.") ? "bst1" : bearer ? "other" : "none"}`,
+    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return runAsUser(userId, () => handlePost(request, userId));
+}
+
+async function handlePost(request: NextRequest, userId: string) {
   // Hoisted so the catch block can flip the tombstone row to "error".
   let logRowId: string | null = null;
   try {
-    // Auth
-    const authHeader = request.headers.get("authorization");
-    const expectedKey = process.env.HEALTHKIT_SYNC_KEY;
-    if (!expectedKey || authHeader !== `Bearer ${expectedKey}`) {
-      // Observability fix (2026-05-27): previously this 401 was silent —
-      // no log, no HealthKitSync row, no surface anywhere. That hid 16+
-      // days of failures because HAE retried daily and got rejected on
-      // every attempt with zero downstream signal. Now: log to stderr
-      // AND write a "unauthorized" row so the dashboard / GET endpoint /
-      // sync staleness indicator can see something happened.
-      const headerPresent = authHeader != null;
-      const keyConfigured = !!expectedKey;
-      console.error(
-        `[HealthKit] 401 unauthorized — keyConfigured=${keyConfigured}, headerPresent=${headerPresent}, headerPrefix=${authHeader?.slice(0, 12) ?? "<none>"}`,
-      );
-      try {
-        await prisma.healthKitSync.create({
-          data: {
-            userId: userId,
-            status: "unauthorized",
-            metrics: 0,
-            workouts: 0,
-            details: !keyConfigured
-              ? "HEALTHKIT_SYNC_KEY env var not set on the server."
-              : !headerPresent
-                ? "Request missing Authorization header. HAE may not have an API key configured."
-                : "Authorization header didn't match HEALTHKIT_SYNC_KEY. HAE's stored key is probably stale.",
-          },
-        });
-      } catch {
-        // Don't let a logging failure mask the auth failure.
-      }
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     const body = await request.json();
     const data = body?.data ?? body; // Support both { data: { ... } } and flat
@@ -909,7 +898,13 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  const userId = await getCurrentUserId();
+  // This path is exempt from the middleware gate (the POST is token-authed),
+  // so the GET must check the session itself rather than fall back to a
+  // default tenant.
+  const session = await auth();
+  if (!(session as { userId?: string } | null)?.userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const syncs = await prisma.healthKitSync.findMany({
       orderBy: { syncedAt: "desc" },

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 
 /**
  * Native HealthKit bootstrap.
@@ -8,12 +9,14 @@ import { useEffect } from "react";
  * When the app runs inside the Capacitor iOS shell, this requests Health
  * permissions once and registers background sync (HKObserverQuery +
  * enableBackgroundDelivery in the native HealthKitSyncPlugin — see
- * docs/capacitor-healthkit-setup.md). On web / PWA it is a complete no-op,
- * so the deployed site is unaffected.
+ * docs/capacitor-healthkit-setup.md). On web / PWA it is a complete no-op.
  *
- * Auth note: uses NEXT_PUBLIC_HEALTHKIT_SYNC_KEY (same value as the server's
- * HEALTHKIT_SYNC_KEY). Acceptable for the solo, passcode-gated phase; replace
- * with a per-user session token when real auth lands (roadmap step 2).
+ * Auth (2026-09-25): the plugin gets a per-user sync token from
+ * /api/native/sync-token, which only answers a signed-in session. Signed out
+ * (e.g. on /login) → 401 → nothing starts. Re-checked on navigation so that
+ * signing in starts sync without an app restart. The old shared
+ * NEXT_PUBLIC_HEALTHKIT_SYNC_KEY is no longer read — it sent every phone's
+ * data to one account.
  */
 
 interface HealthKitSyncPlugin {
@@ -23,20 +26,24 @@ interface HealthKitSyncPlugin {
 }
 
 export function NativeHealthInit() {
+  const pathname = usePathname();
+  const startedFor = useRef<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        // Dynamic import so web bundles don't need Capacitor at runtime.
         const { Capacitor, registerPlugin } = await import("@capacitor/core");
         if (Capacitor.getPlatform() !== "ios") return; // web/PWA: no-op
 
-        const key = process.env.NEXT_PUBLIC_HEALTHKIT_SYNC_KEY;
-        if (!key) {
-          console.warn("[NativeHealth] NEXT_PUBLIC_HEALTHKIT_SYNC_KEY not set; skipping");
-          return;
-        }
+        const res = await fetch("/api/native/sync-token", {
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        if (!res.ok) return; // signed out or demo: don't sync
+        const { token } = (await res.json()) as { token?: string };
+        if (!token || cancelled || startedFor.current === token) return;
 
         const HealthKitSync = registerPlugin<HealthKitSyncPlugin>("HealthKitSync");
 
@@ -45,11 +52,11 @@ export function NativeHealthInit() {
 
         await HealthKitSync.startBackgroundSync({
           serverUrl: window.location.origin,
-          apiKey: key,
+          apiKey: token,
         });
+        startedFor.current = token;
 
-        // Prime the pipeline with an immediate full push so the dashboard has
-        // Watch data on first launch instead of waiting for background delivery.
+        // Prime the pipeline so the dashboard has Watch data on first launch.
         await HealthKitSync.syncNow().catch(() => {});
       } catch (err) {
         // Never let native bootstrap break the web app.
@@ -60,7 +67,7 @@ export function NativeHealthInit() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [pathname]);
 
   return null;
 }

@@ -1,5 +1,4 @@
 import { cache } from "react";
-import { headers } from "next/headers";
 import { AsyncLocalStorage } from "node:async_hooks";
 
 // --- Session-backed tenant resolution (Phase 2 flip, 2026-08-25) ---
@@ -8,8 +7,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 // you"). It now resolves the ACTUAL requester, in order:
 //
 //   1. Auth.js session   → that user's id (the real mechanism)
-//   2. Native-shell UA token → Kalysha (transition: the iOS webview hasn't
-//      proven a persistent login session yet; its token maps to her)
+//   2. (removed 2026-09-25 — native shell now signs in; see below)
 //   3. Anything else (HAE key-authed posts, cron, legacy Basic-auth,
 //      scripts) → Kalysha (transition: those channels are hers by
 //      construction today; per-user sync keys arrive with invites)
@@ -55,15 +53,13 @@ const resolveRequestUserId = cache(async (): Promise<string> => {
     /* outside a request scope (scripts) or auth unavailable — fall through */
   }
 
-  // 2) Native shell (no session cookie, but carries the UA token).
-  try {
-    const ua = (await headers()).get("user-agent") ?? "";
-    if (ua.includes("BaselineNative")) return SOLO_USER_ID;
-  } catch {
-    /* headers() outside request scope — fall through */
-  }
+  // 2) Native shell: REMOVED 2026-09-25. The UA token mapped every copy of
+  // the iOS app to Kalysha, so any TestFlight tester would have opened her
+  // account and synced their Health data into it. The app now signs in with
+  // a session like any browser, and HealthKit posts carry a per-user token
+  // (src/lib/sync-token.ts) resolved with runAsUser.
 
-  // 3) Transition default. TODO(invites): throw here instead, once every
+  // 3) Transition default (legacy Basic-auth passcode, scripts). TODO(invites): throw here instead, once every
   // channel (HAE, cron, native) carries an explicit user identity.
   return SOLO_USER_ID;
 });
