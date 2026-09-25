@@ -70,10 +70,5 @@
 	<string>Baseline reads your workouts, heart rate, activity, and cycle data to compute your daily readiness.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Baseline does not write to Health.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>processing</string>
-	</array>
 </dict>
 </plist>
