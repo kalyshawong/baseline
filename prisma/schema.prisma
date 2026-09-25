@@ -64,6 +64,11 @@ model User {
   // incident, 2026-08-26). Null = fall back to bl_tz.
   timezone String?
 
+  // Raw questionnaire + goals + experiment program carried over from the
+  // Expo pilot app via /api/import/expo (2026-09-24). Kept verbatim so the
+  // web onboarding can be seeded from it later; never read by analysis.
+  importedExpo String?
+
   // back-relations
   ouraToken                OuraToken?
   profile                  UserProfile?
@@ -110,6 +115,25 @@ model User {
   diagnoseFlows            DiagnoseFlow[]
   diagnoseCandidateStates  DiagnoseCandidateState[]
   diagnoseRuns             DiagnoseRun[]
+  importCodes              ImportCode[]
+}
+
+// One-time-ish secret a tester types into the Expo pilot app's "Send my
+// data" screen. Resolves to the account the payload lands in. Reusable on
+// purpose (re-sending is idempotent), revoked by deleting the row. Looked up
+// by code BEFORE the tenant is known, so it is deliberately NOT in
+// db.ts OWNED_MODELS.
+model ImportCode {
+  id         String    @id @default(cuid())
+  code       String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  note       String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  useCount   Int       @default(0)
+
+  @@index([userId])
 }
 
 // Per-user, per-signal baseline state. This is the gate between "priors mode"
