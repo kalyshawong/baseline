@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { GoalsManager } from "@/components/goals/goals-manager";
 import { MobileGoals } from "@/components/mobile/mobile-goals";
@@ -27,6 +28,12 @@ export default async function GoalsPage() {
       {/* ═══════════ MOBILE (Baseline iOS — Goals) ═══════════ */}
       <div className="md:hidden">
         <MobileGoals initialGoals={mapped} />
+        {/* Plain placeholder link (2026-09-25) — Kalysha to place/style */}
+        <div className="px-5 pb-32 pt-6 text-center">
+          <Link href="/account" className="text-sm underline text-[var(--color-text-muted)]">
+            Account &amp; privacy
+          </Link>
+        </div>
       </div>
 
       {/* ═══════════ DESKTOP (unchanged) ═══════════ */}

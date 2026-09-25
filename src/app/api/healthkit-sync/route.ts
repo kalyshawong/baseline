@@ -723,6 +723,9 @@ export async function POST(request: NextRequest) {
     );
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // Stateless tokens outlive a deleted account; refuse them once it's gone.
+  const exists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!exists) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   return runAsUser(userId, () => handlePost(request, userId));
 }
 

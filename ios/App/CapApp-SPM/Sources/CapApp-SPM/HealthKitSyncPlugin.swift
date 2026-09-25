@@ -24,9 +24,11 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startBackgroundSync", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncNow", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopBackgroundSync", returnType: CAPPluginReturnPromise),
     ]
 
     private let store = HKHealthStore()
+    private var observerQueries: [HKObserverQuery] = []
 
     // HealthKit type → HAE metric name (matches /api/healthkit-sync switch).
     // Running-dynamics metrics are iOS 16+; guarded so the package's iOS 15
@@ -207,6 +209,7 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         UserDefaults.standard.set(serverUrl, forKey: "bl_server")
         UserDefaults.standard.set(apiKey, forKey: "bl_key")
+        stopObservers() // re-registering on every launch/sign-in must not stack queries
 
         for (id, _, _) in quantityTypes {
             guard let type = HKObjectType.quantityType(forIdentifier: id) else { continue }
@@ -217,6 +220,24 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
             registerObserver(for: flow)
         }
         call.resolve(["started": true])
+    }
+
+    /// Sign-out / account deletion (2026-09-25): stop sending this phone's
+    /// Health data anywhere, and forget the per-user token plus the sync
+    /// watermark so the next account that signs in gets its own first sync
+    /// instead of inheriting the previous user's position.
+    @objc func stopBackgroundSync(_ call: CAPPluginCall) {
+        stopObservers()
+        store.disableAllBackgroundDelivery { _, _ in }
+        for k in ["bl_key", "bl_server", "bl_last_sync", "bl_run_detail_backfilled"] {
+            UserDefaults.standard.removeObject(forKey: k)
+        }
+        call.resolve(["stopped": true])
+    }
+
+    private func stopObservers() {
+        for q in observerQueries { store.stop(q) }
+        observerQueries.removeAll()
     }
 
     @objc func syncNow(_ call: CAPPluginCall) {
@@ -256,6 +277,7 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
                 completion() // MUST be called or iOS throttles future deliveries
             }
         }
+        observerQueries.append(query)
         store.execute(query)
         store.enableBackgroundDelivery(for: type, frequency: .hourly) { _, _ in }
     }

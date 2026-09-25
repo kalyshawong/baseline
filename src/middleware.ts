@@ -48,6 +48,7 @@ function isExempt(pathname: string): boolean {
   if (pathname === "/api/keepalive") return true; // Vercel cron; leaks nothing
   if (pathname === "/api/version") return true; // build sha only; staleness check
   if (pathname === "/login") return true;
+  if (pathname === "/privacy") return true; // public: linked from the App Store listing
   if (pathname === "/signup") return true; // invite-gated; the code is the gate
   if (pathname === "/demo") return true; // public demo entry — signs into the read-only demo tenant
   if (pathname === "/api/demo/reseed") return true; // Vercel cron; self-rate-limited, touches only the demo tenant

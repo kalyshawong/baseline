@@ -14,14 +14,16 @@ const config: CapacitorConfig = {
   appId: "com.kalysha.baseline",
   appName: "Baseline",
   webDir: "public",
-  // The native WebView can't answer HTTP Basic Auth dialogs, so the shell
-  // identifies itself with this UA token and the middleware lets it through
-  // (browsers still hit the passcode). Interim until real auth (roadmap §5.2);
-  // must match NATIVE_APP_UA_TOKEN in the server env.
+  // UA marker only — used to label native requests and skip the PWA service
+  // worker. It grants NO access and maps to NO account (2026-09-25): the app
+  // signs in with a session like a browser.
   appendUserAgent: "BaselineNative/tk_9f4Qx2Lm8vRw",
   server: {
     url: "https://baseline-eta-rose.vercel.app",
     cleartext: false,
+    // Shown (bundled from webDir) when the deployed app can't load: no
+    // signal, Vercel down, Supabase paused. Instead of a blank white screen.
+    errorPath: "offline.html",
   },
   ios: {
     contentInset: "never",
