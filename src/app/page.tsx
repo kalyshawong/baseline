@@ -584,6 +584,7 @@ export default async function Dashboard({
       <TodayCallHero
           call={todayCall}
           isConnected={isConnected}
+          ouraAvailable={gates.ouraConnect}
           flagPointer={flagPointer}
           actions={[
             { href: "/mind", label: "Log food" },

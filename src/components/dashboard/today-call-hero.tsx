@@ -18,6 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
 export function TodayCallHero({
   call,
   isConnected,
+  ouraAvailable,
   evidence,
   flagPointer,
   actions,
@@ -27,6 +28,8 @@ export function TodayCallHero({
   actions?: { href: string; label: string }[];
   call: TrainingCall | null;
   isConnected: boolean;
+  /** Intake gate: false = this person has no Oura, so never ask them to connect one. */
+  ouraAvailable?: boolean;
   evidence?: EvidenceItem[];
   /** Compact pointer to the Flags feed when something about today's inputs
    *  doesn't add up. The reasoning lives in /mind; this is just the nudge. */
@@ -39,9 +42,11 @@ export function TodayCallHero({
         <p className="mt-4 max-w-xl text-base leading-relaxed text-[var(--color-text-muted)]">
           {isConnected
             ? "Sync to see today's call."
-            : "Connect your Oura ring to see today's call."}
+            : ouraAvailable === false
+              ? "Your call appears once a few nights of sleep and heart rate have synced from your watch."
+              : "Connect your Oura ring to see today's call."}
         </p>
-        {!isConnected && (
+        {!isConnected && ouraAvailable !== false && (
           <a href="/api/auth/oura" className="btn mt-5 inline-block">
             Connect Oura
           </a>
