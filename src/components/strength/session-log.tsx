@@ -290,7 +290,7 @@ export function SessionLog({ plan, restSeconds = REST_DEFAULT, restNote }: { pla
   if (!ex) {
     // No previous session and nothing added yet.
     return (
-      <div className="st-screen">
+      <div className="st-screen bl-m">
         <div className="st-v on" style={{ paddingBottom: 40 }}>
           <Header title={plan.templateName} sub="No previous session · add your first exercise" onClose={close} unit={unit} onUnit={() => setUnit(unit === "RIR" ? "RPE" : "RIR")} onFinish={close} finishLabel="Close" />
           <div className="wrap">
@@ -298,7 +298,7 @@ export function SessionLog({ plan, restSeconds = REST_DEFAULT, restNote }: { pla
             <div className="st-addrow"><button onClick={() => { setQuery(""); setSheet(true); }}>+ Exercise</button><button disabled style={{ opacity: 0.4 }}>+ Set</button></div>
           </div>
         </div>
-        {sheet && <Sheet query={query} setQuery={setQuery} items={libFiltered} onPick={addExercise} onClose={() => setSheet(false)} />}
+        {sheet && <Sheet query={query} setQuery={setQuery} items={libFiltered} muscles={plan.muscles} onPick={addExercise} onClose={() => setSheet(false)} />}
       </div>
     );
   }
@@ -308,7 +308,7 @@ export function SessionLog({ plan, restSeconds = REST_DEFAULT, restNote }: { pla
   const nx = exs[exIdx + 1];
 
   return (
-    <div className="st-screen">
+    <div className="st-screen bl-m">
       <div className="st-v on" style={{ paddingBottom: dockH + 16 }}>
         <Header
           title={plan.templateName}
@@ -431,7 +431,7 @@ export function SessionLog({ plan, restSeconds = REST_DEFAULT, restNote }: { pla
         )}
       </div>
 
-      {sheet && <Sheet query={query} setQuery={setQuery} items={libFiltered} onPick={addExercise} onClose={() => setSheet(false)} />}
+      {sheet && <Sheet query={query} setQuery={setQuery} items={libFiltered} muscles={plan.muscles} onPick={addExercise} onClose={() => setSheet(false)} />}
       {toast ? (
         <div className="st-toast on" style={{ bottom: dockH + 10 }}>
           <span>{toast.text}</span>
@@ -459,7 +459,7 @@ function Header({ title, sub, onClose, unit, onUnit, onFinish, finishing, finish
   );
 }
 
-function Sheet({ query, setQuery, items, onPick, onClose }: { query: string; setQuery: (q: string) => void; items: LibraryExercise[]; onPick: (l: LibraryExercise) => void; onClose: () => void }) {
+function Sheet({ query, setQuery, items, muscles, onPick, onClose }: { query: string; setQuery: (q: string) => void; items: LibraryExercise[]; muscles: MuscleBand[]; onPick: (l: LibraryExercise) => void; onClose: () => void }) {
   return (
     <div className="st-sheet on" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="in">
@@ -468,7 +468,7 @@ function Sheet({ query, setQuery, items, onPick, onClose }: { query: string; set
         <input className="field" placeholder="Search exercises" value={query} onChange={(e) => setQuery(e.target.value)} style={{ marginBottom: 10 }} autoFocus />
         {items.length ? items.map((x) => (
           <button key={x.exerciseId} className="st-opt" onClick={() => onPick(x)}>
-            <span><b>{x.name}</b><span>{x.muscle} · {x.lastSet ? `Last ${x.lastDate} · ${f1(x.lastSet[0])} × ${x.lastSet[1]}` : "No previous session"}</span></span>
+            <span><b>{x.name}</b><span>{muscleLabel(x.muscle, muscles)} · {x.lastSet ? `Last ${x.lastDate} · ${f1(x.lastSet[0])} × ${x.lastSet[1]}` : "No previous session"}</span></span>
             <i>+</i>
           </button>
         )) : <div className="st-dnote">No match. Exercises you log appear here.</div>}
@@ -496,7 +496,7 @@ function Summary({ plan, exs, unit, rv, minutes, onDone }: { plan: SessionPlan; 
   const mains = exs.filter((e) => e.main);
   const today = new Date();
   return (
-    <div className="st-screen">
+    <div className="st-screen bl-m">
       <div className="st-v on" style={{ paddingBottom: 40 }}>
         <div className="st-lh"><div className="c"><div className="t">Session logged</div><div className="s">{plan.templateName} · {today.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div></div></div>
         <div className="wrap"><div className="stack-lg">
