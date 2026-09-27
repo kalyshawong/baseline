@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getIntakeStatus } from "@/lib/intake";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
 import { getLocalDay, getRequestTz } from "@/lib/date-utils";
@@ -15,6 +17,7 @@ export default async function CoachPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  if ((await getIntakeStatus()).needsOnboarding) redirect("/onboarding");
   const params = await searchParams;
   const sessionId = typeof params.session === "string" ? params.session : null;
 

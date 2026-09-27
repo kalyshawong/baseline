@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getIntakeStatus } from "@/lib/intake";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId, runAsUser } from "@/lib/current-user";
@@ -121,6 +123,8 @@ export default async function Dashboard({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { needsOnboarding, gates } = await getIntakeStatus();
+  if (needsOnboarding) redirect("/onboarding");
   const params = await searchParams;
   const tz = await getRequestTz(); // viewer's day, not the server's
   const viewDate = getDateFromParams(params, tz);
@@ -498,6 +502,7 @@ export default async function Dashboard({
           riverNights={riverNights}
           viewDate={viewDate}
           isConnected={isConnected}
+          showOuraConnect={gates.ouraConnect}
           lastSyncIso={lastSync?.syncDate.toISOString() ?? null}
           score={score ? { overall: score.overall, color: score.color } : null}
           scoreSeries={scoreSeries}
@@ -547,11 +552,11 @@ export default async function Dashboard({
         <div className="flex items-center gap-4">
           {isConnected ? (
             <SyncButton />
-          ) : (
+          ) : gates.ouraConnect ? (
             <a href="/api/auth/oura" className="btn">
               Connect Oura
             </a>
-          )}
+          ) : null}
           {lastSync && (
             <span className="ov">
               Last sync{" "}
@@ -656,7 +661,7 @@ export default async function Dashboard({
       {signals && <SignalsTiles s={signals} />}
 
       {/* Hyrox countdown — only when an active Hyrox plan exists */}
-      {hyroxToday && <HyroxCountdownCard today={hyroxToday} />}
+      {gates.cardio && hyroxToday && <HyroxCountdownCard today={hyroxToday} />}
 
       {/* Row 3 · workouts, side by side; a single workout spans the row */}
       <section className="workouts">

@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getIntakeStatus } from "@/lib/intake";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { GoalsManager } from "@/components/goals/goals-manager";
@@ -6,6 +8,7 @@ import { MobileGoals } from "@/components/mobile/mobile-goals";
 export const dynamic = "force-dynamic";
 
 export default async function GoalsPage() {
+  if ((await getIntakeStatus()).needsOnboarding) redirect("/onboarding");
   const goals = await prisma.goal.findMany({
     orderBy: [{ status: "asc" }, { deadline: "asc" }, { createdAt: "desc" }],
   });

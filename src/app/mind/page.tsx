@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getIntakeStatus } from "@/lib/intake";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
@@ -51,6 +53,7 @@ export default async function MindPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  if ((await getIntakeStatus()).needsOnboarding) redirect("/onboarding");
   const params = await searchParams;
   const tz = await getRequestTz();
   const viewDate = getDateFromParams(params, tz);
@@ -185,6 +188,17 @@ export default async function MindPage({
     eatenAt: e.eatenAt.toISOString(),
     timeUnknown: e.timeUnknown,
   }));
+  const loggedTags = dayTags.map((t) => ({
+    id: t.id,
+    tag: t.tag,
+    category: t.category,
+    timestamp: t.timestamp.toISOString(),
+    timeUnknown: tagTimeUnknown(t.metadata),
+    experimentTitle: t.experiment?.title ?? null,
+  }));
+  const intakeTotals = nutritionLog
+    ? { calories: nutritionLog.calories, protein: nutritionLog.protein, carbs: nutritionLog.carbs, fat: nutritionLog.fat }
+    : null;
   // Finished experiments carry their verdict (and pairs) from the tested
   // findings, so a finished row never reads "0 days logged" next to a result.
   const testedByExp = new Map(
@@ -195,7 +209,10 @@ export default async function MindPage({
 
   return (
     <>
-      {/* ═══════════ MOBILE (Baseline iOS — Mind) ═══════════ */}
+      {/* ═══════════ MOBILE — Baseline iOS Mind v2 handoff (2026-09-26) ═══════════
+       * Same order as desktop: today → Log → Findings → Experiments. Shares the
+       * desktop Log / Intake / Findings components in their `mobile` variant.
+       * Styles: mobile-mind.css (mi-*), scoped under .bl-m. */}
       <div className="md:hidden">
         <div className="bl-m">
           <div className="appbar">
@@ -208,7 +225,7 @@ export default async function MindPage({
             </Suspense>
           </div>
 
-          <div className="ctxbar">
+          <div className="ctxbar mi-today">
             <div className="c">
               <div className="k">Readiness</div>
               <div className="v num">{dayReadiness?.score ?? "—"}</div>
@@ -220,81 +237,53 @@ export default async function MindPage({
             <div className="c">
               <div className="k">HRV</div>
               <div className="v num">
-                {daySleep?.averageHrv ?? "—"}
-                <small> ms</small>
+                {daySleep?.averageHrv != null ? Math.round(daySleep.averageHrv) : "—"}
+                {daySleep?.averageHrv != null && <small> ms</small>}
+              </div>
+            </div>
+            <div className="c">
+              <div className="k">Stress</div>
+              <div className="v mi-word">
+                {dayStress?.daySummary
+                  ? dayStress.daySummary.charAt(0).toUpperCase() + dayStress.daySummary.slice(1)
+                  : "—"}
               </div>
             </div>
           </div>
 
-          {cyclePhase.phase && (
+          {deskPhase && (
             <div className="phasebox">
-              <span className="p">{cyclePhase.phase}</span>
-              {phaseNote && <span className="note">{phaseNote}</span>}
+              <span className="p">{deskPhase.label}</span>
+              <span className="note">{deskPhase.note}</span>
             </div>
           )}
 
-          <div className="g-sec">Inputs · Log</div>
+          <div className="g-sec">Log</div>
           <div className="wrap">
             <div className="stack-lg">
-              <MobileQuickTag dateStr={viewDateStr} frequentTags={frequentTags} />
-              <MobileLogFood dateStr={viewDateStr} />
-              <MacroSummary
-                data={
-                  nutritionLog
-                    ? {
-                        calories: nutritionLog.calories,
-                        protein: nutritionLog.protein,
-                        carbs: nutritionLog.carbs,
-                        fat: nutritionLog.fat,
-                        entryCount: nutritionLog.entries.length,
-                      }
-                    : null
+              <LogPanel
+                mobile
+                tz={tz}
+                tag={<MobileQuickTag bare dateStr={viewDateStr} frequentTags={frequentTags} />}
+                food={<MobileLogFood bare dateStr={viewDateStr} />}
+                ctx={
+                  <LifeContextCard
+                    bare
+                    key={`m-${viewDateStr}`}
+                    dateStr={viewDateStr}
+                    defs={lifeDefs}
+                    todayLogs={lifeLogs}
+                  />
                 }
+                tags={loggedTags}
               />
-              <NutritionLog
+              <Intake
+                mobile
+                tz={tz}
                 dateStr={viewDateStr}
                 mealsComplete={nutritionLog?.mealsComplete ?? false}
-                entries={(nutritionLog?.entries ?? []).map((e) => ({
-                  id: e.id,
-                  description: e.description,
-                  foodName: e.foodName,
-                  calories: e.calories,
-                  protein: e.protein,
-                  carbs: e.carbs,
-                  fat: e.fat,
-                  mealType: e.mealType,
-                  source: e.source,
-                  eatenAt: e.eatenAt.toISOString(),
-                  timeUnknown: e.timeUnknown,
-                }))}
-              />
-              <LifeContextCard
-                key={`m-${viewDateStr}`}
-                dateStr={viewDateStr}
-                defs={lifeContextDefs.map((d) => ({
-                  id: d.id,
-                  label: d.label,
-                  category: d.category,
-                  emoji: d.emoji ?? null,
-                  color: d.color ?? null,
-                  groupKey: d.groupKey ?? null,
-                  archived: d.archived,
-                }))}
-                todayLogs={lifeContextLogs.map((l) => ({
-                  id: l.id,
-                  defId: l.defId,
-                  day: typeof l.day === "string" ? l.day : (l.day as unknown as Date).toISOString(),
-                }))}
-              />
-              <TagTimeline
-                tags={dayTags.map((t) => ({
-                  id: t.id,
-                  tag: t.tag,
-                  category: t.category,
-                  timestamp: t.timestamp.toISOString(),
-                  metadata: t.metadata ?? null,
-                  experiment: t.experiment ? { id: t.experiment.id, title: t.experiment.title } : null,
-                }))}
+                totals={intakeTotals}
+                entries={foodEntries}
               />
             </div>
           </div>
@@ -302,30 +291,113 @@ export default async function MindPage({
           <div className="g-sec">Findings</div>
           <div className="wrap">
             <div className="stack-lg">
-              {flags.length > 0 && <FlagsFeed flags={flags} />}
-              <DiagnoseCard />
-              <InsightsFeed insights={insights.patterns} collecting={insights.collecting} tested={testedFindings.tested} calibration={hrvCalibration} />
-              {mealGi && <GiPatternsCard result={mealGi} />}
-              {active.length > 0 && (
-                <div className="panel">
-                  <p className="ov" style={{ marginBottom: 12 }}>Active Experiments</p>
+              <MindFindings
+                mobile
+                insights={insights.patterns}
+                collecting={insights.collecting}
+                tested={testedFindings.tested}
+                calibration={hrvCalibration}
+                mealGi={mealGi}
+                alerts={
+                  <>
+                    {flags.length > 0 && <FlagsFeed flags={flags} />}
+                    <DiagnoseCard />
+                  </>
+                }
+              />
+            </div>
+          </div>
+
+          <div className="g-sec">Experiments</div>
+          <div className="wrap">
+            <div className="stack-lg">
+              <div className="panel">
+                <div className="ph">
+                  <span className="ov">Active</span>
+                  <span className="k">{active.length} running</span>
+                </div>
+                {active.length === 0 ? (
+                  <p className="empty">
+                    No active experiments.{" "}
+                    <Link href="/mind/experiments/new" className="linklike">
+                      Start from a template.
+                    </Link>
+                  </p>
+                ) : (
                   <div className="stack">
                     {active.map((exp) => {
-                      const treatmentDays = exp._count.logs;
-                      const progress = Math.min(100, Math.round((treatmentDays / (exp.minDays * 2)) * 100));
+                      const days = exp._count.logs;
+                      const progress = Math.min(100, Math.round((days / (exp.minDays * 2)) * 100));
                       return (
-                        <Link key={exp.id} href={`/mind/experiments/${exp.id}`} className="lrow">
-                          <div>
-                            <div className="nm">{exp.title}</div>
-                            <div className="dt">{treatmentDays} days logged · {progress}%</div>
+                        <Link key={exp.id} href={`/mind/experiments/${exp.id}`} className="mi-xa" style={{ display: "block", color: "inherit", textDecoration: "none" }}>
+                          <div className="top">
+                            <div className="t">{exp.title}</div>
+                            <span className="pill g">Active</span>
                           </div>
-                          <span className={statusColors[exp.status]}>{exp.status}</span>
+                          {exp.hypothesis && <div className="d">{exp.hypothesis}</div>}
+                          <div className="mi-prog">
+                            <div className="mi-bar g">
+                              <i style={{ width: `${progress}%` }} />
+                            </div>
+                            <div className="k">
+                              <span>{days} days logged</span>
+                              <span>{progress}%</span>
+                            </div>
+                          </div>
                         </Link>
                       );
                     })}
                   </div>
+                )}
+                {others.length > 0 && (
+                  <>
+                    <div className="ph" style={{ margin: "20px 0 0" }}>
+                      <span className="ov">Finished</span>
+                    </div>
+                    <ul className="mi-xlist">
+                      {others.map((exp) => {
+                        const r = testedByExp.get(exp.id);
+                        const dim = !r || r.decision.startsWith("inconclusive");
+                        return (
+                          <li key={exp.id}>
+                            <Link href={`/mind/experiments/${exp.id}`} className="t" style={{ color: "inherit", textDecoration: "none" }}>
+                              {exp.title}
+                              <span>
+                                {r ? `${r.blocks} pairs · ${r.outcomeLabel}` : `${exp._count.logs} days logged`}
+                              </span>
+                            </Link>
+                            <span className="pill muted">{exp.status === "analyzed" ? "Analyzed" : exp.status}</span>
+                            {r && (
+                              <span className="res" style={dim ? { color: "var(--dim)" } : undefined}>
+                                {verdictLabel(r)}
+                              </span>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
+              </div>
+
+              {latestEnv ? (
+                <EnvCard
+                  latest={{
+                    pm25: latestEnv.pm25,
+                    temperature: latestEnv.temperature,
+                    humidity: latestEnv.humidity,
+                    noiseDb: latestEnv.noiseDb,
+                    timestamp: latestEnv.timestamp.toISOString(),
+                  }}
+                />
+              ) : (
+                <div className="mi-env">
+                  <span className="k">Environment</span>
+                  <span>No sensor data yet.</span>
+                  <span className="linklike">Connect your ESP32</span>
                 </div>
               )}
+              <div style={{ height: 24 }} />
             </div>
           </div>
         </div>
@@ -399,24 +471,13 @@ export default async function MindPage({
                     todayLogs={lifeLogs}
                   />
                 }
-                tags={dayTags.map((t) => ({
-                  id: t.id,
-                  tag: t.tag,
-                  category: t.category,
-                  timestamp: t.timestamp.toISOString(),
-                  timeUnknown: tagTimeUnknown(t.metadata),
-                  experimentTitle: t.experiment?.title ?? null,
-                }))}
+                tags={loggedTags}
               />
               <Intake
                 tz={tz}
                 dateStr={viewDateStr}
                 mealsComplete={nutritionLog?.mealsComplete ?? false}
-                totals={
-                  nutritionLog
-                    ? { calories: nutritionLog.calories, protein: nutritionLog.protein, carbs: nutritionLog.carbs, fat: nutritionLog.fat }
-                    : null
-                }
+                totals={intakeTotals}
                 entries={foodEntries}
               />
             </div>

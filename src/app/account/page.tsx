@@ -50,6 +50,11 @@ export default async function AccountPage({
         ) : (
           <SignOutButton />
         )}
+        {!isDemo && (
+          <Link href="/onboarding?edit=1" className="text-sm underline text-[var(--color-text-muted)]">
+            Change my goals, devices and answers
+          </Link>
+        )}
         <Link href="/privacy" className="text-sm underline text-[var(--color-text-muted)]">
           Privacy policy
         </Link>

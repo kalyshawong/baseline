@@ -62,6 +62,8 @@ export type MobileDashboardProps = {
   riverNights?: RiverNight[];
   viewDate: Date;
   isConnected: boolean;
+  /** Intake gate: false hides the Oura "Connect" for people without a ring. */
+  showOuraConnect?: boolean;
   lastSyncIso: string | null;
   score: { overall: number; color: "green" | "yellow" | "red" } | null;
   scoreSeries: number[];
@@ -190,7 +192,7 @@ export function MobileDashboard(p: MobileDashboardProps) {
         </Suspense>
         {p.isConnected ? (
           <SyncButton />
-        ) : (
+        ) : p.showOuraConnect === false ? null : (
           <a href="/api/auth/oura" className="syncbtn">Connect</a>
         )}
       </div>

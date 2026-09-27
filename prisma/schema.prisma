@@ -69,6 +69,13 @@ model User {
   // web onboarding can be seeded from it later; never read by analysis.
   importedExpo String?
 
+  // Intake questionnaire (goals, devices, cycle, schedule, ...) — the pilot
+  // app's IntakeState shape, med NAMES never stored (category flags only).
+  // Drives which dashboard cards exist for this person (src/lib/intake.ts).
+  // Null on the owner account = legacy "everything on".
+  intake            String?
+  intakeCompletedAt DateTime?
+
   // back-relations
   ouraToken                OuraToken?
   profile                  UserProfile?

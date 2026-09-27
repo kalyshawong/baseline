@@ -23,6 +23,9 @@ import {
  * then patterns / collecting (incl. pre-workout meal → GI) in a 2-up grid, and
  * every explainer folded into "How this works". Same data and actions as
  * InsightsFeed + GiPatternsCard; only the arrangement changed.
+ *
+ * `mobile` renders the Baseline iOS Mind v2 arrangement (mi-* classes): one
+ * column, filter chips → tuned banner → sort → tested → stacked cards.
  */
 
 type Filter = "all" | "patterns" | "collecting" | "tested";
@@ -46,7 +49,9 @@ export function MindFindings({
   calibration,
   mealGi,
   alerts,
+  mobile = false,
 }: {
+  mobile?: boolean;
   insights: Insight[];
   collecting: CollectingTag[];
   tested: TestedFinding[];
@@ -114,16 +119,114 @@ export function MindFindings({
   const featured = show("patterns") ? pool[0] : undefined;
   const cards: ReactNode[] = [];
   if (show("patterns")) {
-    for (const i of pool.slice(1)) cards.push(<PatternCard key={`p-${i.tag}-${i.direction}`} i={i} hidden={isHidden(i.tag)} onToggle={() => toggleHide(i.tag)} />);
-    for (const p of giPatterns) cards.push(<GiPatternCard key={`gi-${p.factor}`} p={p} />);
+    for (const i of pool.slice(1)) cards.push(<PatternCard key={`p-${i.tag}-${i.direction}`} i={i} hidden={isHidden(i.tag)} onToggle={() => toggleHide(i.tag)} m={mobile} />);
+    for (const p of giPatterns) cards.push(<GiPatternCard key={`gi-${p.factor}`} p={p} m={mobile} />);
   }
   if (show("collecting")) {
-    for (const c of collecting) cards.push(<CollectingCard key={`c-${c.tag}`} c={c} />);
-    if (gi && giCollecting) cards.push(<GiCollectingCard key="gi-c" gi={gi} />);
+    for (const c of collecting) cards.push(<CollectingCard key={`c-${c.tag}`} c={c} m={mobile} />);
+    if (gi && giCollecting) cards.push(<GiCollectingCard key="gi-c" gi={gi} m={mobile} />);
   }
 
   const calibrated = calibration && calibration.choice !== "pending";
   const personalized = calibration?.choice === "personalized";
+
+  const zeroState = (cls: string) =>
+    counts.all === 0 && (
+      <div className={cls}>
+        <div className="body" style={{ marginTop: 0 }}>
+          Keep tagging — a pattern needs at least 14 logged days on each side before it earns a card. Nothing is
+          shown before then, because a few days of noise can fake a large swing.
+        </div>
+      </div>
+    );
+  const archivedToggle = hiddenTags.length > 0 && (
+    <button type="button" className="archived" onClick={() => setShowHidden((v) => !v)}>
+      {showHidden ? "Conceal archived" : `${hiddenTags.length} archived · show`}
+    </button>
+  );
+  const filterChips = (
+    <div className="ffilters">
+      {(
+        [
+          ["all", "All"],
+          ["patterns", "Patterns"],
+          ["collecting", "Collecting"],
+          ["tested", "Tested"],
+        ] as [Filter, string][]
+      ).map(([id, label]) => (
+        <button key={id} type="button" className={`fchip${filter === id ? " on" : ""}`} onClick={() => setFilter(id)}>
+          {label} <span className="ct">{counts[id]}</span>
+        </button>
+      ))}
+    </div>
+  );
+  const calibrateLabel = saving ? "Saving…" : personalized ? "Switch to standard" : "Recalibrate to me";
+  const calibrateNext = personalized ? "standard" : "personalized";
+
+  if (mobile) {
+    return (
+      <>
+        <div className="findbar" style={{ marginBottom: 0 }}>
+          {filterChips}
+        </div>
+        {calibration && !calibrated && <CalibrationCard c={calibration} />}
+        {calibrated && (
+          <div className="mi-tuned">
+            <span className="k">{personalized ? "Tuned to you" : "Standard"}</span>
+            <span className="t">Overtraining warning</span>
+            <button type="button" className="linklike" disabled={saving} onClick={() => chooseCalibration(calibrateNext)}>
+              {calibrateLabel}
+            </button>
+          </div>
+        )}
+        <div className="fsort" style={{ alignSelf: "flex-end" }}>
+          Sort: <b>Pattern strength</b>
+        </div>
+        {alerts}
+        {show("tested") && tested.map((t) => <TestedCard key={t.id} t={t} m />)}
+        {featured && (
+          <FeaturedFinding insight={featured} hidden={isHidden(featured.tag)} onToggleHide={() => toggleHide(featured.tag)} />
+        )}
+        {cards}
+        {zeroState("mi-fc")}
+        {archivedToggle}
+        <details className="mi-how">
+          <summary>
+            <span className="i">i</span>How this works<span className="car">▶</span>
+          </summary>
+          <div className="in">
+            <p>
+              Patterns your data noticed — <b>descriptions of your past, not verdicts.</b> Every card stays a hypothesis
+              until you test it.
+            </p>
+            <div>
+              <h4>Context, everywhere</h4>
+              Things you won&apos;t randomize — a partner staying over, travel, a visit week — are treated{" "}
+              <b>like your cycle phase</b>: a context, never an intervention. Findings and experiments are balanced
+              across them, so &ldquo;he was here&rdquo; can&apos;t masquerade as a supplement effect.
+            </div>
+            <div>
+              <h4>Forecast, not verdict</h4>
+              When a context has a measured pattern, it becomes an <b>adjusted expectation</b> for those days — and
+              Coach can flag a collision (a visit landing on a taper week) <b>before</b> it happens. No behavior change
+              asked of you.
+            </div>
+            <div>
+              <h4>How Findings works</h4>
+              Cards describe your logged past using medians and rank statistics, detrending, cycle-phase adjustment, and
+              false-discovery correction across everything tested — on logged days within each tag&apos;s tracking era
+              only. Outcomes are limited to device-reliable metrics; sleep-stage minutes are never used as evidence. No
+              card claims cause and effect — the only path from a pattern to a rule is a randomized test.
+            </div>
+            <p>
+              Backward analysis — finds suspects, doesn&apos;t prove cause. &ldquo;Test this&rdquo; runs a forward
+              experiment to convict one.
+            </p>
+          </div>
+        </details>
+      </>
+    );
+  }
 
   return (
     <div className="col">
@@ -139,26 +242,13 @@ export function MindFindings({
       {calibration && !calibrated && <CalibrationCard c={calibration} />}
 
       <div className="fbar">
-        <div className="ffilters">
-          {(
-            [
-              ["all", "All"],
-              ["patterns", "Patterns"],
-              ["collecting", "Collecting"],
-              ["tested", "Tested"],
-            ] as [Filter, string][]
-          ).map(([id, label]) => (
-            <button key={id} type="button" className={`fchip${filter === id ? " on" : ""}`} onClick={() => setFilter(id)}>
-              {label} <span className="ct">{counts[id]}</span>
-            </button>
-          ))}
-        </div>
+        {filterChips}
         {calibrated && (
           <div className="tuned" style={{ padding: "9px 14px", fontSize: 12.5 }}>
             <span className="k">{personalized ? "Tuned to you" : "Standard"}</span>
             Overtraining warning
-            <button type="button" disabled={saving} onClick={() => chooseCalibration(personalized ? "standard" : "personalized")}>
-              {saving ? "Saving…" : personalized ? "Switch to standard" : "Recalibrate to me"}
+            <button type="button" disabled={saving} onClick={() => chooseCalibration(calibrateNext)}>
+              {calibrateLabel}
             </button>
           </div>
         )}
@@ -174,20 +264,9 @@ export function MindFindings({
 
       {cards.length > 0 && <div className="fgrid">{cards}</div>}
 
-      {counts.all === 0 && (
-        <div className="fc">
-          <div className="body" style={{ marginTop: 0 }}>
-            Keep tagging — a pattern needs at least 14 logged days on each side before it earns a card. Nothing is
-            shown before then, because a few days of noise can fake a large swing.
-          </div>
-        </div>
-      )}
+      {zeroState("fc")}
 
-      {hiddenTags.length > 0 && (
-        <button type="button" className="archived" onClick={() => setShowHidden((v) => !v)}>
-          {showHidden ? "Conceal archived" : `${hiddenTags.length} archived · show`}
-        </button>
-      )}
+      {archivedToggle}
 
       <details className="how">
         <summary>
@@ -228,7 +307,7 @@ export function MindFindings({
 }
 
 /** The page's focal card (handoff .tested): verdict left, the two numbers right. */
-function TestedCard({ t }: { t: TestedFinding }) {
+function TestedCard({ t, m = false }: { t: TestedFinding; m?: boolean }) {
   const router = useRouter();
   const [replicating, setReplicating] = useState(false);
   const { title, body } = testedHeadline(t);
@@ -250,61 +329,87 @@ function TestedCard({ t }: { t: TestedFinding }) {
     }
   }
 
+  const head = (
+    <>
+      <div className="ey">
+        <span className="pill g">Tested ✓</span>
+        <span className="what">
+          {t.label} → {cap(t.outcomeLabel)}
+          {t.replicationOf != null && " · replication"}
+        </span>
+      </div>
+      <h2>{title}</h2>
+      <div className="body">{body}</div>
+      <div className="meta">
+        Randomized · {t.blocks} pairs · P {t.randTestP < 0.001 ? "<0.001" : t.randTestP}
+        {t.feltDelta != null && ` · Measured + felt ${agree ? "agree" : "disagree"}`}
+        {t.replicationStatus === "confirmed" && <b style={{ color: "var(--green)" }}> · Replicated ✓ · coach rule</b>}
+        {t.source === "diagnose" && " · from Diagnose"}
+      </div>
+    </>
+  );
+  const actions = (
+    <>
+      {t.href && (
+        <Link href={t.href} className={m ? "btn ghost block" : "btn ghost"}>
+          View result
+        </Link>
+      )}
+      {t.replicationStatus === "none" && (
+        <button type="button" className={m ? "btn block" : "btn"} disabled={replicating} onClick={startReplication}>
+          {replicating ? "Scheduling…" : "Run replication →"}
+        </button>
+      )}
+    </>
+  );
+  const stats = (
+    <div className="stats">
+      <div className="s">
+        <span className="k">P(effect &gt; worthwhile)</span>
+        <span className="n num">{Math.round(t.pEffectGtSWC * 100)}%</span>
+        <span className="d">Measured {t.outcomeLabel}</span>
+      </div>
+      <div className="s">
+        <span className="k">Felt</span>
+        <span className="n w num">
+          {t.feltDelta == null ? "—" : `${t.feltDelta > 0 ? "+" : ""}${t.feltDelta}`}
+          {t.feltDelta != null && <small>pts</small>}
+        </span>
+        <span className="d">{t.feltDelta == null ? "Felt ratings weren’t logged" : "Your rating, test blocks vs usual"}</span>
+      </div>
+    </div>
+  );
+
+  if (m) {
+    return (
+      <article className="mi-tested">
+        <div className="l">{head}</div>
+        {stats}
+        {(t.href || t.replicationStatus === "none") && (
+          <div className="l mi-acts" style={{ paddingTop: 0 }}>
+            {actions}
+          </div>
+        )}
+      </article>
+    );
+  }
+
   return (
     <article className="tested">
       <div className="l">
-        <div className="ey">
-          <span className="pill g">Tested ✓</span>
-          <span className="what">
-            {t.label} → {cap(t.outcomeLabel)}
-            {t.replicationOf != null && " · replication"}
-          </span>
-        </div>
-        <h2>{title}</h2>
-        <div className="body">{body}</div>
-        <div className="meta">
-          Randomized · {t.blocks} pairs · P {t.randTestP < 0.001 ? "<0.001" : t.randTestP}
-          {t.feltDelta != null && ` · Measured + felt ${agree ? "agree" : "disagree"}`}
-          {t.replicationStatus === "confirmed" && <b style={{ color: "var(--green)" }}> · Replicated ✓ · coach rule</b>}
-          {t.source === "diagnose" && " · from Diagnose"}
-        </div>
-        <div className="acts">
-          {t.href && (
-            <Link href={t.href} className="btn ghost">
-              View result
-            </Link>
-          )}
-          {t.replicationStatus === "none" && (
-            <button type="button" className="btn" disabled={replicating} onClick={startReplication}>
-              {replicating ? "Scheduling…" : "Run replication →"}
-            </button>
-          )}
-        </div>
+        {head}
+        <div className="acts">{actions}</div>
       </div>
-      <div className="stats">
-        <div className="s">
-          <span className="k">P(effect &gt; worthwhile)</span>
-          <span className="n num">{Math.round(t.pEffectGtSWC * 100)}%</span>
-          <span className="d">Measured {t.outcomeLabel}</span>
-        </div>
-        <div className="s">
-          <span className="k">Felt</span>
-          <span className="n w num">
-            {t.feltDelta == null ? "—" : `${t.feltDelta > 0 ? "+" : ""}${t.feltDelta}`}
-            {t.feltDelta != null && <small>pts</small>}
-          </span>
-          <span className="d">{t.feltDelta == null ? "Felt ratings weren’t logged" : "Your rating, test blocks vs usual"}</span>
-        </div>
-      </div>
+      {stats}
     </article>
   );
 }
 
-function PatternCard({ i, hidden, onToggle }: { i: Insight; hidden: boolean; onToggle: () => void }) {
+function PatternCard({ i, hidden, onToggle, m: mobile = false }: { i: Insight; hidden: boolean; onToggle: () => void; m?: boolean }) {
   const m = i.metrics[0];
   const [cls, label] = TIER[i.significance] ?? TIER.watching;
   return (
-    <article className="fc pat">
+    <article className={mobile ? "mi-fc pat" : "fc pat"}>
       <div className="ey">
         <span className="pill a" style={{ background: "var(--gold)" }}>
           Pattern
@@ -333,9 +438,9 @@ function PatternCard({ i, hidden, onToggle }: { i: Insight; hidden: boolean; onT
   );
 }
 
-function CollectingCard({ c }: { c: CollectingTag }) {
+function CollectingCard({ c, m = false }: { c: CollectingTag; m?: boolean }) {
   return (
-    <article className="fc">
+    <article className={m ? "mi-fc" : "fc"}>
       <div className="ey">
         <span className="pill muted">Collecting</span>
         <span className="what">{c.tag}</span>
@@ -345,8 +450,8 @@ function CollectingCard({ c }: { c: CollectingTag }) {
         {c.have} logged day{c.have === 1 ? "" : "s"} so far — a pattern needs at least <b>{c.need} on each side</b>{" "}
         before it earns a card.
       </div>
-      <div className="prog">
-        <div className="bar">
+      <div className={m ? "mi-prog" : "prog"}>
+        <div className={m ? "mi-bar" : "bar"}>
           <i style={{ width: `${Math.min(100, (c.have / c.need) * 100)}%` }} />
         </div>
         <div className="k">
@@ -361,10 +466,10 @@ function CollectingCard({ c }: { c: CollectingTag }) {
 
 const GI_MIN_EVENTS = 6; // lib/meal-gi MIN_EVENTS
 
-function GiCollectingCard({ gi }: { gi: MealGiResult }) {
+function GiCollectingCard({ gi, m = false }: { gi: MealGiResult; m?: boolean }) {
   const watching = !gi.sufficient;
   return (
-    <article className="fc">
+    <article className={m ? "mi-fc" : "fc"}>
       <div className="ey">
         <span className="pill muted">Collecting</span>
         <span className="what">Pre-workout meal → GI</span>
@@ -385,8 +490,8 @@ function GiCollectingCard({ gi }: { gi: MealGiResult }) {
         )}
       </div>
       {watching && (
-        <div className="prog">
-          <div className="bar">
+        <div className={m ? "mi-prog" : "prog"}>
+          <div className={m ? "mi-bar" : "bar"}>
             <i style={{ width: `${Math.min(100, (gi.positiveEvents / GI_MIN_EVENTS) * 100)}%` }} />
           </div>
           <div className="k">
@@ -401,11 +506,11 @@ function GiCollectingCard({ gi }: { gi: MealGiResult }) {
   );
 }
 
-function GiPatternCard({ p }: { p: MealGiResult["patterns"][number] }) {
+function GiPatternCard({ p, m = false }: { p: MealGiResult["patterns"][number]; m?: boolean }) {
   const [cls, label] = GI_TIER[p.significance] ?? GI_TIER.watching;
   const href = `/mind/experiments/new?${new URLSearchParams(p.experimentPrefill).toString()}`;
   return (
-    <article className="fc pat">
+    <article className={m ? "mi-fc pat" : "fc pat"}>
       <div className="ey">
         <span className={cls}>{label}</span>
         <span className="what">Pre-workout meal → GI</span>

@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getIntakeStatus } from "@/lib/intake";
 import { Suspense } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
@@ -73,6 +75,8 @@ export default async function BodyPage({
   // /body?date=YYYY-MM-DD, but this page used to render "today"
   // unconditionally — flipping dates changed nothing on screen. Every
   // day-anchored query below keys off the VIEWED date now.
+  const { needsOnboarding, gates } = await getIntakeStatus();
+  if (needsOnboarding) redirect("/onboarding");
   const viewDate = getDateFromParams(await searchParams, await getRequestTz());
 
   // Week window (Monday-Sunday)
@@ -370,136 +374,10 @@ export default async function BodyPage({
   const trendLabel = weightTrend === "down" ? "−0.3" : weightTrend === "up" ? "+0.3" : "0.0";
   const tdeeCalPct = goalCals && nCals != null ? Math.min(100, (nCals / goalCals) * 100) : 0;
 
-  return (
+  // Strength log leads the page for lifters who don't run (intake gate);
+  // otherwise it sits in its usual place below cardio.
+  const strengthMobile = (
     <>
-      {/* ═══════════ MOBILE (Baseline iOS — Body) ═══════════ */}
-      <div className="md:hidden">
-        <div className="bl-m">
-          <div className="appbar">
-            <div>
-              <h1>BODY</h1>
-              <div className="sub">Readiness, recovery &amp; composition</div>
-            </div>
-            <Suspense>
-              <MobileDateNav basePath="/body" />
-            </Suspense>
-          </div>
-
-          <div className="wrap" style={{ marginTop: 8 }}>
-            <div className="stack-lg">
-              <HyroxSummaryCard />
-              <MobileTrainingTier
-                call={trainingCall}
-                baselineScore={score?.overall ?? null}
-                hrvCv={cv}
-                hrvCvElevated={hrvCvElevated}
-              />
-            </div>
-          </div>
-
-          <div className="g-sec">Recovery Signals</div>
-          <div className="wrap">
-            <div className="mgrid">
-              <MCard
-                label="HRV (overnight)"
-                value={todaySleep?.averageHrv != null ? Math.round(todaySleep.averageHrv) : "—"}
-                unit="ms"
-                detail="Avg overnight"
-              />
-              <MCard
-                label="Stress"
-                value={
-                  cap(dayStress?.daySummary) ??
-                  (dayStress?.stressHigh != null ? `${Math.round(dayStress.stressHigh / 60)}m high` : "—")
-                }
-                detail={dayStress?.recoveryHigh != null ? `${Math.round(dayStress.recoveryHigh / 60)}m recovery` : undefined}
-              />
-              <MCard
-                label="SpO₂"
-                value={daySpO2?.avgSpO2 != null ? Math.round(daySpO2.avgSpO2) : "—"}
-                unit="%"
-                detail="Blood oxygen"
-              />
-              <MCard
-                label="Resilience"
-                value={cap(dayResilience?.level) ?? "—"}
-                detail={
-                  dayResilience?.sleepRecovery != null
-                    ? `Sleep: ${dayResilience.sleepRecovery >= 50 ? "good" : "low"} · Recovery: ${(dayResilience.daytimeRecovery ?? 0) >= 50 ? "high" : "low"}`
-                    : undefined
-                }
-              />
-            </div>
-          </div>
-
-          <div className="wrap" style={{ marginTop: 14 }}>
-            <div className="stack-lg">
-              {guidance && (
-                <MinCard id="cycle-body-m" label="Cycle">
-                  <MobileCycleCard phase={phaseLog.phase} headline={guidance.headline} note={guidance.note} />
-                </MinCard>
-              )}
-              <SorenessCard
-                key={todayStr}
-                dateStr={todayStr}
-                initialEntries={sorenessEntries}
-                bodyParts={BODY_PARTS}
-                findings={sorenessFindings.map((f) => ({ line: f.line }))}
-              />
-              {fatigue.score > 0 && (
-                <div className="fatigue">
-                  <div className="top">
-                    <div>
-                      <div className="ov">
-                        Fatigue Signal <span style={{ textTransform: "none", letterSpacing: 0 }}>(Pritchard 2024)</span>
-                      </div>
-                      <div className="rectext">{fatigue.recommendation}</div>
-                    </div>
-                    <div className="score"><b className="num">{fatigue.score}</b><span>/8 composite</span></div>
-                  </div>
-                  <ul>
-                    {weeksSinceDeload >= 5 && <li>{weeksSinceDeload} consecutive training weeks (deload every 5–6)</li>}
-                    {hrvCvElevated && (
-                      <li>
-                        HRV CV elevated: {cv?.toFixed(1)}%
-                        {hrvCvBaseline ? ` (your normal ~${Math.round(hrvCvThreshold(hrvCvBaseline))}%)` : " (Flatt threshold 10%)"}
-                      </li>
-                    )}
-                    {anyRpeCreep && <li className="red">RPE creep: +1 pt at same loads over recent sessions</li>}
-                    {volumeApproachingMRV && <li>Volume approaching MRV in 1+ muscle groups</li>}
-                  </ul>
-                  {fatigue.score >= 3 && (
-                    <div className="deload">
-                      <b>Deload protocol:</b> Reduce volume 40–60% for 1 week. Keep frequency &amp; loads, fewer sets. Resume after 7 days.
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="g-sec">Running &amp; Cardio</div>
-          <div className="wrap">
-            <div className="mgrid c3">
-              {/* Run dynamics come from the LAST RUN (latest-known, like
-                  VO2max) — a rest day's all-null row was rendering dashes. */}
-              <MCard label="Run Speed" value={lastRun?.runningSpeed != null ? lastRun.runningSpeed.toFixed(1) : "—"} unit="km/h" detail={lastRun?.day ? `Last run ${lastRun.day.toLocaleDateString()}` : undefined} />
-              <MCard label="Run Power" value={lastRun?.runningPower != null ? Math.round(lastRun.runningPower) : "—"} unit="W" />
-              <MCard label="VO₂ Max" value={latestVO2Max?.vo2Max != null ? latestVO2Max.vo2Max.toFixed(1) : "—"} detail={latestVO2Max?.day ? `Updated ${latestVO2Max.day.toLocaleDateString()}` : undefined} />
-              <MCard label="Gnd Contact" value={lastRun?.groundContactTime != null ? Math.round(lastRun.groundContactTime) : "—"} unit="ms" />
-              <MCard label="Vert. Osc." value={lastRun?.verticalOscillation != null ? lastRun.verticalOscillation.toFixed(1) : "—"} unit="cm" />
-              <MCard label="Stride" value={lastRun?.strideLength != null ? lastRun.strideLength.toFixed(2) : "—"} unit="m" />
-              <MCard label="Cardio Rec." value={lastRun?.cardioRecovery != null ? Math.round(lastRun.cardioRecovery) : "—"} unit="bpm" />
-              <MCard label="Effort" value={todayRunning?.physicalEffort != null ? todayRunning.physicalEffort.toFixed(1) : "—"} />
-              <MCard label="Distance" value={todayRunning?.walkingRunningDistance != null ? (todayRunning.walkingRunningDistance / 1000).toFixed(1) : "—"} unit="km" />
-            </div>
-            {todayRunning?.respiratoryRate != null && (
-              <p style={{ fontSize: 11, color: "var(--faint)", marginTop: 10 }}>
-                Respiratory rate: {todayRunning.respiratoryRate.toFixed(1)} breaths/min
-              </p>
-            )}
-          </div>
-
           <div className="g-sec">Strength Training</div>
           <div className="wrap">
             <div className="stack-lg">
@@ -550,6 +428,269 @@ export default async function BodyPage({
               </div>
             </div>
           </div>
+
+    </>
+  );
+  const strengthDesktop = (
+    <>
+      {/* ─── STRENGTH TRAINING ─── */}
+      <SectionLabel>Strength Training</SectionLabel>
+      <div className="mt-6">
+        <div className="flex items-center gap-[14px] mb-[14px]">
+          <Link href="/body/workout/new" className="btn">
+            + Add Workout
+          </Link>
+          <Link href="/body/workout/new?backfill=1" className="linklike">
+            Log past workout
+          </Link>
+        </div>
+
+        <div className="mb-[14px]"><QuickWorkoutLog /></div>
+
+        {/* Two-column: VolumeZones left (1.5fr), PRs + Workouts right (1fr) */}
+        <div className="grid grid-cols-[1.5fr_1fr] gap-[14px] items-stretch">
+          <VolumeZones data={weeklyVolumeData} />
+
+          <div className="flex flex-col gap-[14px] h-full justify-between">
+            {/* Recent PRs */}
+            {prs.length > 0 && (
+              <div className="panel p-[22px_24px]">
+                <p className="ov mb-[14px]">Recent PRs</p>
+                {prs.map((pr) => (
+                  <div
+                    key={pr.id}
+                    className="flex items-center justify-between bg-[var(--color-surface-2)] px-[14px] py-[11px] text-[13px]"
+                    style={{ marginTop: prs.indexOf(pr) > 0 ? "7px" : 0 }}
+                  >
+                    <div>
+                      <p className="font-semibold">{pr.exercise.name}</p>
+                      <p className="text-[11.5px] text-[var(--color-faint)] mt-[2px]">
+                        {pr.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </p>
+                    </div>
+                    <div className="text-right num">
+                      <p className="disp text-[20px] tracking-[0.02em]">
+                        {pr.weight} &times; {pr.reps}
+                      </p>
+                      <p className="text-[11px] text-[var(--color-faint)]">
+                        e1RM {Math.round(estimate1RM(pr.weight, pr.reps))}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Recent Workouts */}
+            <div className="panel p-[22px_24px]">
+              <p className="ov mb-[14px]">Recent Workouts</p>
+              {recentSessions.length === 0 ? (
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  No workouts logged yet.{" "}
+                  <Link href="/body/workout/new" className="underline hover:text-white">
+                    Start your first session
+                  </Link>
+                  .
+                </p>
+              ) : (
+                recentSessions.map((session, i) => (
+                  <Link
+                    key={session.id}
+                    href={`/body/workout/${session.id}`}
+                    className="flex items-center justify-between bg-[var(--color-surface-2)] px-[14px] py-[11px] text-[13px] hover:bg-white/10"
+                    style={{ marginTop: i > 0 ? "7px" : 0 }}
+                  >
+                    <div>
+                      <p className="font-semibold">{session.templateName ?? "Freestyle"}</p>
+                      <p className="text-[11.5px] text-[var(--color-faint)] mt-[2px]">
+                        {session.date.toLocaleDateString("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                        {" · "}{session.sets.length} sets
+                        {session.completedAt && session.sessionVolume != null && (
+                          <> · {Math.round(session.sessionVolume).toLocaleString()} vol</>
+                        )}
+                      </p>
+                    </div>
+                    {session.completedAt ? (
+                      <span
+                        className="text-[10px] font-bold uppercase px-[9px] py-[3px] rounded-full"
+                        style={{
+                          background: "color-mix(in oklch, var(--color-green), transparent 80%)",
+                          color: "var(--color-green)",
+                        }}
+                      >
+                        done
+                      </span>
+                    ) : (
+                      <span
+                        className="text-[10px] font-bold uppercase px-[9px] py-[3px] rounded-full"
+                        style={{
+                          background: "color-mix(in oklch, var(--color-yellow), transparent 80%)",
+                          color: "var(--color-yellow)",
+                        }}
+                      >
+                        active
+                      </span>
+                    )}
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </>
+  );
+
+  return (
+    <>
+      {/* ═══════════ MOBILE (Baseline iOS — Body) ═══════════ */}
+      <div className="md:hidden">
+        <div className="bl-m">
+          <div className="appbar">
+            <div>
+              <h1>BODY</h1>
+              <div className="sub">Readiness, recovery &amp; composition</div>
+            </div>
+            <Suspense>
+              <MobileDateNav basePath="/body" />
+            </Suspense>
+          </div>
+
+          <div className="wrap" style={{ marginTop: 8 }}>
+            <div className="stack-lg">
+              {gates.cardio && <HyroxSummaryCard />}
+              <MobileTrainingTier
+                call={trainingCall}
+                baselineScore={score?.overall ?? null}
+                hrvCv={cv}
+                hrvCvElevated={hrvCvElevated}
+              />
+            </div>
+          </div>
+
+          {gates.strengthFirst && strengthMobile}
+
+          {gates.strengthFirst && strengthDesktop}
+
+      {gates.ouraRecovery && (
+            <>
+          <div className="g-sec">Recovery Signals</div>
+          <div className="wrap">
+            <div className="mgrid">
+              <MCard
+                label="HRV (overnight)"
+                value={todaySleep?.averageHrv != null ? Math.round(todaySleep.averageHrv) : "—"}
+                unit="ms"
+                detail="Avg overnight"
+              />
+              <MCard
+                label="Stress"
+                value={
+                  cap(dayStress?.daySummary) ??
+                  (dayStress?.stressHigh != null ? `${Math.round(dayStress.stressHigh / 60)}m high` : "—")
+                }
+                detail={dayStress?.recoveryHigh != null ? `${Math.round(dayStress.recoveryHigh / 60)}m recovery` : undefined}
+              />
+              <MCard
+                label="SpO₂"
+                value={daySpO2?.avgSpO2 != null ? Math.round(daySpO2.avgSpO2) : "—"}
+                unit="%"
+                detail="Blood oxygen"
+              />
+              <MCard
+                label="Resilience"
+                value={cap(dayResilience?.level) ?? "—"}
+                detail={
+                  dayResilience?.sleepRecovery != null
+                    ? `Sleep: ${dayResilience.sleepRecovery >= 50 ? "good" : "low"} · Recovery: ${(dayResilience.daytimeRecovery ?? 0) >= 50 ? "high" : "low"}`
+                    : undefined
+                }
+              />
+            </div>
+          </div>
+
+            </>
+          )}
+
+          <div className="wrap" style={{ marginTop: 14 }}>
+            <div className="stack-lg">
+              {guidance && (
+                <MinCard id="cycle-body-m" label="Cycle">
+                  <MobileCycleCard phase={phaseLog.phase} headline={guidance.headline} note={guidance.note} />
+                </MinCard>
+              )}
+              <SorenessCard
+                key={todayStr}
+                dateStr={todayStr}
+                initialEntries={sorenessEntries}
+                bodyParts={BODY_PARTS}
+                findings={sorenessFindings.map((f) => ({ line: f.line }))}
+              />
+              {fatigue.score > 0 && (
+                <div className="fatigue">
+                  <div className="top">
+                    <div>
+                      <div className="ov">
+                        Fatigue Signal <span style={{ textTransform: "none", letterSpacing: 0 }}>(Pritchard 2024)</span>
+                      </div>
+                      <div className="rectext">{fatigue.recommendation}</div>
+                    </div>
+                    <div className="score"><b className="num">{fatigue.score}</b><span>/8 composite</span></div>
+                  </div>
+                  <ul>
+                    {weeksSinceDeload >= 5 && <li>{weeksSinceDeload} consecutive training weeks (deload every 5–6)</li>}
+                    {hrvCvElevated && (
+                      <li>
+                        HRV CV elevated: {cv?.toFixed(1)}%
+                        {hrvCvBaseline ? ` (your normal ~${Math.round(hrvCvThreshold(hrvCvBaseline))}%)` : " (Flatt threshold 10%)"}
+                      </li>
+                    )}
+                    {anyRpeCreep && <li className="red">RPE creep: +1 pt at same loads over recent sessions</li>}
+                    {volumeApproachingMRV && <li>Volume approaching MRV in 1+ muscle groups</li>}
+                  </ul>
+                  {fatigue.score >= 3 && (
+                    <div className="deload">
+                      <b>Deload protocol:</b> Reduce volume 40–60% for 1 week. Keep frequency &amp; loads, fewer sets. Resume after 7 days.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {gates.cardio && (
+            <>
+          <div className="g-sec">Running &amp; Cardio</div>
+          <div className="wrap">
+            <div className="mgrid c3">
+              {/* Run dynamics come from the LAST RUN (latest-known, like
+                  VO2max) — a rest day's all-null row was rendering dashes. */}
+              <MCard label="Run Speed" value={lastRun?.runningSpeed != null ? lastRun.runningSpeed.toFixed(1) : "—"} unit="km/h" detail={lastRun?.day ? `Last run ${lastRun.day.toLocaleDateString()}` : undefined} />
+              <MCard label="Run Power" value={lastRun?.runningPower != null ? Math.round(lastRun.runningPower) : "—"} unit="W" />
+              <MCard label="VO₂ Max" value={latestVO2Max?.vo2Max != null ? latestVO2Max.vo2Max.toFixed(1) : "—"} detail={latestVO2Max?.day ? `Updated ${latestVO2Max.day.toLocaleDateString()}` : undefined} />
+              <MCard label="Gnd Contact" value={lastRun?.groundContactTime != null ? Math.round(lastRun.groundContactTime) : "—"} unit="ms" />
+              <MCard label="Vert. Osc." value={lastRun?.verticalOscillation != null ? lastRun.verticalOscillation.toFixed(1) : "—"} unit="cm" />
+              <MCard label="Stride" value={lastRun?.strideLength != null ? lastRun.strideLength.toFixed(2) : "—"} unit="m" />
+              <MCard label="Cardio Rec." value={lastRun?.cardioRecovery != null ? Math.round(lastRun.cardioRecovery) : "—"} unit="bpm" />
+              <MCard label="Effort" value={todayRunning?.physicalEffort != null ? todayRunning.physicalEffort.toFixed(1) : "—"} />
+              <MCard label="Distance" value={todayRunning?.walkingRunningDistance != null ? (todayRunning.walkingRunningDistance / 1000).toFixed(1) : "—"} unit="km" />
+            </div>
+            {todayRunning?.respiratoryRate != null && (
+              <p style={{ fontSize: 11, color: "var(--faint)", marginTop: 10 }}>
+                Respiratory rate: {todayRunning.respiratoryRate.toFixed(1)} breaths/min
+              </p>
+            )}
+          </div>
+
+            </>
+          )}
+
+          {!gates.strengthFirst && strengthMobile}
 
           <div className="g-sec">Recovery</div>
           <div className="wrap">
@@ -666,7 +807,7 @@ export default async function BodyPage({
 
       {/* ─── HYROX STRIP ─── */}
       <div className="mt-6">
-        <HyroxSummaryCard />
+        {gates.cardio && <HyroxSummaryCard />}
       </div>
 
       {/* ─── READINESS HERO BAND ─── */}
@@ -679,6 +820,8 @@ export default async function BodyPage({
         />
       </div>
 
+      {gates.ouraRecovery && (
+        <>
       {/* ─── RECOVERY SIGNALS ─── */}
       <SectionLabel>Recovery Signals</SectionLabel>
       <div className="mt-6">
@@ -706,6 +849,9 @@ export default async function BodyPage({
           }
         />
       </div>
+
+        </>
+      )}
 
       {/* ─── SORENESS ─── */}
       <div className="mt-[14px]">
@@ -793,6 +939,8 @@ export default async function BodyPage({
         </div>
       </div>
 
+      {gates.cardio && (
+        <>
       {/* ─── RUNNING & CARDIO ─── */}
       <SectionLabel>Running &amp; Cardio</SectionLabel>
       <div className="mt-6">
@@ -826,115 +974,10 @@ export default async function BodyPage({
         />
       </div>
 
-      {/* ─── STRENGTH TRAINING ─── */}
-      <SectionLabel>Strength Training</SectionLabel>
-      <div className="mt-6">
-        <div className="flex items-center gap-[14px] mb-[14px]">
-          <Link href="/body/workout/new" className="btn">
-            + Add Workout
-          </Link>
-          <Link href="/body/workout/new?backfill=1" className="linklike">
-            Log past workout
-          </Link>
-        </div>
+        </>
+      )}
 
-        <div className="mb-[14px]"><QuickWorkoutLog /></div>
-
-        {/* Two-column: VolumeZones left (1.5fr), PRs + Workouts right (1fr) */}
-        <div className="grid grid-cols-[1.5fr_1fr] gap-[14px] items-stretch">
-          <VolumeZones data={weeklyVolumeData} />
-
-          <div className="flex flex-col gap-[14px] h-full justify-between">
-            {/* Recent PRs */}
-            {prs.length > 0 && (
-              <div className="panel p-[22px_24px]">
-                <p className="ov mb-[14px]">Recent PRs</p>
-                {prs.map((pr) => (
-                  <div
-                    key={pr.id}
-                    className="flex items-center justify-between bg-[var(--color-surface-2)] px-[14px] py-[11px] text-[13px]"
-                    style={{ marginTop: prs.indexOf(pr) > 0 ? "7px" : 0 }}
-                  >
-                    <div>
-                      <p className="font-semibold">{pr.exercise.name}</p>
-                      <p className="text-[11.5px] text-[var(--color-faint)] mt-[2px]">
-                        {pr.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </p>
-                    </div>
-                    <div className="text-right num">
-                      <p className="disp text-[20px] tracking-[0.02em]">
-                        {pr.weight} &times; {pr.reps}
-                      </p>
-                      <p className="text-[11px] text-[var(--color-faint)]">
-                        e1RM {Math.round(estimate1RM(pr.weight, pr.reps))}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Recent Workouts */}
-            <div className="panel p-[22px_24px]">
-              <p className="ov mb-[14px]">Recent Workouts</p>
-              {recentSessions.length === 0 ? (
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  No workouts logged yet.{" "}
-                  <Link href="/body/workout/new" className="underline hover:text-white">
-                    Start your first session
-                  </Link>
-                  .
-                </p>
-              ) : (
-                recentSessions.map((session, i) => (
-                  <Link
-                    key={session.id}
-                    href={`/body/workout/${session.id}`}
-                    className="flex items-center justify-between bg-[var(--color-surface-2)] px-[14px] py-[11px] text-[13px] hover:bg-white/10"
-                    style={{ marginTop: i > 0 ? "7px" : 0 }}
-                  >
-                    <div>
-                      <p className="font-semibold">{session.templateName ?? "Freestyle"}</p>
-                      <p className="text-[11.5px] text-[var(--color-faint)] mt-[2px]">
-                        {session.date.toLocaleDateString("en-US", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                        {" · "}{session.sets.length} sets
-                        {session.completedAt && session.sessionVolume != null && (
-                          <> · {Math.round(session.sessionVolume).toLocaleString()} vol</>
-                        )}
-                      </p>
-                    </div>
-                    {session.completedAt ? (
-                      <span
-                        className="text-[10px] font-bold uppercase px-[9px] py-[3px] rounded-full"
-                        style={{
-                          background: "color-mix(in oklch, var(--color-green), transparent 80%)",
-                          color: "var(--color-green)",
-                        }}
-                      >
-                        done
-                      </span>
-                    ) : (
-                      <span
-                        className="text-[10px] font-bold uppercase px-[9px] py-[3px] rounded-full"
-                        style={{
-                          background: "color-mix(in oklch, var(--color-yellow), transparent 80%)",
-                          color: "var(--color-yellow)",
-                        }}
-                      >
-                        active
-                      </span>
-                    )}
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      {!gates.strengthFirst && strengthDesktop}
 
       {/* ─── RECOVERY ─── */}
       <SectionLabel>Recovery</SectionLabel>

@@ -25,10 +25,10 @@ const mealTypes = [
   { id: "snack", label: "Snack" },
 ];
 const mealSources = [
-  { id: "home_cooked", label: "Home cooked" },
+  { id: "home_cooked", label: "Home" },
   { id: "takeout", label: "Takeout" },
   { id: "restaurant", label: "Restaurant" },
-  { id: "pre_packaged", label: "Pre-packaged" },
+  { id: "pre_packaged", label: "Packaged" },
 ];
 
 function currentTimeString(): string {
@@ -36,7 +36,7 @@ function currentTimeString(): string {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-export function MobileLogFood({ dateStr }: { dateStr?: string } = {}) {
+export function MobileLogFood({ dateStr, bare = false }: { dateStr?: string; bare?: boolean } = {}) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [mealType, setMealType] = useState("snack");
@@ -92,9 +92,10 @@ export function MobileLogFood({ dateStr }: { dateStr?: string } = {}) {
   }
 
   return (
-    <div className="panel">
-      <div className="ph"><span className="ov">Log Food</span></div>
+    <div className={bare ? undefined : "panel"}>
+      {!bare && <div className="ph"><span className="ov">Log Food</span></div>}
       <form onSubmit={handleSubmit}>
+        {bare && <div className="mi-lbl">Meal</div>}
         <div className="seg c2">
           {mealTypes.map((mt) => (
             <div
@@ -106,6 +107,7 @@ export function MobileLogFood({ dateStr }: { dateStr?: string } = {}) {
             </div>
           ))}
         </div>
+        {bare && <div className="mi-lbl">From</div>}
         <div className="seg c2">
           {mealSources.map((ms) => (
             <div
@@ -120,7 +122,7 @@ export function MobileLogFood({ dateStr }: { dateStr?: string } = {}) {
 
         <div className="frow">
           <div className="l">
-            Time
+            {bare ? "Time eaten" : "Time"}
             {!timeUnknown && (
               <input
                 type="time"

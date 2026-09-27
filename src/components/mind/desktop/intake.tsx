@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation";
  * Desktop Mind handoff (2026-09-23) — Today's intake: the day's total and
  * macros always visible, each meal a collapsed row that opens to its items.
  * Same delete / "that's everything" actions as NutritionLog.
+ *
+ * `mobile` renders the Baseline iOS Mind v2 layout (mi-* classes): the P/C/F
+ * line moves inside the opened meal and item rows show calories only.
  */
 
 export interface IntakeEntry {
@@ -43,7 +46,9 @@ export function Intake({
   dateStr,
   mealsComplete,
   tz,
+  mobile = false,
 }: {
+  mobile?: boolean;
   totals: { calories: number; protein: number; carbs: number; fat: number } | null;
   entries: IntakeEntry[];
   dateStr: string;
@@ -80,6 +85,122 @@ export function Intake({
   const meals = [...groups.entries()].sort((a, b) => MEAL_ORDER.indexOf(a[0]) - MEAL_ORDER.indexOf(b[0]));
   const fmt = (iso: string) =>
     new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
+
+  const confirmBlock = (cls: string, fineCls: string) =>
+    entries.length === 0 ? (
+      <p className="empty" style={{ marginTop: 14 }}>
+        No food logged today.
+      </p>
+    ) : (
+      <>
+        <button
+          type="button"
+          className={cls}
+          disabled={isPending}
+          style={mealsComplete ? { borderColor: "var(--gold)", color: "var(--gold)" } : undefined}
+          onClick={() => send("PATCH", { date: dateStr, mealsComplete: !mealsComplete }, "Failed to update day")}
+        >
+          {mealsComplete ? "✓ That’s everything I ate today" : "That’s everything I ate today"}
+        </button>
+        <div className={fineCls}>
+          One or two meals is a normal day. Confirming tells Baseline the gaps were real fasting windows, not
+          unlogged meals — unconfirmed days stay unknown, never “skipped.”
+        </div>
+      </>
+    );
+
+  if (mobile) {
+    return (
+      <div className="panel">
+        <div className="ph">
+          <span className="ov">Today&apos;s intake</span>
+          <span className="k">
+            {entries.length} {entries.length === 1 ? "item" : "items"}
+          </span>
+        </div>
+        <div className="mi-tot">
+          <span className="big num">{cal}</span>
+          <span className="of">/ {TARGETS.calories} cal</span>
+        </div>
+        <div className="mi-bar">
+          <i style={{ width: pct(cal, TARGETS.calories) }} />
+        </div>
+        <div className="mi-macros">
+          {(
+            [
+              ["Protein", P, TARGETS.protein, "bp"],
+              ["Carbs", C, TARGETS.carbs, "bc"],
+              ["Fat", F, TARGETS.fat, "bf"],
+            ] as const
+          ).map(([label, v, max, cls]) => (
+            <div key={label} className="m">
+              <div className="top">
+                <span>{label}</span>
+                <b className="num">{v}g</b>
+              </div>
+              <div className={`mi-bar ${cls}`}>
+                <i style={{ width: pct(v, max) }} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {error && <p className="err">{error}</p>}
+
+        {meals.map(([meal, items]) => {
+          const sorted = [...items].sort((a, b) => a.eatenAt.localeCompare(b.eatenAt));
+          const when = items.every((e) => e.timeUnknown) ? "sometime today" : fmt(sorted[0].eatenAt);
+          const sum = (k: "calories" | "protein" | "carbs" | "fat") => items.reduce((s, e) => s + e[k], 0);
+          return (
+            <details key={meal} className="mi-meal">
+              <summary>
+                <span className="car">▶</span>
+                <span className="nm">
+                  {MEAL_LABEL[meal] ?? meal}
+                  <span>{when}</span>
+                </span>
+                <span className="cal num">
+                  {Math.round(sum("calories"))}
+                  <small> cal</small>
+                </span>
+              </summary>
+              <div className="mi-mac">
+                <span className="cp">{r1(sum("protein"))}p</span>
+                <span className="cc">{r1(sum("carbs"))}c</span>
+                <span className="cf">{r1(sum("fat"))}f</span>
+              </div>
+              <ul className="mi-items">
+                {sorted.map((e) => (
+                  <li key={e.id}>
+                    <div className="in">
+                      <b>{e.description}</b>
+                      <span>
+                        {e.foodName}
+                        {e.source && SOURCE_LABEL[e.source] && ` · ${SOURCE_LABEL[e.source]}`}
+                      </span>
+                    </div>
+                    <span className="c num">{Math.round(e.calories)}</span>
+                    <button
+                      type="button"
+                      className="x"
+                      title="Delete entry"
+                      aria-label={`Delete ${e.description}`}
+                      disabled={isPending}
+                      onClick={() => send("DELETE", { entryId: e.id }, "Failed to delete entry")}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          );
+        })}
+
+        {confirmBlock("mi-confirm", "mi-fine")}
+      </div>
+    );
+  }
 
   return (
     <div className="p">
@@ -172,27 +293,7 @@ export function Intake({
         );
       })}
 
-      {entries.length === 0 ? (
-        <p className="empty" style={{ marginTop: 14 }}>
-          No food logged today.
-        </p>
-      ) : (
-        <>
-          <button
-            type="button"
-            className="confirm"
-            disabled={isPending}
-            style={mealsComplete ? { borderColor: "var(--gold)", color: "var(--gold)" } : undefined}
-            onClick={() => send("PATCH", { date: dateStr, mealsComplete: !mealsComplete }, "Failed to update day")}
-          >
-            {mealsComplete ? "✓ That’s everything I ate today" : "That’s everything I ate today"}
-          </button>
-          <div className="fine">
-            One or two meals is a normal day. Confirming tells Baseline the gaps were real fasting windows, not
-            unlogged meals — unconfirmed days stay unknown, never “skipped.”
-          </div>
-        </>
-      )}
+      {confirmBlock("confirm", "fine")}
     </div>
   );
 }
