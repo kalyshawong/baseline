@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { getIntakeStatus } from "@/lib/intake";
+import { LiftExperiments } from "@/components/strength/lift-experiments";
+import "@/app/strength.css";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
@@ -53,7 +55,9 @@ export default async function MindPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  if ((await getIntakeStatus()).needsOnboarding) redirect("/onboarding");
+  const { needsOnboarding, gates } = await getIntakeStatus();
+  if (needsOnboarding) redirect("/onboarding");
+  const lifter = gates.strengthFirst;
   const params = await searchParams;
   const tz = await getRequestTz();
   const viewDate = getDateFromParams(params, tz);
@@ -308,10 +312,10 @@ export default async function MindPage({
             </div>
           </div>
 
-          <div className="g-sec">Experiments</div>
+          {lifter ? <LiftExperiments /> : <div className="g-sec">Experiments</div>}
           <div className="wrap">
             <div className="stack-lg">
-              <div className="panel">
+              {!lifter && (<div className="panel">
                 <div className="ph">
                   <span className="ov">Active</span>
                   <span className="k">{active.length} running</span>
@@ -378,7 +382,7 @@ export default async function MindPage({
                     </ul>
                   </>
                 )}
-              </div>
+              </div>)}
 
               {latestEnv ? (
                 <EnvCard

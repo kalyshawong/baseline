@@ -23,6 +23,7 @@ import { MobileDashboard } from "@/components/mobile/mobile-dashboard";
 import { EveningCheckin } from "@/components/dashboard/evening-checkin";
 import { LifterToday } from "@/components/strength/lifter-today";
 import { lifterToday } from "@/lib/strength/today";
+import { blockData } from "@/lib/strength/block";
 import "@/app/strength.css";
 import { getEveningCheckinData, type CheckinData } from "@/lib/evening-checkin";
 import { getDailySignals, type DailySignals } from "@/lib/daily-signals";
@@ -495,13 +496,14 @@ export default async function Dashboard({
 
   // Strength mode (screen 3): lifters get the call card instead of the cardio dashboard on mobile.
   const lifterData = gates.strengthFirst ? await lifterToday().catch(() => null) : null;
+  const lifterBlock = lifterData ? await blockData().catch(() => null) : null;
 
   return (
     <>
       {/* Mobile (Baseline iOS design) — below md only */}
       <div className="md:hidden">
         {lifterData ? (
-          <LifterToday data={lifterData} dateLabel={viewDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz }).toUpperCase()} />
+          <LifterToday data={lifterData} dateLabel={viewDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz }).toUpperCase()} blockLabel={lifterBlock ? `Block ${lifterBlock.number} · ${lifterBlock.currentWeek === 6 ? "Deload week" : `Week ${lifterBlock.currentWeek} of 5`}` : undefined} />
         ) : (
         <MobileDashboard
           tz={tz}

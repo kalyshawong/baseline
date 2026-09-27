@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getIntakeStatus } from "@/lib/intake";
 import { buildSessionPlan } from "@/lib/strength/session-plan";
 import { SessionLog } from "@/components/strength/session-log";
+import { prescribedRest } from "@/lib/strength/experiments";
 import "@/app/strength.css";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,6 @@ export default async function SessionPage({
   const params = await searchParams;
   const raw = typeof params.template === "string" ? params.template.trim() : "";
   const template = raw ? raw.slice(0, 60) : null;
-  const plan = await buildSessionPlan(template);
-  return <SessionLog plan={plan} />;
+  const [plan, rest] = await Promise.all([buildSessionPlan(template), prescribedRest().catch(() => null)]);
+  return <SessionLog plan={plan} restSeconds={rest?.seconds} restNote={rest?.note} />;
 }

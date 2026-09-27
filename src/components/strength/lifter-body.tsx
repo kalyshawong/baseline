@@ -81,7 +81,7 @@ export function SorenessLegend() {
   );
 }
 
-export function LifterBody({ data, blockHref }: { data: LifterBodyData; blockHref?: string }) {
+export function LifterBody({ data, blockHref, blockLabel }: { data: LifterBodyData; blockHref?: string; blockLabel?: string }) {
   const { bands, weeksLogged, lifts, soreness, fatigue, garmin } = data;
   const fvColor = fatigue.state === "Fresh" ? "var(--green)" : fatigue.state === "High" ? "var(--red)" : "var(--amber)";
   const lastCheck = soreness.lastLoggedAt
@@ -194,7 +194,7 @@ export function LifterBody({ data, blockHref }: { data: LifterBodyData; blockHre
 
       {blockHref ? (
         <div className="wrap" style={{ marginTop: 14 }}>
-          <Link href={blockHref} className="st-link"><span className="k">Block</span><span className="t">This block</span><span className="s">Volume ramp and deload signals</span></Link>
+          <Link href={blockHref} className="st-link"><span className="k">Block</span><span className="t">{blockLabel ?? "This block"}</span><span className="s">Volume ramp and deload signals</span></Link>
         </div>
       ) : null}
     </>

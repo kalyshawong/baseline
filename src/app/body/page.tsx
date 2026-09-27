@@ -3,6 +3,7 @@ import { getIntakeStatus } from "@/lib/intake";
 import { GarminCard, type GarminCardData } from "@/components/garmin/garmin-card";
 import { LifterBody } from "@/components/strength/lifter-body";
 import { lifterBodyData } from "@/lib/strength/body";
+import { blockData } from "@/lib/strength/block";
 import "@/app/strength.css";
 import { Suspense } from "react";
 import Link from "next/link";
@@ -116,6 +117,7 @@ export default async function BodyPage({
     : null;
   // Lifter Body tab (strength mode, screen 2) — replaces the cardio-first mobile layout.
   const lifter = gates.strengthFirst ? await lifterBodyData(showGarmin) : null;
+  const block = lifter ? await blockData().catch(() => null) : null;
   const garminCard = showGarmin ? (
     <GarminCard data={garminData} linked={!!garminLink} lastSyncAt={garminLink?.lastSyncAt?.toISOString() ?? null} lastError={garminLink?.lastError ?? null} />
   ) : null;
@@ -611,7 +613,7 @@ export default async function BodyPage({
                   <Link href="/body/workout/new?backfill=1" className="linklike">Log past workout</Link>
                 </div>
               </div>
-              <LifterBody data={lifter} />
+              <LifterBody data={lifter} blockHref="/body/block" blockLabel={block ? `Block ${block.number} · ${block.currentWeek === 6 ? "Deload week" : `Week ${block.currentWeek} of 5`}` : undefined} />
             </>
           ) : (
             <>

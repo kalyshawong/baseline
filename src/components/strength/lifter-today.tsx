@@ -11,7 +11,7 @@ import { fmtMin, type LifterToday as TodayData } from "@/lib/strength/today";
 
 const f1 = (n: number) => (Math.round(n * 10) / 10).toFixed(1).replace(/\.0$/, "");
 
-export function LifterToday({ data, dateLabel }: { data: TodayData; dateLabel: string }) {
+export function LifterToday({ data, dateLabel, blockLabel }: { data: TodayData; dateLabel: string; blockLabel?: string }) {
   const d = data;
   const sessionLabel = d.template ?? "First session";
   const cu = (kg: number) => (d.unit === "lb" ? kg * 2.2046226218 : kg);
@@ -115,6 +115,10 @@ export function LifterToday({ data, dateLabel }: { data: TodayData; dateLabel: s
           <Link href="/body/checkin?mode=evening" className={`st-link${d.eveningDone ? " done" : ""}`}>
             <span className="k">Evening</span><span className="t">Check-in</span>
             <span className="s">{d.eveningDone ? "Logged tonight" : "Session RPE · soreness · protein · tags"}</span>
+          </Link>
+          <Link href="/body/block" className="st-link">
+            <span className="k">Block</span><span className="t">{blockLabel ?? "This block"}</span>
+            <span className="s">Volume ramp and deload signals</span>
           </Link>
         </div>
       </div></div>
