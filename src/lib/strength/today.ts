@@ -35,6 +35,7 @@ export interface LifterToday {
   soreness: { present: boolean; lines: string[]; effect: Effect };
   volume: { headline: string; sub: string; effect: Effect };
   weight: { latestKg: number; latestDay: string; avg7: number | null; today: boolean } | null;
+  unit: "kg" | "lb";
   eveningDone: boolean;
 }
 
@@ -74,7 +75,7 @@ export async function lifterToday(): Promise<LifterToday> {
   plan?.exercises.forEach((e) => { planByMuscle[e.muscle] = (planByMuscle[e.muscle] ?? 0) + e.plan.length; });
 
   // ---- inputs
-  const [bands, sore, sleepRow, garminRow, ouraRow, rhrHist, sleepHist, weightRows, soreToday, tagsToday] = await Promise.all([
+  const [bands, sore, sleepRow, garminRow, ouraRow, rhrHist, sleepHist, weightRows, soreToday, tagsToday, profile] = await Promise.all([
     weeklyMuscleBands(),
     lifterSoreness(),
     prisma.dailySleep.findFirst({ where: { day: { lte: end }, totalSleepDuration: { not: null } }, orderBy: { day: "desc" }, select: { day: true, totalSleepDuration: true } }).catch(() => null),
@@ -85,6 +86,7 @@ export async function lifterToday(): Promise<LifterToday> {
     prisma.weightLog.findMany({ where: { day: { gte: new Date(Date.now() - 8 * 86400_000) } }, orderBy: { day: "desc" }, select: { day: true, weightKg: true } }),
     prisma.sorenessLog.count({ where: { createdAt: { gte: start, lte: end } } }),
     prisma.activityTag.count({ where: { timestamp: { gte: start, lte: end } } }),
+    prisma.userProfile.findFirst({ select: { unit: true } }),
   ]);
 
   // Sleep: Garmin first (lifter with a Forerunner), else DailySleep.
@@ -181,6 +183,7 @@ export async function lifterToday(): Promise<LifterToday> {
     volume,
     weight,
     eveningDone: soreToday > 0 || tagsToday > 0,
+    unit: profile?.unit === "kg" ? "kg" : "lb",
   };
 }
 

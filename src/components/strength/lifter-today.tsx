@@ -14,6 +14,7 @@ const f1 = (n: number) => (Math.round(n * 10) / 10).toFixed(1).replace(/\.0$/, "
 export function LifterToday({ data, dateLabel }: { data: TodayData; dateLabel: string }) {
   const d = data;
   const sessionLabel = d.template ?? "First session";
+  const cu = (kg: number) => (d.unit === "lb" ? kg * 2.2046226218 : kg);
   return (
     <div className="bl-m">
       <div className="brandbar">
@@ -109,7 +110,7 @@ export function LifterToday({ data, dateLabel }: { data: TodayData; dateLabel: s
         <div className="st-links">
           <Link href="/body/checkin?mode=morning" className={`st-link${d.weight?.today ? " done" : ""}`}>
             <span className="k">Morning</span><span className="t">Weigh in</span>
-            <span className="s">{d.weight ? `${d.weight.today ? "Today" : "Last"} ${f1(d.weight.latestKg)} kg${d.weight.avg7 != null ? ` · 7-day avg ${f1(d.weight.avg7)}` : ""}` : "No weigh-ins yet"}</span>
+            <span className="s">{d.weight ? `${d.weight.today ? "Today" : "Last"} ${f1(cu(d.weight.latestKg))} ${d.unit}${d.weight.avg7 != null ? ` · 7-day avg ${f1(cu(d.weight.avg7))}` : ""}` : "No weigh-ins yet"}</span>
           </Link>
           <Link href="/body/checkin?mode=evening" className={`st-link${d.eveningDone ? " done" : ""}`}>
             <span className="k">Evening</span><span className="t">Check-in</span>
