@@ -28,7 +28,8 @@ function currentTimeString(): string {
 export function MobileQuickTag({
   dateStr,
   frequentTags = [],
-}: { dateStr?: string; frequentTags?: { tag: string; category: string }[] } = {}) {
+  bare = false,
+}: { dateStr?: string; frequentTags?: { tag: string; category: string }[]; bare?: boolean } = {}) {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -83,8 +84,8 @@ export function MobileQuickTag({
   const activePreset = presets.find((p) => p.category === activeCategory);
 
   return (
-    <div className="panel">
-      <div className="ph"><span className="ov">Quick Tag</span></div>
+    <div className={bare ? undefined : "panel"}>
+      {!bare && <div className="ph"><span className="ov">Quick Tag</span></div>}
 
       {flash && (
         <div className="chip" style={{ background: "color-mix(in oklch,var(--green),transparent 82%)", color: "var(--green)", marginBottom: 10 }}>
@@ -150,7 +151,7 @@ export function MobileQuickTag({
       <form onSubmit={handleCustom}>
         <input
           className="field"
-          style={{ marginTop: 11 }}
+          style={{ marginTop: bare ? 10 : 11 }}
           value={customTag}
           onChange={(e) => setCustomTag(e.target.value)}
           placeholder="Custom tag (e.g. cold shower, sauna)"
@@ -170,7 +171,7 @@ export function MobileQuickTag({
             Tag
           </button>
         </div>
-        <label className="check" style={{ marginTop: 10 }} aria-checked={timeUnknown}>
+        <label className="check" style={{ marginTop: bare ? 12 : 10 }} aria-checked={timeUnknown}>
           <input
             type="checkbox"
             checked={timeUnknown}

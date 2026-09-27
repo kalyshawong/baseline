@@ -1,0 +1,118 @@
+/* Baseline iOS — Mind v2 (Claude Design handoff, 2026-09-26).
+ * Copied from design_handoff_baseline_ios/baseline-mobile.css "MIND v2",
+ * every selector scoped under .bl-m so nothing reaches desktop. */
+.bl-m .mi-today{grid-template-columns:repeat(2,minmax(0,1fr))}
+.bl-m .mi-today .v{font-size:28px;white-space:nowrap}
+.bl-m .mi-today .mi-word{font-size:24px;line-height:.9}
+.bl-m .mi-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+.bl-m .mi-tabs button{font-family:var(--sans);font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);background:var(--surf2);border:none;min-height:44px;cursor:pointer;clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)}
+.bl-m .mi-tabs button.on{background:var(--gold);color:var(--bg);box-shadow:0 0 22px -8px var(--gold)}
+.bl-m .mi-pane{display:none}
+.bl-m .mi-pane.on{display:block}
+.bl-m .mi-lbl{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:14px 0 6px}
+.bl-m .mi-lbl:first-child{margin-top:0}
+.bl-m .mi-sep{height:1px;background:var(--line);margin:20px 0}
+.bl-m .mi-tl{list-style:none;position:relative;display:flex;flex-direction:column;gap:6px;margin:0;padding:0}
+.bl-m .mi-tl::before{content:"";position:absolute;left:58px;top:6px;bottom:6px;width:1px;background:var(--line)}
+.bl-m .mi-tl li{display:grid;grid-template-columns:50px 16px minmax(0,1fr) auto;align-items:center;font-size:13px}
+.bl-m .mi-tl .t{font-size:11px;font-weight:600;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
+.bl-m .mi-tl .dot{width:7px;height:7px;background:var(--line);justify-self:center;transform:rotate(45deg);position:relative;left:1px}
+.bl-m .mi-tl .caf .dot{background:var(--gold)}
+.bl-m .mi-tl .nut .dot{background:var(--amber)}
+.bl-m .mi-tl .w{padding-left:6px;font-weight:500}
+.bl-m .mi-tl .cat{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.bl-m .mi-tot{display:flex;align-items:baseline;gap:8px}
+.bl-m .mi-tot .big{font-family:var(--disp);font-size:44px;line-height:.85}
+.bl-m .mi-tot .of{font-size:12.5px;color:var(--faint);font-weight:600}
+.bl-m .mi-bar{height:4px;background:var(--surf2);margin-top:10px;position:relative}
+.bl-m .mi-bar i{position:absolute;inset:0 auto 0 0;background:var(--dim)}
+.bl-m .mi-bar.bp i{background:var(--blue)}
+.bl-m .mi-bar.bc i{background:var(--amber)}
+.bl-m .mi-bar.bf i{background:var(--red)}
+.bl-m .mi-bar.g i{background:var(--green)}
+.bl-m .mi-macros{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:14px 0}
+.bl-m .mi-macros .top{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--dim)}
+.bl-m .mi-macros .top b{font-family:var(--disp);font-size:19px;font-weight:400;color:var(--ink);line-height:1}
+.bl-m .mi-macros .mi-bar{margin-top:6px}
+.bl-m .cp{color:var(--blue)}
+.bl-m .cc{color:var(--amber)}
+.bl-m .cf{color:var(--red)}
+.bl-m .mi-meal{border-top:1px solid var(--line)}
+.bl-m .mi-meal summary{list-style:none;display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:48px;cursor:pointer}
+.bl-m .mi-meal summary::-webkit-details-marker{display:none}
+.bl-m .mi-meal .car{color:var(--faint);font-size:10px;transition:transform .15s}
+.bl-m .mi-meal[open] .car{transform:rotate(90deg)}
+.bl-m .mi-meal .nm{font-weight:700;font-size:14px}
+.bl-m .mi-meal .nm span{font-weight:500;color:var(--faint);font-size:11.5px;margin-left:6px}
+.bl-m .mi-meal summary .cal{font-family:var(--disp);font-size:20px;line-height:1}
+.bl-m .mi-meal summary .cal small{font-family:var(--sans);font-size:11px;color:var(--faint);font-weight:600}
+.bl-m .mi-mac{display:flex;gap:12px;font-size:11.5px;font-family:ui-monospace,Menlo,monospace;padding:0 0 10px 22px}
+.bl-m .mi-items{list-style:none;margin:0;padding:0 0 12px 22px;display:flex;flex-direction:column;gap:2px}
+.bl-m .mi-items li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;background:var(--surf2)}
+.bl-m .mi-items .in{min-width:0}
+.bl-m .mi-items b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bl-m .mi-items .in span{display:block;font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bl-m .mi-items .c{font-size:12px;color:var(--dim);font-family:ui-monospace,Menlo,monospace}
+.bl-m .mi-confirm{margin-top:14px;width:100%;min-height:46px;background:transparent;border:1px solid var(--line);color:var(--ink);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
+.bl-m .mi-confirm:active{border-color:var(--gold);color:var(--gold)}
+.bl-m .mi-fine{font-size:11px;color:var(--faint);line-height:1.5;margin-top:10px;text-wrap:pretty}
+.bl-m .mi-tuned{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:12px 14px;background:var(--surf);border-left:3px solid var(--blue);font-size:13px;font-weight:600}
+.bl-m .mi-tuned .k{color:var(--blue)}
+.bl-m .mi-tuned .linklike{margin-left:auto;font-size:11.5px}
+.bl-m .mi-tested{border-left:5px solid var(--green);background:var(--surf);background-image:linear-gradient(150deg,color-mix(in oklch,var(--green),transparent 85%),transparent 55%);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 16px 36px -16px #000}
+.bl-m .mi-tested .l{padding:18px}
+.bl-m .mi-tested .ey,.bl-m .mi-fc .ey{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bl-m .mi-tested .what,.bl-m .mi-fc .what{font-size:12px;font-weight:700;color:var(--dim)}
+.bl-m .mi-tested h2{font-family:var(--disp);font-weight:400;font-size:34px;line-height:.92;margin:14px 0 0;text-wrap:balance}
+.bl-m .mi-tested h2 em{font-style:normal;color:var(--green)}
+.bl-m .mi-tested .body{font-size:13px;color:var(--dim);line-height:1.5;margin-top:10px;text-wrap:pretty}
+.bl-m .mi-tested .meta{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:10px;line-height:1.5}
+.bl-m .mi-tested .stats{display:grid;grid-template-columns:1fr 1fr;background:var(--surf2);margin:0 18px 18px}
+.bl-m .mi-tested .s{padding:14px;display:flex;flex-direction:column;gap:6px}
+.bl-m .mi-tested .s+.s{border-left:1px solid var(--line)}
+.bl-m .mi-tested .s .n{font-family:var(--disp);font-size:46px;line-height:.8;color:var(--green)}
+.bl-m .mi-tested .s .n.w{color:var(--ink);font-size:36px}
+.bl-m .mi-tested .s .n small{font-family:var(--sans);font-size:11px;font-weight:700;color:var(--faint);margin-left:3px}
+.bl-m .mi-tested .s .d{font-size:11px;color:var(--dim);line-height:1.35}
+.bl-m .mi-fc{background:var(--surf);box-shadow:inset 0 1px 0 oklch(1 0 0/.05),0 12px 30px -16px #000;border-left:4px solid var(--faint);padding:16px}
+.bl-m .mi-fc h3{font-family:var(--disp);font-weight:400;font-size:26px;line-height:.92;margin:12px 0 0}
+.bl-m .mi-fc .body{font-size:13px;color:var(--dim);line-height:1.5;margin-top:8px;text-wrap:pretty}
+.bl-m .mi-fc .body b{color:var(--ink)}
+.bl-m .mi-prog{margin-top:14px}
+.bl-m .mi-prog .mi-bar{margin-top:0;height:5px}
+.bl-m .mi-prog .k{display:flex;justify-content:space-between;margin-top:8px}
+.bl-m .mi-how{border:1px solid var(--line)}
+.bl-m .mi-how summary{list-style:none;display:flex;align-items:center;gap:10px;min-height:46px;padding:0 16px;cursor:pointer;font-size:12px;font-weight:700;color:var(--dim)}
+.bl-m .mi-how summary::-webkit-details-marker{display:none}
+.bl-m .mi-how .i{width:18px;height:18px;border:1px solid var(--faint);display:grid;place-items:center;font-size:11px;font-style:italic;font-family:Georgia,serif;color:var(--faint)}
+.bl-m .mi-how .car{margin-left:auto;font-size:10px;color:var(--faint);transition:transform .15s}
+.bl-m .mi-how[open] .car{transform:rotate(90deg)}
+.bl-m .mi-how .in{padding:4px 16px 18px;display:flex;flex-direction:column;gap:14px;font-size:12.5px;color:var(--dim);line-height:1.55}
+.bl-m .mi-how p{margin:0}
+.bl-m .mi-how b{color:var(--ink)}
+.bl-m .mi-how h4{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:0 0 6px}
+.bl-m .mi-xa{background:var(--surf2);padding:14px}
+.bl-m .mi-xa .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.bl-m .mi-xa .t{font-weight:700;font-size:15px}
+.bl-m .mi-xa .d{font-size:12px;color:var(--dim);line-height:1.45;margin-top:6px}
+.bl-m .mi-xlist{list-style:none;margin:10px 0 0;padding:0}
+.bl-m .mi-xlist li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;padding:12px 0 0;border-top:1px solid var(--line);font-size:13.5px}
+.bl-m .mi-xlist .t{font-weight:600}
+.bl-m .mi-xlist .t span{display:block;font-size:11px;color:var(--faint);font-weight:500;margin-top:2px}
+.bl-m .mi-xlist .res{grid-column:1/-1;font-size:12px;font-weight:700;color:var(--green)}
+.bl-m .mi-env{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:12px 14px;border:1px dashed var(--line);font-size:12px;color:var(--dim)}
+.bl-m .mi-env .linklike{margin-left:auto;font-size:11.5px}
+
+/* ── App-only additions (not in the handoff: real states the mock doesn't show) ── */
+.bl-m .p-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.bl-m .err{font-size:12px;color:var(--red);margin:0 0 10px}
+.bl-m .empty{font-size:12.5px;color:var(--faint);margin:0}
+.bl-m .mi-tl li{grid-template-columns:50px 16px minmax(0,1fr) auto 28px}
+.bl-m .mi-tl .x,.bl-m .mi-items .x{background:none;border:none;color:var(--faint);font-size:15px;line-height:1;cursor:pointer;min-width:28px;min-height:28px;padding:0}
+.bl-m .mi-items li{grid-template-columns:minmax(0,1fr) auto 28px}
+.bl-m .mi-acts{display:flex;flex-direction:column;gap:8px}
+.bl-m .mi-fc.pat{border-left-color:var(--gold)}
+.bl-m .mi-fc .meta{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:10px;line-height:1.5}
+.bl-m .mi-fc .acts{display:flex;gap:8px;margin-top:14px}
+.bl-m .mi-tuned button.linklike{background:none;border-top:none;border-left:none;border-right:none;padding:0;font-family:var(--sans)}
+.bl-m .archived{align-self:flex-start;background:none;border:none;color:var(--faint);font-size:11.5px;font-weight:600;cursor:pointer;padding:6px 0}

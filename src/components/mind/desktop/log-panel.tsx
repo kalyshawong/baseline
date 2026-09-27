@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation";
  * Desktop Mind handoff (2026-09-23) — the one Log panel: Tag / Food / Context
  * tabs over the existing input components, then "Logged today" as a timeline.
  * Identical tags logged at the same minute collapse to "×N".
+ *
+ * `mobile` renders the same panel with the Baseline iOS Mind v2 classes
+ * (mi-*, scoped under .bl-m in mobile.css).
  */
 
 export interface LoggedTag {
@@ -26,12 +29,14 @@ export function LogPanel({
   ctx,
   tags,
   tz,
+  mobile = false,
 }: {
   tag: ReactNode;
   food: ReactNode;
   ctx: ReactNode;
   tags: LoggedTag[];
   tz: string;
+  mobile?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("tag");
   const panes: [Tab, string, ReactNode][] = [
@@ -41,8 +46,8 @@ export function LogPanel({
   ];
 
   return (
-    <div className="p">
-      <div className="tabs" role="tablist">
+    <div className={mobile ? "panel" : "p"}>
+      <div className={mobile ? "mi-tabs" : "tabs"} role="tablist">
         {panes.map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? "on" : undefined} onClick={() => setTab(id)}>
             {label}
@@ -50,17 +55,17 @@ export function LogPanel({
         ))}
       </div>
       {panes.map(([id, , node]) => (
-        <div key={id} className={`pane${tab === id ? " on" : ""}`}>
+        <div key={id} className={`${mobile ? "mi-pane" : "pane"}${tab === id ? " on" : ""}`}>
           {node}
         </div>
       ))}
-      <div className="sep" />
-      <LoggedToday tags={tags} tz={tz} />
+      <div className={mobile ? "mi-sep" : "sep"} />
+      <LoggedToday tags={tags} tz={tz} mobile={mobile} />
     </div>
   );
 }
 
-function LoggedToday({ tags, tz }: { tags: LoggedTag[]; tz: string }) {
+function LoggedToday({ tags, tz, mobile }: { tags: LoggedTag[]; tz: string; mobile: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +98,7 @@ function LoggedToday({ tags, tz }: { tags: LoggedTag[]; tz: string }) {
 
   return (
     <>
-      <div className="p-h">
+      <div className={mobile ? "ph" : "p-h"}>
         <span className="ov">Logged today</span>
         <span className="k">
           {tags.length} {tags.length === 1 ? "tag" : "tags"}
@@ -103,7 +108,7 @@ function LoggedToday({ tags, tz }: { tags: LoggedTag[]; tz: string }) {
       {rows.length === 0 ? (
         <p className="empty">Nothing tagged yet.</p>
       ) : (
-        <ul className="tl">
+        <ul className={mobile ? "mi-tl" : "tl"}>
           {rows.map((r) => (
             <li key={r.key} className={r.t.category === "nutrition" ? "nut" : r.t.category === "caffeine" ? "caf" : undefined}>
               <span className="t">{r.time}</span>
