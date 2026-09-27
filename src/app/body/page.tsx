@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { getIntakeStatus } from "@/lib/intake";
 import { GarminCard, type GarminCardData } from "@/components/garmin/garmin-card";
+import { LifterBody } from "@/components/strength/lifter-body";
+import { lifterBodyData } from "@/lib/strength/body";
+import "@/app/strength.css";
 import { Suspense } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
@@ -111,6 +114,8 @@ export default async function BodyPage({
         vo2Max: garminLatest.vo2Max,
       }
     : null;
+  // Lifter Body tab (strength mode, screen 2) — replaces the cardio-first mobile layout.
+  const lifter = gates.strengthFirst ? await lifterBodyData(showGarmin) : null;
   const garminCard = showGarmin ? (
     <GarminCard data={garminData} linked={!!garminLink} lastSyncAt={garminLink?.lastSyncAt?.toISOString() ?? null} lastError={garminLink?.lastError ?? null} />
   ) : null;
@@ -419,11 +424,7 @@ export default async function BodyPage({
           <div className="wrap">
             <div className="stack-lg">
               <div className="addbtns">
-                {gates.strengthFirst ? (
-                  <Link href="/body/session" className="btn">Start session</Link>
-                ) : (
-                  <Link href="/body/workout/new" className="btn">+ Add Workout</Link>
-                )}
+                <Link href="/body/workout/new" className="btn">+ Add Workout</Link>
                 <Link href="/body/workout/new?backfill=1" className="linklike">Log past workout</Link>
               </div>
               <QuickWorkoutLog />
@@ -595,36 +596,44 @@ export default async function BodyPage({
           <div className="appbar">
             <div>
               <h1>BODY</h1>
-              <div className="sub">Readiness, recovery &amp; composition</div>
+              <div className="sub">{lifter ? `Rolling 7 days · ${lifter.weekLabel}` : <>Readiness, recovery &amp; composition</>}</div>
             </div>
             <Suspense>
               <MobileDateNav basePath="/body" />
             </Suspense>
           </div>
 
-          <div className="wrap" style={{ marginTop: 8 }}>
-            <div className="stack-lg">
-              {gates.cardio && <HyroxSummaryCard />}
-              <MobileTrainingTier
-                call={trainingCall}
-                baselineScore={score?.overall ?? null}
-                hrvCv={cv}
-                hrvCvElevated={hrvCvElevated}
-              />
-            </div>
-          </div>
+          {lifter ? (
+            <>
+              <div className="wrap" style={{ marginTop: 8 }}>
+                <div className="addbtns">
+                  <Link href="/body/session" className="btn">Start session</Link>
+                  <Link href="/body/workout/new?backfill=1" className="linklike">Log past workout</Link>
+                </div>
+              </div>
+              <LifterBody data={lifter} />
+            </>
+          ) : (
+            <>
+              <div className="wrap" style={{ marginTop: 8 }}>
+                <div className="stack-lg">
+                  {gates.cardio && <HyroxSummaryCard />}
+                  <MobileTrainingTier
+                    call={trainingCall}
+                    baselineScore={score?.overall ?? null}
+                    hrvCv={cv}
+                    hrvCvElevated={hrvCvElevated}
+                  />
+                </div>
+              </div>
 
-          {garminCard ? (
-            <div className="wrap" style={{ marginTop: 14 }}>
-              {garminCard}
-            </div>
-          ) : null}
-
-          {gates.strengthFirst && strengthMobile}
-
-          {garminCard ? <div className="mt-6">{garminCard}</div> : null}
-
-      {gates.strengthFirst && strengthDesktop}
+              {garminCard ? (
+                <div className="wrap" style={{ marginTop: 14 }}>
+                  {garminCard}
+                </div>
+              ) : null}
+            </>
+          )}
 
       {gates.ouraRecovery && (
             <>
@@ -858,6 +867,10 @@ export default async function BodyPage({
       <div className="mt-6">
         {gates.cardio && <HyroxSummaryCard />}
       </div>
+
+      {garminCard ? <div className="mt-6">{garminCard}</div> : null}
+
+      {gates.strengthFirst && strengthDesktop}
 
       {/* ─── READINESS HERO BAND ─── */}
       <div className="mt-6">
