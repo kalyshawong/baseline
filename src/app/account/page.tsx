@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { DEMO_USER_ID } from "@/lib/demo/constants";
 import { DeleteAccountForm, SignOutButton } from "./account-actions";
+import { HealthSyncPanel } from "@/components/native/health-sync-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,12 @@ export default async function AccountPage({
   const error = typeof params.error === "string" ? ERRORS[params.error] : undefined;
   const isDemo = session.userId === DEMO_USER_ID;
   const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { email: true } });
+  const lastSync = isDemo
+    ? null
+    : await prisma.healthKitSync.findFirst({
+        orderBy: { syncedAt: "desc" },
+        select: { syncedAt: true, metrics: true, workouts: true, status: true },
+      });
 
   return (
     <div className="mx-auto w-full max-w-[440px] px-5 pb-32 pt-8">
@@ -47,6 +54,16 @@ export default async function AccountPage({
           Privacy policy
         </Link>
       </div>
+
+      {!isDemo && (
+        <HealthSyncPanel
+          lastServerSync={
+            lastSync
+              ? { at: lastSync.syncedAt.toISOString(), metrics: lastSync.metrics, workouts: lastSync.workouts, status: lastSync.status }
+              : null
+          }
+        />
+      )}
 
       {!isDemo && (
         <div className="panel mt-6">
