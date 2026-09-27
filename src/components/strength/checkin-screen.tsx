@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CheckinData } from "@/lib/strength/checkin";
-import { levelToSeverity, SORE_TILES, TILES_BACK, TILES_FRONT, type SoreTileId } from "@/lib/strength/body";
+import { levelToSeverity, SORE_TILES, TILES_BACK, TILES_FRONT, type SoreTileId } from "@/lib/strength/soreness-map";
 
 /**
  * Lifter check-in — design_handoff_baseline_ios_strength, screen 4.

@@ -1,6 +1,7 @@
 import Link from "next/link";
-import type { LifterBodyData, LiftTrend, SorenessMap, SoreTileId } from "@/lib/strength/body";
-import { SORE_TILES, TILES_BACK, TILES_FRONT } from "@/lib/strength/body";
+import type { LifterBodyData, LiftTrend, SorenessMap } from "@/lib/strength/body";
+import type { SoreTileId } from "@/lib/strength/soreness-map";
+import { SORE_TILES, TILES_BACK, TILES_FRONT } from "@/lib/strength/soreness-map";
 
 /**
  * Lifter Body tab — design_handoff_baseline_ios_strength, screen 2, as drawn.
