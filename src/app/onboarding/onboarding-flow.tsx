@@ -14,6 +14,7 @@ import {
   type RecordsHabit,
   type RitualSlot,
   type ScheduleKind,
+  type Sex,
   type WearHistory,
 } from "@/lib/intake-config";
 import { saveIntakeAction } from "./actions";
@@ -25,11 +26,12 @@ import { saveIntakeAction } from "./actions";
  * questions only for people who train.
  */
 
-type StepId = "welcome" | "goals" | "device" | "cycle" | "meds" | "training" | "schedule" | "question" | "ritual" | "build";
+type StepId = "welcome" | "goals" | "device" | "about" | "cycle" | "meds" | "training" | "schedule" | "question" | "ritual" | "build";
 
 function stepsFor(s: IntakeState): StepId[] {
   const trains = s.goals.includes("running") || s.goals.includes("strength");
-  return ["welcome", "goals", "device", "cycle", "meds", ...(trains ? (["training"] as StepId[]) : []), "schedule", "question", "ritual", "build"];
+  const askCycle = s.sex !== "male";
+  return ["welcome", "goals", "device", "about", ...(askCycle ? (["cycle"] as StepId[]) : []), "meds", ...(trains ? (["training"] as StepId[]) : []), "schedule", "question", "ritual", "build"];
 }
 
 const GOALS: { id: GoalId; title: string; detail: string }[] = [
@@ -53,6 +55,12 @@ const HISTORY: { id: WearHistory; label: string }[] = [
   { id: "new", label: "Just got it" },
   { id: "weeks", label: "A few weeks" },
   { id: "months", label: "2+ months" },
+];
+
+const SEX: { id: Sex; title: string; detail: string }[] = [
+  { id: "female", title: "Female", detail: "We’ll ask about your cycle next — it shifts night heart rate and temperature" },
+  { id: "male", title: "Male", detail: "No cycle questions; baselines and thresholds use male reference ranges" },
+  { id: "other", title: "Prefer to describe it differently", detail: "We’ll still ask about a cycle so nothing is assumed" },
 ];
 
 const CYCLE: { id: CycleStatus; title: string; detail: string }[] = [
@@ -264,6 +272,25 @@ export function OnboardingFlow({ initial, editing }: { initial: IntakeState | nu
               <Why lead="Why it matters:">a device worn for 60+ nights may already hold your baseline — we’ll read that history from Apple Health instead of making you wait.</Why>
             </>
           ) : null}
+        </Step>
+      )}
+
+      {step === "about" && (
+        <Step
+          ov="Your physiology, not an average"
+          title={"A little\nabout you."}
+          sub="Reference ranges for resting heart rate, HRV and recovery differ by sex. Baseline compares you to your own numbers first, but this sets the starting point."
+          footer={<Continue disabled={state.sex === null} />}
+        >
+          {SEX.map((o) => (
+            <OptionRow
+              key={o.id}
+              title={o.title}
+              detail={o.detail}
+              selected={state.sex === o.id}
+              onClick={() => patch({ sex: o.id, ...(o.id === "male" ? { cycle: "none" as CycleStatus } : {}) })}
+            />
+          ))}
         </Step>
       )}
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { syncAllGarminLinks } from "@/lib/garmin/sync";
 
 /**
  * Supabase keep-alive.
@@ -12,10 +13,15 @@ import { prisma } from "@/lib/db";
  * Unauthenticated by design: it leaks nothing (fixed response shape), and
  * the middleware exempts it so the cron can reach it without credentials.
  */
+export const maxDuration = 60; // the Garmin piggyback needs more than the 10s default
+
 export async function GET() {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json({ ok: true, at: new Date().toISOString() });
+    // Piggyback: the Hobby plan allows two crons and both are taken, so the
+    // daily Garmin pull rides along here (pilot-only, a handful of links).
+    const garmin = await syncAllGarminLinks(7).catch((e) => ({ synced: 0, error: e instanceof Error ? e.message : String(e) }));
+    return NextResponse.json({ ok: true, at: new Date().toISOString(), garmin });
   } catch {
     // Surface failure via non-200 so Vercel cron logs show it red.
     return NextResponse.json({ ok: false }, { status: 500 });

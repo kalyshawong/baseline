@@ -10,7 +10,7 @@
 .bl-m {
   --bg:oklch(0.142 0.010 70); --surf:oklch(0.195 0.010 70); --surf2:oklch(0.228 0.010 70);
   --line:oklch(0.30 0.010 70); --ink:oklch(0.97 0.003 264); --dim:oklch(0.66 0.012 264);
-  --faint:oklch(0.50 0.012 264); --gold:#E5762E; --volt:var(--gold);
+  --faint:oklch(0.50 0.012 264); --gold:oklch(0.82 0.155 88); --volt:var(--gold);
   --green:oklch(0.82 0.17 150); --amber:oklch(0.83 0.16 80); --red:oklch(0.66 0.21 25);
   --blue:oklch(0.74 0.13 232);
   --t-race:var(--amber); --t-strength:oklch(0.70 0.17 300); --t-cognitive:oklch(0.74 0.13 250);
@@ -551,7 +551,7 @@
 .m-tab { appearance:none; background:none; border:none; cursor:pointer; text-decoration:none; display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0 0; color:oklch(0.50 0.012 264); transition:color .15s; }
 .m-tab svg { width:24px; height:24px; display:block; stroke-width:1.8; }
 .m-tab .lab { font-size:9px; font-weight:700; letter-spacing:.03em; }
-.m-tab.on { color:#E5762E; }
+.m-tab.on { color:oklch(0.82 0.155 88); }
 
 /* Every mobile page clears the floating tab bar; desktop unaffected. */
 @media (max-width: 767px) {

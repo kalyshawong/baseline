@@ -18,11 +18,14 @@ export type RecordsHabit = "most" | "some" | "rarely";
 export type ScheduleKind = "steady" | "drift" | "shift";
 export type ContextFlag = "travel" | "altitude";
 export type RitualSlot = "evening" | "morning" | "none";
+export type Sex = "male" | "female" | "other";
 export type MedEffect = "heart" | "sleep" | "unsure";
 export type QuestionTemplateId = "baseline_first" | "sleep_change" | "recovery_change" | "performance_change" | "food_watch";
 
 export interface IntakeState {
   goals: GoalId[];
+  /** Asked before the cycle question; men skip it. Stored on UserProfile.sex too. */
+  sex: Sex | null;
   devices: DeviceId[];
   history: WearHistory | null;
   cycle: CycleStatus | null;
@@ -37,6 +40,7 @@ export interface IntakeState {
 
 export const EMPTY_INTAKE: IntakeState = {
   goals: [],
+  sex: null,
   devices: [],
   history: null,
   cycle: null,
@@ -68,6 +72,7 @@ export function normalizeIntake(raw: unknown): IntakeState {
   )];
   return {
     goals,
+    sex: oneOf(o.sex, ["male", "female", "other"] as const),
     devices,
     history: oneOf(o.history, ["new", "weeks", "months"] as const),
     cycle: oneOf(o.cycle, ["regular", "irregular", "none", "skip"] as const),

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getIntakeStatus } from "@/lib/intake";
+import { GarminCard, type GarminCardData } from "@/components/garmin/garmin-card";
 import { Suspense } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
@@ -77,6 +78,38 @@ export default async function BodyPage({
   // day-anchored query below keys off the VIEWED date now.
   const { needsOnboarding, gates } = await getIntakeStatus();
   if (needsOnboarding) redirect("/onboarding");
+  const showGarmin = gates.devices.includes("garmin");
+  const [garminLink, garminLatest] = showGarmin
+    ? await Promise.all([
+        prisma.garminLink.findFirst({ select: { lastSyncAt: true, lastError: true, status: true } }),
+        prisma.garminDaily.findFirst({ orderBy: { day: "desc" } }),
+      ])
+    : [null, null];
+  const garminData: GarminCardData | null = garminLatest
+    ? {
+        day: garminLatest.day.toISOString().slice(0, 10),
+        bodyBatteryHigh: garminLatest.bodyBatteryHigh,
+        bodyBatteryLow: garminLatest.bodyBatteryLow,
+        bodyBatteryCharged: garminLatest.bodyBatteryCharged,
+        bodyBatteryDrained: garminLatest.bodyBatteryDrained,
+        trainingStatus: garminLatest.trainingStatus,
+        acuteLoad: garminLatest.acuteLoad,
+        chronicLoad: garminLatest.chronicLoad,
+        acwr: garminLatest.acwr,
+        trainingReadiness: garminLatest.trainingReadiness,
+        readinessLevel: garminLatest.readinessLevel,
+        hrvLastNight: garminLatest.hrvLastNight,
+        hrvWeeklyAvg: garminLatest.hrvWeeklyAvg,
+        hrvStatus: garminLatest.hrvStatus,
+        sleepScore: garminLatest.sleepScore,
+        stressAvg: garminLatest.stressAvg,
+        restingHr: garminLatest.restingHr,
+        vo2Max: garminLatest.vo2Max,
+      }
+    : null;
+  const garminCard = showGarmin ? (
+    <GarminCard data={garminData} linked={!!garminLink} lastSyncAt={garminLink?.lastSyncAt?.toISOString() ?? null} lastError={garminLink?.lastError ?? null} />
+  ) : null;
   const viewDate = getDateFromParams(await searchParams, await getRequestTz());
 
   // Week window (Monday-Sunday)
@@ -573,9 +606,17 @@ export default async function BodyPage({
             </div>
           </div>
 
+          {garminCard ? (
+            <div className="wrap" style={{ marginTop: 14 }}>
+              {garminCard}
+            </div>
+          ) : null}
+
           {gates.strengthFirst && strengthMobile}
 
-          {gates.strengthFirst && strengthDesktop}
+          {garminCard ? <div className="mt-6">{garminCard}</div> : null}
+
+      {gates.strengthFirst && strengthDesktop}
 
       {gates.ouraRecovery && (
             <>

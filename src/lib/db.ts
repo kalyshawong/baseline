@@ -32,7 +32,7 @@ const OWNED_MODELS = new Set([
   "ActivityTag", "ChatMessage", "ChatSession", "CyclePhaseLog",
   "DailyActivity", "DailyReadiness", "DailyResilience", "DailyRunningMetrics",
   "DailySleep", "DailySpO2", "DailyStress", "DailyVO2Max", "EnvReading",
-  "Exercise", "Experiment", "ExperimentLog", "Goal", "GoalWorkoutTag",
+  "Exercise", "Experiment", "ExperimentLog", "GarminDaily", "GarminLink", "Goal", "GoalWorkoutTag",
   "HealthKitSync", "HealthKitWorkout", "HeartRateSample",
   "HeartRateZoneSummary", "HyroxPlan", "HyroxSession",
   "HyroxStationBenchmark", "LifeContextDef", "LifeContextLog",
