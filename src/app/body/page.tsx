@@ -82,7 +82,11 @@ export default async function BodyPage({
   const [garminLink, garminLatest] = showGarmin
     ? await Promise.all([
         prisma.garminLink.findFirst({ select: { lastSyncAt: true, lastError: true, status: true } }),
-        prisma.garminDaily.findFirst({ orderBy: { day: "desc" } }),
+        // Latest day Garmin actually has a reading for (an unworn watch yields an empty row).
+        prisma.garminDaily.findFirst({
+          where: { OR: [{ bodyBatteryHigh: { not: null } }, { sleepScore: { not: null } }, { restingHr: { not: null } }] },
+          orderBy: { day: "desc" },
+        }),
       ])
     : [null, null];
   const garminData: GarminCardData | null = garminLatest

@@ -46,7 +46,7 @@ function num(v: unknown): number | null {
 }
 function int(v: unknown): number | null {
   const n = num(v);
-  return n == null ? null : Math.round(n);
+  return n == null || n < 0 ? null : Math.round(n); // Garmin encodes "no data" as -1
 }
 function str(v: unknown): string | null {
   return typeof v === "string" && v ? v : null;
@@ -77,11 +77,11 @@ export async function fetchGarminDay(client: GarminConnect, displayName: string 
   const raw: Record<string, unknown> = {};
 
   const [bb, summary, sleep, hrv, stress, training, readiness] = await Promise.all([
-    safe("bodyBattery", errors, () => client.get<unknown[]>(`${GC}/wellness-service/wellness/bodyBattery/reports/daily`, { startDate: d, endDate: d })),
+    safe("bodyBattery", errors, () => client.get<unknown[]>(`${GC}/wellness-service/wellness/bodyBattery/reports/daily`, { params: { startDate: d, endDate: d } })),
     displayName
-      ? safe("dailySummary", errors, () => client.get<Record<string, unknown>>(`${GC}/usersummary-service/usersummary/daily/${encodeURIComponent(displayName)}`, { calendarDate: d }))
+      ? safe("dailySummary", errors, () => client.get<Record<string, unknown>>(`${GC}/usersummary-service/usersummary/daily/${encodeURIComponent(displayName)}`, { params: { calendarDate: d } }))
       : Promise.resolve(null),
-    safe("sleep", errors, () => client.getSleepData(day)),
+    safe("sleep", errors, () => client.getSleepData(new Date(`${d}T12:00:00Z`))),
     safe("hrv", errors, () => client.get<Record<string, unknown>>(`${GC}/hrv-service/hrv/${d}`)),
     safe("stress", errors, () => client.get<Record<string, unknown>>(`${GC}/wellness-service/wellness/dailyStress/${d}`)),
     safe("trainingStatus", errors, () => client.get<Record<string, unknown>>(`${GC}/metrics-service/metrics/trainingstatus/aggregated/${d}`)),
@@ -106,11 +106,11 @@ export async function fetchGarminDay(client: GarminConnect, displayName: string 
   const scores = (dto.sleepScores as { overall?: { value?: unknown } } | undefined) ?? sl?.sleepScores;
   fields.sleepScore = int(scores?.overall?.value);
   fields.sleepSeconds = int(dto.sleepTimeSeconds);
-  if (fields.restingHr == null) fields.restingHr = int(sl?.restingHeartRate ?? dto.restingHeartRate);
+  if (fields.restingHr == null) fields.restingHr = int(sl?.restingHeartRate) ?? int(dto.restingHeartRate);
 
   // HRV status
   const hs = (hrv as { hrvSummary?: Record<string, unknown> } | null)?.hrvSummary;
-  fields.hrvLastNight = int(hs?.lastNightAvg ?? sl?.avgOvernightHrv);
+  fields.hrvLastNight = int(hs?.lastNightAvg) ?? int(sl?.avgOvernightHrv);
   fields.hrvWeeklyAvg = int(hs?.weeklyAvg);
   fields.hrvStatus = str(hs?.status);
 
@@ -119,10 +119,13 @@ export async function fetchGarminDay(client: GarminConnect, displayName: string 
   const perDevice = latest?.mostRecentTrainingStatus?.latestTrainingStatusData ?? {};
   const first = Object.values(perDevice)[0] as Record<string, unknown> | undefined;
   const acute = (first?.acuteTrainingLoadDTO as Record<string, unknown> | undefined) ?? undefined;
-  fields.trainingStatus = str(first?.trainingStatusFeedbackPhrase) ?? str(first?.trainingStatus);
+  const phrase = str(first?.trainingStatusFeedbackPhrase);
+  fields.trainingStatus = phrase ? phrase.replace(/_\d+$/, "").toLowerCase().replace(/_/g, " ") : null; // RECOVERY_1 → "recovery"
   fields.acuteLoad = num(acute?.dailyTrainingLoadAcute);
   fields.chronicLoad = num(acute?.dailyTrainingLoadChronic);
-  fields.acwr = num(acute?.acwrPercent) != null ? (num(acute?.acwrPercent) as number) / 100 : null;
+  const ratio = num(acute?.dailyAcuteChronicWorkloadRatio);
+  const pct = num(acute?.acwrPercent);
+  fields.acwr = ratio != null && ratio > 0 ? ratio : pct != null && pct > 0 ? pct / 100 : null;
   fields.vo2Max = num(latest?.mostRecentVO2Max?.generic?.vo2MaxValue);
 
   // Training readiness (array of readings; take the latest)
