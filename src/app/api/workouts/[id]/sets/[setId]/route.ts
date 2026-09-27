@@ -43,6 +43,10 @@ export async function PATCH(
     if (body.reps !== undefined) data.reps = body.reps;
     if (body.weight !== undefined) data.weight = body.weight;
     if (body.rpe !== undefined) data.rpe = body.rpe;
+    if (body.rir !== undefined) {
+      data.rir = body.rir;
+      if (body.rir != null) data.rpe = Math.max(1, 10 - body.rir);
+    }
     if (body.notes !== undefined) data.notes = body.notes;
 
     const set = await prisma.workoutSet.update({ where: { id: setId }, data });

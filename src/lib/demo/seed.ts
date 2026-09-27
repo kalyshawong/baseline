@@ -334,6 +334,7 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
           reps: ex.reps,
           weight: kg,
           rpe: 8,
+          rir: null,
           restSeconds: 90,
           isWarmup: false,
           isPR: false,

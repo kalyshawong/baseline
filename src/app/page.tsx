@@ -588,7 +588,7 @@ export default async function Dashboard({
           flagPointer={flagPointer}
           actions={[
             { href: "/mind", label: "Log food" },
-            { href: "/mind", label: "Log workout" },
+            { href: gates.strengthFirst ? "/body/session" : "/mind", label: "Log workout" },
             { href: "/coach", label: "Open coach" },
           ]}
           evidence={[

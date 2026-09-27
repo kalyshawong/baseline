@@ -11,7 +11,7 @@ export async function POST(
   try {
     const { id: sessionId } = await params;
     const body = await request.json();
-    const { exerciseId, setNumber, reps, weight, rpe, restSeconds, isWarmup, notes } = body;
+    const { exerciseId, setNumber, reps, weight, rpe, rir, restSeconds, isWarmup, notes } = body;
 
     if (!exerciseId || reps == null || weight == null) {
       return NextResponse.json(
@@ -25,6 +25,7 @@ export async function POST(
     if (typeof reps !== "number" || reps < 1 || reps > 100) errors.push("reps must be 1-100");
     if (typeof weight !== "number" || weight < 0 || weight > 1000) errors.push("weight must be 0-1000");
     if (rpe != null && (typeof rpe !== "number" || rpe < 1 || rpe > 10)) errors.push("RPE must be 1-10");
+    if (rir != null && (typeof rir !== "number" || rir < 0 || rir > 10)) errors.push("RIR must be 0-10");
     if (setNumber != null && (typeof setNumber !== "number" || setNumber < 1 || setNumber > 50)) errors.push("setNumber must be 1-50");
     if (errors.length > 0) {
       return NextResponse.json({ error: errors.join("; ") }, { status: 400 });
@@ -53,7 +54,8 @@ export async function POST(
         setNumber: setNumber ?? 1,
         reps,
         weight,
-        rpe: rpe ?? null,
+        rpe: rpe ?? (rir != null ? Math.max(1, 10 - rir) : null),
+        rir: rir ?? null,
         restSeconds: restSeconds ?? null,
         isWarmup: isWarmup ?? false,
         isPR,

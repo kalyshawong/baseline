@@ -561,6 +561,9 @@ model WorkoutSet {
   reps        Int
   weight      Float
   rpe         Int?
+  // Reps in reserve (strength mode, 2026-09-27). RPE stays for older rows; the
+  // session log stores RIR and shows RPE as 10 - RIR.
+  rir         Int?
   restSeconds Int?
   isWarmup    Boolean        @default(false)
   isPR        Boolean        @default(false)

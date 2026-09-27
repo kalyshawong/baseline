@@ -419,7 +419,11 @@ export default async function BodyPage({
           <div className="wrap">
             <div className="stack-lg">
               <div className="addbtns">
-                <Link href="/body/workout/new" className="btn">+ Add Workout</Link>
+                {gates.strengthFirst ? (
+                  <Link href="/body/session" className="btn">Start session</Link>
+                ) : (
+                  <Link href="/body/workout/new" className="btn">+ Add Workout</Link>
+                )}
                 <Link href="/body/workout/new?backfill=1" className="linklike">Log past workout</Link>
               </div>
               <QuickWorkoutLog />

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baseline — iOS · Strength mode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="baseline-mobile.css" rel="stylesheet">
+<link href="baseline-strength.css" rel="stylesheet">
+</head>
+<body data-nav="labeled">
+<div id="stage"><div id="scaler"><div class="device"><div class="screen">
+<div class="island"></div>
+<div class="statusbar"><span class="time">9:41</span><span class="ind"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"></rect><rect x="5" y="4.5" width="3" height="7.5" rx="1"></rect><rect x="10" y="2" width="3" height="10" rx="1"></rect><rect x="15" y="0" width="3" height="12" rx="1" opacity="0.4"></rect></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity="0.5"></rect><rect x="3" y="3" width="15" height="6" rx="1.5" fill="currentColor"></rect></svg></span></div>
+
+<!-- ============ 3. TODAY ============ -->
+<div class="viewport st-v" id="v-today" data-screen-label="Today">
+<div class="brandbar"><div class="brand">BASELINE</div><button class="iconbtn" aria-label="Profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"></path></svg></button></div>
+<div class="datestrip"><div class="datenav"><button>‹</button><span class="d">SUN, SEP 27</span><button>›</button></div><span class="st-phase">Bulk · Meso 3 · Wk 4</span></div>
+<div class="wrap" style="margin-top:14px"><div class="stack-lg">
+<section class="st-call">
+<div class="hd"><span class="ov">Today's call</span><span class="sess">Push A</span></div>
+<div class="st-mrow"><div><div class="mn">Chest</div><div class="ms">8 sets this week · your band 10–18</div></div><div class="vd push">Push</div></div>
+<div class="st-mrow"><div><div class="mn">Front delts</div><div class="ms">9 sets · band 6–14 · soreness 0</div></div><div class="vd hold">Hold</div></div>
+<div class="st-mrow"><div><div class="mn">Triceps</div><div class="ms">12 sets · band 8–16 · soreness 2</div></div><div class="vd hold">Hold</div></div>
+<div class="st-legend"><span><b class="push">Push</b>add load or a set vs last session</span><span><b class="hold">Hold</b>repeat last session</span><span><b class="deload">Deload</b>half the sets, −10% load</span></div>
+</section>
+<section class="panel">
+<div class="ph"><span class="ov">What made the call</span><span class="st-k">vs your 60-day normal</span></div>
+<div class="st-in"><div class="b"><div class="l">Sleep last night</div><div class="v num">7h 48m<small>your 7h 20m</small></div><div class="c">Garmin sleep score 81 · context</div></div><span class="ef up">Supports push</span></div>
+<div class="st-in"><div class="b"><div class="l">Resting HR</div><div class="v num">54<small>bpm · your 56</small></div><div class="c">Overnight, from Garmin</div></div><span class="ef eq">Normal</span></div>
+<div class="st-in"><div class="b"><div class="l">Soreness · last check-in</div><div class="v">Triceps 2<small>chest 1 · front delts 0</small></div></div><span class="ef dn">Holds triceps</span></div>
+<div class="st-in"><div class="b"><div class="l">Sets this week vs your band</div><div class="v num">Chest 8<small>under your 10 min</small></div><div class="c">Front delts 9 of 6–14 · Triceps 12 of 8–16</div></div><span class="ef up">Room in chest</span></div>
+</section>
+<button class="st-start" id="startbtn" data-go="log"><span class="t">Start Push A</span><span class="s">6 exercises · 16 sets · last time 68 min</span></button>
+<div class="st-links">
+<button class="st-link" id="lk-morning" data-go="checkin" data-mode="morning"><span class="k">Morning</span><span class="t">Weigh in</span><span class="s" id="lk-morning-s">Yesterday 84.7 kg · 7-day avg 84.6</span></button>
+<button class="st-link" id="lk-evening" data-go="checkin" data-mode="evening"><span class="k">Evening</span><span class="t">Check-in</span><span class="s" id="lk-evening-s">Session RPE · soreness · protein · tags</span></button>
+<button class="st-link" data-go="block"><span class="k">Block</span><span class="t">Meso 3 · Week 4 of 5</span><span class="s">Deload planned week 6 · 1 of 3 signals</span></button>
+</div>
+</div></div>
+</div>
+
+<!-- ============ 1. IN-SESSION LOG ============ -->
+<div class="viewport st-v" id="v-log" data-screen-label="Session log">
+<div class="st-lh"><button class="iconbtn" data-act="close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6L6 18"></path></svg></button><div class="c"><div class="t">Push A</div><div class="s"><span id="elapsed">18:00</span> · <span id="setct">2 of 16 sets</span></div></div><button class="st-unit" data-act="unit" id="unitbtn"><b>RIR</b> / RPE</button><button class="btn" data-act="finish">Finish</button></div>
+<div class="st-exstrip" id="exstrip"></div>
+<div class="wrap"><div class="st-exh" id="exhead"></div><div class="st-sets" id="sets"></div><div class="st-addrow"><button data-act="addset">+ Set</button><button data-act="addex">+ Exercise</button></div></div>
+</div>
+
+<!-- ============ 1b. SESSION SUMMARY ============ -->
+<div class="viewport st-v" id="v-summary" data-screen-label="Session summary"></div>
+
+<!-- ============ 2. BODY ============ -->
+<div class="viewport st-v" id="v-body" data-screen-label="Body">
+<div class="appbar"><div><h1>BODY</h1><div class="sub">Rolling 7 days · Sep 21–27</div></div><span class="st-phase">Bulk</span></div>
+<div class="g-sec">Weekly sets vs your band</div>
+<div class="wrap"><div class="panel">
+<div class="st-blegend"><span><i style="background:color-mix(in oklch,var(--blue),transparent 70%)"></i>Your band · min–max</span><span><i style="width:2px;background:var(--blue)"></i>Adaptive</span><span><i style="height:5px;background:var(--green)"></i>This week</span><span><i style="height:5px;background:repeating-linear-gradient(90deg,var(--gold) 0 3px,transparent 3px 5px)"></i>Today's plan</span></div>
+<div id="bands"></div>
+<div class="st-scale"><span></span><div><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div><span></span></div>
+<div class="st-dnote">Bands learned from your last 14 weeks of logged sets and how you recovered from them.</div>
+</div></div>
+<div class="g-sec">Estimated 1RM · 12 weeks</div>
+<div class="wrap"><div class="mgrid" id="e1rm"></div></div>
+<div class="g-sec">Soreness</div>
+<div class="wrap"><div class="panel">
+<div class="ph"><span class="ov">Last check-in</span><span class="st-k">Sat 9:40 PM</span></div>
+<div class="st-map" id="map-body"></div>
+<div class="st-slegend"><span><i></i>0 None</span><span><i class="s1" style="background:color-mix(in oklch,var(--amber) 30%,var(--surf2))"></i>1 Mild</span><span><i style="background:color-mix(in oklch,var(--amber) 62%,var(--surf2))"></i>2 Moderate</span><span><i style="background:var(--red)"></i>3 Severe</span></div>
+</div></div>
+<div class="g-sec">Fatigue</div>
+<div class="wrap"><div class="panel">
+<div class="ph"><span class="ov">Baseline signal</span><span class="st-k">3 inputs</span></div>
+<div class="st-fv">Building</div>
+<div class="st-gauge"><span class="on1"></span><span class="on2"></span><span></span></div>
+<div class="st-gl"><span>Fresh</span><span class="on">Building</span><span>High</span></div>
+<div class="st-kv" style="margin-top:12px"><span class="n">Resting HR · 7-day avg<span>Your 60-day normal 56.0</span></span><span class="v num">56.8<small class="st-a">+0.8</small></span></div>
+<div class="st-kv"><span class="n">Bench reps at RPE 8<span>Top set, last 2 sessions</span></span><span class="v">Flat</span></div>
+<div class="st-kv"><span class="n">Muscles at soreness 2+ for 48 h<span>Quads · Hamstrings · Triceps</span></span><span class="v num st-a">3</span></div>
+</div></div>
+<div class="g-sec">Garmin</div>
+<div class="wrap"><div class="panel">
+<div class="ph"><span class="ov">Last night</span><span class="st-src">Context</span></div>
+<div class="st-gar">
+<div class="c"><span class="k">Body Battery</span><span class="v num">72</span><span class="t">Garmin model · context</span></div>
+<div class="c"><span class="k">Sleep score</span><span class="v num">81</span><span class="t">Garmin model · context</span></div>
+<div class="c"><span class="k">Resting HR</span><span class="v num">54<small> bpm</small></span><span class="t">Your normal 56</span></div>
+</div>
+</div></div>
+<div class="wrap" style="margin-top:14px"><button class="st-link" data-go="block"><span class="k">Block</span><span class="t">Meso 3 · Week 4 of 5</span><span class="s">Volume ramp and deload signals</span></button></div>
+</div>
+
+<!-- ============ 5. BLOCK ============ -->
+<div class="viewport st-v" id="v-block" data-screen-label="Block">
+<button class="st-back" data-go="body">‹ Body</button>
+<div class="appbar" style="padding-top:0"><div><h1>MESO 3</h1><div class="sub">Hypertrophy · Aug 31 – Oct 11 · Bulk</div></div></div>
+<div class="wrap"><div class="stack-lg">
+<div class="panel">
+<div class="ph"><span class="ov">Week</span><span class="st-k">4 of 5 · ends today</span></div>
+<div class="st-wk"><span class="done">W1</span><span class="done">W2</span><span class="done">W3</span><span class="cur">W4</span><span>W5</span><span class="dl">Deload</span></div>
+<div class="st-ramp" id="ramp"></div>
+<div class="st-blegend" style="margin:12px 0 0"><span><i style="border:1px dashed var(--faint)"></i>Planned sets</span><span><i style="background:var(--dim)"></i>Done</span><span><i style="background:repeating-linear-gradient(0deg,var(--gold) 0 3px,transparent 3px 5px)"></i>Today's plan</span></div>
+</div>
+<div class="panel">
+<div class="ph"><span class="ov">Deload signals</span><span class="st-k">All 3 to suggest</span></div>
+<div class="st-sig"><span class="m"></span><span class="n">Fatigue signal<span>High for 3+ days</span></span><span class="v">Building</span></div>
+<div class="st-sig met"><span class="m"></span><span class="n">Soreness<span>3+ muscles at 2+ for 48 h</span></span><span class="v">3 muscles</span></div>
+<div class="st-sig"><span class="m"></span><span class="n">Volume<span>3+ muscles above your max</span></span><span class="v">0 muscles</span></div>
+<div class="st-dlv"><b class="num">1/3</b><span>Deload stays in week 6. If all three line up first, Baseline suggests moving it forward.</span></div>
+</div>
+<div class="panel">
+<div class="ph"><span class="ov">e1RM since Aug 31</span></div>
+<div class="st-gar">
+<div class="c"><span class="k">Bench</span><span class="v num st-g">+3.3<small> kg</small></span><span class="t">133.3 now</span></div>
+<div class="c"><span class="k">Squat</span><span class="v num st-g">+5.0<small> kg</small></span><span class="t">165 now</span></div>
+<div class="c"><span class="k">OHP</span><span class="v num">0.0<small> kg</small></span><span class="t">76 · flat 5 wks</span></div>
+</div>
+</div>
+</div></div>
+</div>
+
+<!-- ============ 4. CHECK-IN ============ -->
+<div class="viewport st-v" id="v-checkin" data-screen-label="Check-in">
+<div class="st-lh"><button class="iconbtn" data-act="close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6L6 18"></path></svg></button><div class="c"><div class="t">Check-in</div><div class="s">Sun, Sep 27</div></div></div>
+<div class="wrap"><div class="seg c2" id="ckmode"><div class="opt" data-mode="morning">Morning</div><div class="opt on" data-mode="evening">Evening</div></div></div>
+<div id="ck-evening">
+<div class="g-sec">Session RPE · Push A</div>
+<div class="wrap"><div class="panel"><div class="st-rpe" id="rpe"></div><div class="st-rpel"><span>1 very easy</span><span>10 max effort</span></div></div></div>
+<div class="g-sec">Soreness · tap a muscle</div>
+<div class="wrap"><div class="panel"><div class="st-map edit" id="map-ck"></div><div class="st-readout" id="ck-readout">Each tap steps 0 → 1 → 2 → 3 → 0</div></div></div>
+<div class="g-sec">Protein</div>
+<div class="wrap"><div class="panel"><div class="st-sub" style="margin-top:0">Did you hit your 170 g target?</div><div class="seg c3" id="protein"><div class="opt">Yes</div><div class="opt">Close</div><div class="opt">No</div></div></div></div>
+<div class="g-sec">Tags</div>
+<div class="wrap"><div class="panel"><div class="chips" id="ck-tags"><button class="tagchip">caffeine</button><button class="tagchip">alcohol</button><button class="tagchip">social</button><button class="tagchip">study</button><button class="tagchip">music</button><button class="tagchip">breathing</button><button class="tagchip">meditation</button></div></div></div>
+<div class="wrap" style="margin-top:20px"><button class="btn block" data-act="saveck" style="min-height:54px">Save check-in</button></div>
+</div>
+<div id="ck-morning" style="display:none">
+<div class="g-sec">Body weight · on waking</div>
+<div class="wrap"><div class="panel">
+<div class="st-wt"><button data-act="w-" aria-label="Less">−</button><div class="v"><b class="num" id="wt">84.7</b><span>kg · prefilled from yesterday</span></div><button data-act="w+" aria-label="More">+</button></div>
+<div class="st-trend">
+<div class="c"><span class="k">7-day avg</span><span class="v num" id="wavg">84.6</span></div>
+<div class="c"><span class="k">Rate</span><span class="v num st-g">+0.30<small style="font-family:var(--sans);font-size:10px;color:var(--faint)"> kg/wk</small></span></div>
+<div class="c"><span class="k">Bulk target</span><span class="v num">+0.25–0.50</span></div>
+</div>
+<svg class="st-chart" id="wchart" viewBox="0 0 325 120" preserveAspectRatio="none"></svg>
+<div class="st-blegend" style="margin:8px 0 0"><span><i style="background:color-mix(in oklch,var(--blue),transparent 70%)"></i>Bulk target from Aug 31</span><span><i style="height:2px;background:var(--gold)"></i>7-day avg</span><span><i style="width:6px;height:6px;background:var(--faint)"></i>Daily</span></div>
+</div></div>
+<div class="wrap" style="margin-top:20px"><button class="btn block" data-act="savewt" style="min-height:54px">Save weight</button></div>
+</div>
+</div>
+
+<!-- ============ 6. MIND · EXPERIMENTS ============ -->
+<div class="viewport st-v" id="v-mind" data-screen-label="Mind · Experiments">
+<div class="appbar"><div><h1>MIND MODE</h1><div class="sub">Experiments · strength</div></div></div>
+<div class="g-sec">Running</div>
+<div class="wrap"><article class="st-xa">
+<div class="ey"><span class="pill g">Running</span><span class="st-k">Block 3 of 6 · ends today</span></div>
+<h3>Rest intervals: 90 s vs 3 min</h3>
+<div class="o">Outcome · Bench volume at RPE 8 · 1-week blocks</div>
+<div class="st-pips"><span class="done">1<b>A</b></span><span class="done">2<b>B</b></span><span class="cur">3<b>B</b></span><span>4<b>?</b></span><span>5<b>?</b></span><span>6<b>?</b></span></div>
+<div class="st-kv" style="margin-top:14px"><span class="n">This block<span>3 min rest on every set · rest timer set for you</span></span><span class="v">B</span></div>
+<div class="st-kv"><span class="n">Sessions on protocol<span>This block</span></span><span class="v num">5/5</span></div>
+<div class="st-lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg><span>Results unlock Oct 18, after block 6. No interim numbers are shown.</span></div>
+</article></div>
+<div class="g-sec">Design an experiment</div>
+<div class="wrap"><div class="panel" id="designer"></div></div>
+</div>
+
+<!-- ============ STUB (Coach / Goals — unchanged) ============ -->
+<div class="viewport st-v" id="v-stub" data-screen-label="Unchanged tab">
+<div class="appbar"><div><h1 id="stub-h">COACH</h1><div class="sub">Unchanged in strength mode</div></div></div>
+<div class="st-stub">This tab is out of scope for the strength handoff. Build it from the existing Baseline iOS handoff.</div>
+</div>
+
+<div class="st-dock" id="dock"></div>
+<div class="st-sheet" id="sheet"><div class="in"><div class="grab"></div><h3>Add exercise</h3><input class="field" id="exsearch" placeholder="Search exercises" style="margin-bottom:10px"><div id="exlist"></div></div></div>
+<div class="st-toast" id="toast"><span id="toast-t"></span><button id="toast-b">Undo</button></div>
+
+<nav class="tabbar">
+<button class="tab on" data-tab="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg><span class="lab">Today</span></button>
+<button class="tab" data-tab="mind"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 3v5L5 17a3 3 0 0 0 3 4h8a3 3 0 0 0 3-4L15 8V3"></path><path d="M8 3h8"></path><path d="M7.5 13h9"></path></svg><span class="lab">Mind</span></button>
+<button class="tab" data-tab="body"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h4l2-6 4 13 2.5-7H21"></path></svg><span class="lab">Body</span></button>
+<button class="tab" data-tab="coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5h16v11H9l-5 4z"></path><path d="M8 9h8"></path><path d="M8 12.5h5"></path></svg><span class="lab">Coach</span></button>
+<button class="tab" data-tab="goals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.4" fill="currentColor"></circle></svg><span class="lab">Goals</span></button>
+</nav>
+<div class="homebar"></div>
+</div></div></div></div>
+<script src="baseline-strength.js"></script>
+</body>
+</html>
