@@ -25,10 +25,10 @@ const mealTypes = [
   { id: "snack", label: "Snack" },
 ];
 const mealSources = [
-  { id: "home_cooked", label: "Home cooked" },
+  { id: "home_cooked", label: "Home" },
   { id: "takeout", label: "Takeout" },
   { id: "restaurant", label: "Restaurant" },
-  { id: "pre_packaged", label: "Pre-packaged" },
+  { id: "pre_packaged", label: "Packaged" },
 ];
 
 function currentTimeString(): string {
