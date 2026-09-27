@@ -114,7 +114,7 @@ export function LifterBody({ data, blockHref }: { data: LifterBodyData; blockHre
               <div className={`st-band ${st}`} key={m.id}>
                 <span className="n">{m.name}</span>
                 <span className="st-track">
-                  <i className="bd" style={{ left: pc(m.band[0]), width: pc(m.band[2] - m.band[0]) }} />
+                  <i className="bd" style={{ left: pc(m.band[0]), width: pc(Math.min(m.band[2], 24) - m.band[0]) }} />
                   <i className="ad" style={{ left: pc(m.band[1]) }} />
                   <i className="cur" style={{ width: pc(m.sets) }} />
                   {m.today ? <i className="td" style={{ left: pc(m.sets), width: pc(m.today) }} /> : null}

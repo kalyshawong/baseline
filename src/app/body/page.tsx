@@ -675,6 +675,7 @@ export default async function BodyPage({
             </>
           )}
 
+          {!gates.strengthFirst && (
           <div className="wrap" style={{ marginTop: 14 }}>
             <div className="stack-lg">
               {guidance && (
@@ -720,6 +721,7 @@ export default async function BodyPage({
               )}
             </div>
           </div>
+          )}
 
           {gates.cardio && (
             <>
