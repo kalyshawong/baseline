@@ -116,3 +116,8 @@
 .bl-m .mi-fc .acts{display:flex;gap:8px;margin-top:14px}
 .bl-m .mi-tuned button.linklike{background:none;border-top:none;border-left:none;border-right:none;padding:0;font-family:var(--sans)}
 .bl-m .archived{align-self:flex-start;background:none;border:none;color:var(--faint);font-size:11.5px;font-weight:600;cursor:pointer;padding:6px 0}
+/* The handoff's global .k label and lowercase .linklike, scoped to Mind v2 parts
+ * (the app's global .linklike is uppercase). */
+.bl-m .ph .k,.bl-m .mi-prog .k,.bl-m .mi-tested .s .k,.bl-m .mi-env .k{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+.bl-m .mi-tuned .k{color:var(--blue);font-size:13px;letter-spacing:normal;text-transform:none;font-weight:600}
+.bl-m .mi-pane .linklike,.bl-m .mi-tuned .linklike,.bl-m .mi-env .linklike,.bl-m .empty .linklike{text-transform:none;letter-spacing:normal}
