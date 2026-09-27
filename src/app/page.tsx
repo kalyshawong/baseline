@@ -21,6 +21,9 @@ import { BaselineCard } from "@/components/dashboard/baseline-card";
 import { getDownsampledHrForWorkout, type HrChartPoint } from "@/lib/workout-notes";
 import { MobileDashboard } from "@/components/mobile/mobile-dashboard";
 import { EveningCheckin } from "@/components/dashboard/evening-checkin";
+import { LifterToday } from "@/components/strength/lifter-today";
+import { lifterToday } from "@/lib/strength/today";
+import "@/app/strength.css";
 import { getEveningCheckinData, type CheckinData } from "@/lib/evening-checkin";
 import { getDailySignals, type DailySignals } from "@/lib/daily-signals";
 import { SleepRiver, type RiverNight } from "@/components/dashboard/sleep-river";
@@ -490,10 +493,16 @@ export default async function Dashboard({
         )
       : null;
 
+  // Strength mode (screen 3): lifters get the call card instead of the cardio dashboard on mobile.
+  const lifterData = gates.strengthFirst ? await lifterToday().catch(() => null) : null;
+
   return (
     <>
       {/* Mobile (Baseline iOS design) — below md only */}
       <div className="md:hidden">
+        {lifterData ? (
+          <LifterToday data={lifterData} dateLabel={viewDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz }).toUpperCase()} />
+        ) : (
         <MobileDashboard
           tz={tz}
           checkin={checkin}
@@ -539,6 +548,7 @@ export default async function Dashboard({
           mealCount={nutritionEntryCount}
           workoutSummary={workoutSummary}
         />
+        )}
       </div>
 
       {/* Desktop — unchanged, md and up only */}

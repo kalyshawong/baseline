@@ -281,3 +281,6 @@ body.logmode .st-dock{display:block}
 .st-screen .st-sheet{position:fixed;z-index:95}
 .st-screen .st-toast{position:fixed;z-index:96}
 .st-screen .st-lh{padding-top:calc(10px + env(safe-area-inset-top))}
+
+/* Today call card without a Push: amber rule, no glow */
+.st-call.nopush{background-image:linear-gradient(160deg,oklch(1 0 0/.03),transparent 45%);border-left-color:var(--amber)}
