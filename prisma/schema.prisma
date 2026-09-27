@@ -123,6 +123,59 @@ model User {
   diagnoseCandidateStates  DiagnoseCandidateState[]
   diagnoseRuns             DiagnoseRun[]
   importCodes              ImportCode[]
+  garminLink               GarminLink?
+  garminDailies            GarminDaily[]
+}
+
+// Garmin Connect link — the UNOFFICIAL connectapi session (Garmin's partner
+// API is closed to new developers as of 2026). Holds only the OAuth tokens
+// the garmin-connect library produced from a one-time login run on
+// Kalysha's Mac; the Garmin password is never stored anywhere. Pilot-only.
+model GarminLink {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String?   // Garmin profile displayName (needed by the daily summary endpoint)
+  tokens      String    // JSON {oauth1, oauth2} — refreshed and re-saved on every sync
+  status      String    @default("active") // active | error | revoked
+  lastSyncAt  DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// One row per person per day of Garmin's own computed metrics — the ones
+// that never reach Apple Health (Body Battery, training load/status, HRV
+// status, readiness). Display-only context next to Baseline's own numbers.
+model GarminDaily {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day                DateTime
+  bodyBatteryHigh    Int?
+  bodyBatteryLow     Int?
+  bodyBatteryCharged Int?
+  bodyBatteryDrained Int?
+  restingHr          Int?
+  stressAvg          Int?
+  sleepScore         Int?
+  sleepSeconds       Int?
+  hrvLastNight       Int?
+  hrvWeeklyAvg       Int?
+  hrvStatus          String?
+  trainingStatus     String?
+  acuteLoad          Float?
+  chronicLoad        Float?
+  acwr               Float?
+  trainingReadiness  Int?
+  readinessLevel     String?
+  vo2Max             Float?
+  raw                String?  // JSON of every endpoint's response for that day
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([userId, day])
+  @@index([userId])
 }
 
 // One-time-ish secret a tester types into the Expo pilot app's "Send my

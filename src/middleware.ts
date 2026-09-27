@@ -47,6 +47,7 @@ function isExempt(pathname: string): boolean {
   if (pathname.startsWith("/api/healthkit-sync")) return true; // key-authed, external
   if (pathname === "/api/import/expo") return true; // ImportCode-authed; the pilot app has no session
   if (pathname === "/api/keepalive") return true; // Vercel cron; leaks nothing
+  if (pathname === "/api/garmin/sync") return true; // GET: cron (CRON_SECRET); POST: session-checked in the route
   if (pathname === "/api/version") return true; // build sha only; staleness check
   if (pathname === "/login") return true;
   if (pathname === "/privacy") return true; // public: linked from the App Store listing

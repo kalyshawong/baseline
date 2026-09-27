@@ -13,6 +13,14 @@ export async function saveIntakeAction(raw: unknown): Promise<{ ok: true } | { o
   if (session.userId === DEMO_USER_ID) return { ok: false, error: "The demo can't be changed" };
   const intake = normalizeIntake(raw);
   if (!intake.goals.length || !intake.devices.length) return { ok: false, error: "Pick at least one goal and one device" };
+  if (intake.sex) {
+    // Keep UserProfile.sex in step — the body/TDEE code reads it from there.
+    await prisma.userProfile.upsert({
+      where: { userId: session.userId },
+      update: { sex: intake.sex },
+      create: { userId: session.userId, sex: intake.sex },
+    });
+  }
   await prisma.user.update({
     where: { id: session.userId },
     data: {
