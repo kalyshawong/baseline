@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { hasSmartScale } from "@/lib/smart-scale";
 import { getLocalDayBounds, getLocalDayStr, getRequestTz } from "@/lib/date-utils";
 import { buildSessionPlan, weeklyMuscleBands, MUSCLE_LABELS } from "@/lib/strength/session-plan";
 import { lifterSoreness, SORE_TILES, type SorenessMap } from "@/lib/strength/body";
@@ -35,6 +36,8 @@ export interface LifterToday {
   soreness: { present: boolean; lines: string[]; effect: Effect };
   volume: { headline: string; sub: string; effect: Effect };
   weight: { latestKg: number; latestDay: string; avg7: number | null; today: boolean } | null;
+  /** Smart-scale user — gates the morning weigh-in link. */
+  hasScale: boolean;
   unit: "kg" | "lb";
   eveningDone: boolean;
 }
@@ -182,6 +185,7 @@ export async function lifterToday(): Promise<LifterToday> {
     soreness: { present: !!sore.lastLoggedAt, lines: sorenessLines, effect: sorenessEffect },
     volume,
     weight,
+    hasScale: await hasSmartScale(),
     eveningDone: soreToday > 0 || tagsToday > 0,
     unit: profile?.unit === "kg" ? "kg" : "lb",
   };

@@ -108,10 +108,12 @@ export function LifterToday({ data, dateLabel, blockLabel }: { data: TodayData; 
         )}
 
         <div className="st-links">
+          {d.hasScale && (
           <Link href="/body/checkin?mode=morning" className={`st-link${d.weight?.today ? " done" : ""}`}>
             <span className="k">Morning</span><span className="t">Weigh in</span>
             <span className="s">{d.weight ? `${d.weight.today ? "Today" : "Last"} ${f1(cu(d.weight.latestKg))} ${d.unit}${d.weight.avg7 != null ? ` · 7-day avg ${f1(cu(d.weight.avg7))}` : ""}` : "No weigh-ins yet"}</span>
           </Link>
+          )}
           <Link href="/body/checkin?mode=evening" className={`st-link${d.eveningDone ? " done" : ""}`}>
             <span className="k">Evening</span><span className="t">Check-in</span>
             <span className="s">{d.eveningDone ? "Logged tonight" : "Session RPE · soreness · protein · tags"}</span>

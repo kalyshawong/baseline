@@ -8,6 +8,7 @@ import "@/app/strength.css";
 import { Suspense } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { hasSmartScale } from "@/lib/smart-scale";
 import { getCurrentUserId } from "@/lib/current-user";
 import { getDateFromParams, getRequestTz } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
@@ -210,6 +211,9 @@ export default async function BodyPage({
     prisma.dailySpO2.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } } }),
     prisma.dailyResilience.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } } }),
   ]);
+
+  // Weight & body-composition card only exists for smart-scale users.
+  const showBodyComp = await hasSmartScale();
 
   const latestWeight = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1] : null;
   const weightKg = latestWeight?.weightKg ?? profile?.bodyWeightKg ?? null;
@@ -813,6 +817,7 @@ export default async function BodyPage({
           <div className="g-sec">Composition &amp; Energy</div>
           <div className="wrap" style={{ paddingBottom: 8 }}>
             <div className="stack-lg">
+              {showBodyComp && (
               <div className="compcard">
                 <div className="ov">Weight &amp; Body Composition</div>
                 <div className="wgrid">
@@ -829,6 +834,7 @@ export default async function BodyPage({
                 )}
                 <WeightTrendChart logs={weightChartData} unit={unit} targetWeightKg={profile?.targetWeightKg ?? null} />
               </div>
+              )}
               {tdee != null && (
                 <div className="compcard">
                   <div className="ov">TDEE &amp; Targets</div>
@@ -1119,8 +1125,9 @@ export default async function BodyPage({
 
       {/* ─── COMPOSITION & ENERGY ─── */}
       <SectionLabel>Composition &amp; Energy</SectionLabel>
-      <div className="mt-6 grid grid-cols-[1.5fr_1fr] gap-[14px] items-stretch">
-        {/* Left: Weight + Trend Chart — single card per design */}
+      <div className={`mt-6 grid ${showBodyComp ? "grid-cols-[1.5fr_1fr]" : "grid-cols-1"} gap-[14px] items-stretch`}>
+        {/* Left: Weight + Trend Chart — single card per design (smart-scale users only) */}
+        {showBodyComp && (
         <div className="panel p-[22px_24px]">
           <WeightCard
             latestWeightKg={weightKg}
@@ -1139,6 +1146,7 @@ export default async function BodyPage({
             targetWeightKg={profile?.targetWeightKg ?? null}
           />
         </div>
+        )}
 
         {/* Right: TDEE & Targets — single card per design */}
         <TdeeCard
