@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import CapApp_SPM
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,7 +8,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Re-arm HealthKit observers on every launch, including the silent
+        // background launches iOS uses to deliver new Health data.
+        HealthKitSyncPlugin.resumeBackgroundSyncIfConfigured()
         return true
     }
 

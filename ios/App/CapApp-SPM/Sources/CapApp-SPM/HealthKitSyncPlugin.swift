@@ -27,8 +27,36 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "stopBackgroundSync", returnType: CAPPluginReturnPromise),
     ]
 
-    private let store = HKHealthStore()
-    private var observerQueries: [HKObserverQuery] = []
+    // Shared across instances: Capacitor creates one plugin instance for the
+    // webview, and AppDelegate creates one at launch (see
+    // resumeBackgroundSyncIfConfigured). Both must see the same observers and
+    // the same sync gate, or re-registration stacks queries / double-posts.
+    private static let sharedStore = HKHealthStore()
+    private static var sharedObserverQueries: [HKObserverQuery] = []
+    private static let sharedGate = SyncGate()
+    private static var launchInstance: HealthKitSyncPlugin?
+    private var store: HKHealthStore { Self.sharedStore }
+    private var observerQueries: [HKObserverQuery] {
+        get { Self.sharedObserverQueries }
+        set { Self.sharedObserverQueries = newValue }
+    }
+
+    /// Call from AppDelegate.didFinishLaunching.
+    ///
+    /// iOS delivers HealthKit updates by relaunching the app in the
+    /// background — but a background launch creates no scene and no webview,
+    /// so the JS that calls startBackgroundSync never runs and the delivery is
+    /// dropped. Workouts then only arrived when she opened the app. Registering
+    /// the observers natively at every launch fixes that. No-op until the app
+    /// has been signed in once (server + token saved by startBackgroundSync).
+    public static func resumeBackgroundSyncIfConfigured() {
+        guard HKHealthStore.isHealthDataAvailable(),
+              UserDefaults.standard.string(forKey: "bl_server") != nil,
+              UserDefaults.standard.string(forKey: "bl_key") != nil else { return }
+        let instance = HealthKitSyncPlugin()
+        launchInstance = instance // keep alive: observer callbacks hold it weakly
+        instance.registerAllObservers()
+    }
 
     // HealthKit type → HAE metric name (matches /api/healthkit-sync switch).
     // Running-dynamics metrics are iOS 16+; guarded so the package's iOS 15
@@ -211,17 +239,22 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         UserDefaults.standard.set(serverUrl, forKey: "bl_server")
         UserDefaults.standard.set(apiKey, forKey: "bl_key")
-        stopObservers() // re-registering on every launch/sign-in must not stack queries
+        registerAllObservers()
+        call.resolve(["started": true])
+    }
 
+    private func registerAllObservers() {
+        stopObservers() // re-registering on every launch/sign-in must not stack queries
         for (id, _, _) in quantityTypes {
             guard let type = HKObjectType.quantityType(forIdentifier: id) else { continue }
             registerObserver(for: type)
         }
-        registerObserver(for: HKObjectType.workoutType())
+        // Workouts are the thing she checks right after training — Apple
+        // allows .immediate for workouts; everything else stays hourly.
+        registerObserver(for: HKObjectType.workoutType(), frequency: .immediate)
         if let flow = HKObjectType.categoryType(forIdentifier: .menstrualFlow) {
             registerObserver(for: flow)
         }
-        call.resolve(["started": true])
     }
 
     /// Sign-out / account deletion (2026-09-25): stop sending this phone's
@@ -272,7 +305,7 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
 
     // MARK: - Observers + background delivery
 
-    private func registerObserver(for type: HKSampleType) {
+    private func registerObserver(for type: HKSampleType, frequency: HKUpdateFrequency = .hourly) {
         let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, _ in
             Task {
                 _ = try? await self?.collectAndPost()
@@ -281,7 +314,7 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         observerQueries.append(query)
         store.execute(query)
-        store.enableBackgroundDelivery(for: type, frequency: .hourly) { _, _ in }
+        store.enableBackgroundDelivery(for: type, frequency: frequency) { _, _ in }
     }
 
     // MARK: - Sync serialization
@@ -304,7 +337,7 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
             return false
         }
     }
-    private let gate = SyncGate()
+    private var gate: SyncGate { Self.sharedGate }
 
     private func collectAndPost() async throws -> Int {
         guard await gate.begin() else { return 0 } // coalesced into in-flight sync
