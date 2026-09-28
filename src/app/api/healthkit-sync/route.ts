@@ -228,7 +228,12 @@ async function processMetrics(
           await prisma.$transaction(
             weightRows.map((d) => {
               const day = dateStrToUTC(d.date.substring(0, 10));
-              const weightKg = d.qty! * 0.453592;
+              // Unit depends on the sender: Health Auto Export posts in the
+              // phone's display unit and says so in `metric.units` ("lb"/"kg");
+              // the native Capacitor plugin queries HKUnit kg and omits units.
+              // Only convert when the payload explicitly says pounds.
+              const u = (metric.units ?? "kg").toLowerCase();
+              const weightKg = u.startsWith("lb") ? d.qty! * 0.453592 : d.qty!;
               return prisma.weightLog.upsert({
                 where: { userId_day: { userId: userId, day } },
                 update: { weightKg },
@@ -247,10 +252,13 @@ async function processMetrics(
           await prisma.$transaction(
             bfRows.map((d) => {
               const day = dateStrToUTC(d.date.substring(0, 10));
+              // HKUnit.percent() yields a fraction (0.197); HAE sends 19.7.
+              // Store as a whole-number percent either way.
+              const bodyFatPct = d.qty! <= 1 ? d.qty! * 100 : d.qty!;
               return prisma.weightLog.upsert({
                 where: { userId_day: { userId: userId, day } },
-                update: { bodyFatPct: d.qty },
-                create: { userId: userId, day, weightKg: 0, bodyFatPct: d.qty },
+                update: { bodyFatPct },
+                create: { userId: userId, day, weightKg: 0, bodyFatPct },
               });
             }),
           );
