@@ -31,7 +31,11 @@ function currentTimeString(): string {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-export function NutritionInput({ dateStr, bare = false }: { dateStr?: string; bare?: boolean } = {}) {
+export function NutritionInput({
+  dateStr,
+  bare = false,
+  recipes = [],
+}: { dateStr?: string; bare?: boolean; recipes?: { name: string; kcal: number }[] } = {}) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [mealType, setMealType] = useState<string>("snack");
@@ -144,6 +148,18 @@ export function NutritionInput({ dateStr, bare = false }: { dateStr?: string; ba
             Forgot time
           </label>
         </div>
+        {recipes.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <div className="lbl2">Your recipes</div>
+            <div className="chips">
+              {recipes.map((r) => (
+                <button key={r.name} type="button" onClick={() => setText(r.name)} className={`tagchip ${text === r.name ? "on" : ""}`}>
+                  {r.name} · {r.kcal} cal
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}

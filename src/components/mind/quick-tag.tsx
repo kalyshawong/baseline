@@ -23,7 +23,20 @@ export function QuickTag({
   dateStr,
   frequentTags = [],
   bare = false,
-}: { dateStr?: string; frequentTags?: { tag: string; category: string }[]; bare?: boolean } = {}) {
+  recipes = [],
+}: {
+  dateStr?: string;
+  frequentTags?: { tag: string; category: string }[];
+  bare?: boolean;
+  recipes?: { name: string; kcal: number }[];
+} = {}) {
+  // Tags named like a saved recipe log its calories (see /api/tags) — say so
+  // on the chip so it isn't invisible.
+  const kcalOf = (tag: string) => recipes.find((r) => r.name === tag.toLowerCase())?.kcal;
+  const chipLabel = (tag: string) => {
+    const k = kcalOf(tag);
+    return k != null ? `${tag} · ${k} cal` : tag;
+  };
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -72,7 +85,7 @@ export function QuickTag({
         }),
       });
       if (res.ok) {
-        setFlash(tag);
+        setFlash(chipLabel(tag));
         resetForm();
         setTimeout(() => {
           setFlash(null);
@@ -105,7 +118,7 @@ export function QuickTag({
             <div className="chips">
               {frequentTags.map((f) => (
                 <button key={f.tag} type="button" onClick={() => handleTag(f.category, f.tag)} disabled={isPending} className="tagchip">
-                  {f.tag}
+                  {chipLabel(f.tag)}
                 </button>
               ))}
             </div>
@@ -134,7 +147,7 @@ export function QuickTag({
                 .find((p) => p.category === activeCategory)
                 ?.tags.map((tag) => (
                   <button key={tag} type="button" onClick={() => handleTag(activeCategory, tag)} disabled={isPending} className="tagchip disabled:opacity-50">
-                    {tag}
+                    {chipLabel(tag)}
                   </button>
                 ))}
             </div>

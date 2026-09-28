@@ -156,6 +156,18 @@ export default async function MindPage({
     .slice(0, 8)
     .map((f) => ({ tag: f.tag, category: f.category }));
 
+  // Saved recipes ("coffee") — shown on their tag chips with calories and as
+  // one-tap items in the Food tab, so it's visible that tagging logs them.
+  const recipes = (await prisma.savedRecipe.findMany({ orderBy: { name: "asc" } })).map((r) => {
+    let kcal = 0;
+    try {
+      kcal = Math.round((JSON.parse(r.items) as { calories: number }[]).reduce((a, i) => a + (i.calories || 0), 0));
+    } catch {
+      /* bad row — show without calories */
+    }
+    return { name: r.name, kcal };
+  });
+
   const active = experiments.filter((e) => e.status === "active");
   const others = experiments.filter((e) => e.status !== "active");
 
@@ -268,8 +280,8 @@ export default async function MindPage({
               <LogPanel
                 mobile
                 tz={tz}
-                tag={<MobileQuickTag bare dateStr={viewDateStr} frequentTags={frequentTags} />}
-                food={<MobileLogFood bare dateStr={viewDateStr} />}
+                tag={<MobileQuickTag bare dateStr={viewDateStr} frequentTags={frequentTags} recipes={recipes} />}
+                food={<MobileLogFood bare dateStr={viewDateStr} recipes={recipes} />}
                 ctx={
                   <LifeContextCard
                     bare
@@ -464,8 +476,8 @@ export default async function MindPage({
               <div className="colhead">Log</div>
               <LogPanel
                 tz={tz}
-                tag={<QuickTag bare dateStr={viewDateStr} frequentTags={frequentTags} />}
-                food={<NutritionInput bare dateStr={viewDateStr} />}
+                tag={<QuickTag bare dateStr={viewDateStr} frequentTags={frequentTags} recipes={recipes} />}
+                food={<NutritionInput bare dateStr={viewDateStr} recipes={recipes} />}
                 ctx={
                   <LifeContextCard
                     bare

@@ -29,7 +29,18 @@ export function MobileQuickTag({
   dateStr,
   frequentTags = [],
   bare = false,
-}: { dateStr?: string; frequentTags?: { tag: string; category: string }[]; bare?: boolean } = {}) {
+  recipes = [],
+}: {
+  dateStr?: string;
+  frequentTags?: { tag: string; category: string }[];
+  bare?: boolean;
+  recipes?: { name: string; kcal: number }[];
+} = {}) {
+  // Tags named like a saved recipe log its calories (see /api/tags).
+  const chipLabel = (tag: string) => {
+    const k = recipes.find((r) => r.name === tag.toLowerCase())?.kcal;
+    return k != null ? `${tag} · ${k} cal` : tag;
+  };
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -62,7 +73,7 @@ export function MobileQuickTag({
         }),
       });
       if (res.ok) {
-        setFlash(tag);
+        setFlash(chipLabel(tag));
         setCustomTag("");
         setTime(currentTimeString());
         setTimeUnknown(false);
@@ -105,7 +116,7 @@ export function MobileQuickTag({
                 disabled={isPending}
                 className="tagchip"
               >
-                {f.tag}
+                {chipLabel(f.tag)}
               </button>
             ))}
           </div>
@@ -141,7 +152,7 @@ export function MobileQuickTag({
                 disabled={isPending}
                 className="tagchip"
               >
-                {tag}
+                {chipLabel(tag)}
               </button>
             ))}
           </div>
