@@ -30,6 +30,7 @@ import {
 import { getHrvBaselineChoice } from "@/lib/training-call";
 import { ReadinessTierCard } from "@/components/body/readiness-tier-card";
 import { VolumeZones } from "@/components/body/volume-zones";
+import { DayWorkouts } from "@/components/body/day-workouts";
 import { CyclePhaseGuidanceCard } from "@/components/body/cycle-phase-guidance-card";
 import { CyclePhaseSelector } from "@/components/dashboard/cycle-phase-selector";
 import { RecoverySignalsRow } from "@/components/body/recovery-signals-row";
@@ -211,6 +212,18 @@ export default async function BodyPage({
     prisma.dailySpO2.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } } }),
     prisma.dailyResilience.findUnique({ where: { userId_day: { userId: await getCurrentUserId(), day: viewDate } } }),
   ]);
+
+  // Strength sessions logged on the viewed date (exercise-by-exercise list).
+  const daySessions = await prisma.workoutSession.findMany({
+    where: { date: viewDate },
+    orderBy: { startedAt: "asc" },
+    select: {
+      id: true,
+      templateName: true,
+      sets: { select: { setNumber: true, reps: true, weight: true, isWarmup: true, exercise: { select: { name: true } } } },
+    },
+  });
+  const dayLabel = viewDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 
   // Weight & body-composition card only exists for smart-scale users.
   const showBodyComp = await hasSmartScale();
@@ -455,6 +468,7 @@ export default async function BodyPage({
                   ))}
                 </div>
               )}
+              <DayWorkouts sessions={daySessions} dateLabel={dayLabel} unit={unit} variant="mobile" />
               <div className="listcard">
                 <div className="ov" style={{ marginBottom: 12 }}>Recent Workouts</div>
                 {recentSessions.length === 0 ? (
@@ -531,6 +545,8 @@ export default async function BodyPage({
                 ))}
               </div>
             )}
+
+            <DayWorkouts sessions={daySessions} dateLabel={dayLabel} unit={unit} variant="desktop" />
 
             {/* Recent Workouts */}
             <div className="panel p-[22px_24px]">
@@ -621,6 +637,9 @@ export default async function BodyPage({
                 </div>
               </div>
               <LifterBody data={lifter} blockHref="/body/block" blockLabel={block ? `Block ${block.number} · ${block.currentWeek === 6 ? "Deload week" : `Week ${block.currentWeek} of 5`}` : undefined} />
+              <div className="wrap" style={{ marginTop: 14 }}>
+                <DayWorkouts sessions={daySessions} dateLabel={dayLabel} unit={unit} variant="mobile" />
+              </div>
             </>
           ) : (
             <>
