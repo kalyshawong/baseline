@@ -418,7 +418,9 @@ export function MobileDashboard(p: MobileDashboardProps) {
           <div className="panel wk">
             <span className="ov">Workout</span>
             {p.workoutRows.length === 0 ? (
-              <div className="none">No workout synced today yet.</div>
+              // This panel lists ambient activity only; training workouts get
+              // their own cards above. Only say "none" when there are neither.
+              p.trainingCount === 0 && <div className="none">No workout synced today yet.</div>
             ) : (
               <>
                 {p.trainingCount === 0 && <div className="none">No training workout — just ambient activity.</div>}
