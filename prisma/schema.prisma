@@ -490,6 +490,10 @@ model NutritionEntry {
   source         MealSource?
   eatenAt        DateTime     @default(now())
   timeUnknown    Boolean      @default(false)
+  // Generic identity of the item for spotting repeat meals, from the macro
+  // estimator: "name|count|unit" (e.g. "egg|3|", "white bread toast|1|slice").
+  // Null on rows logged before 2026-09-28 that weren't backfilled.
+  canonical      String?
   createdAt      DateTime     @default(now())
 
   @@index([userId])
@@ -1150,6 +1154,10 @@ model SavedRecipe {
   name      String
   // JSON MacroEstimate[] (src/lib/usda.ts) — one per ingredient.
   items     String
+  // Set when Baseline saved this automatically from a meal she keeps
+  // repeating: the sorted canonical item keys joined by " + ". Null when she
+  // saved it herself.
+  autoKey   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

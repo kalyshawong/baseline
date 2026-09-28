@@ -12,6 +12,22 @@ export interface MacroEstimate {
   protein: number;
   carbs: number;
   fat: number;
+  /** "name|count|unit" — generic identity for spotting repeat meals. */
+  canonical?: string;
+}
+
+/**
+ * Builds the canonical key from the estimator's generic-identity fields:
+ * lowercase singular name, count in natural units, unit ("" for countable
+ * things like eggs). Same food + same amount → same key, however she typed it
+ * ("three eggs" / "3 eggs" / "eggs x3").
+ */
+export function canonicalKey(name: unknown, count: unknown, unit: unknown): string | undefined {
+  if (typeof name !== "string" || !name.trim()) return undefined;
+  const n = name.trim().toLowerCase().replace(/\s+/g, " ");
+  const c = typeof count === "number" && Number.isFinite(count) ? Math.round(count * 100) / 100 : 1;
+  const u = typeof unit === "string" ? unit.trim().toLowerCase() : "";
+  return `${n}|${c}|${u}`;
 }
 
 /** A saved recipe as the estimator sees it: name + its fixed items. */
@@ -38,7 +54,7 @@ export async function estimateMacros(
     () =>
       client.messages.create({
         model: "claude-sonnet-4-6",
-        max_tokens: 1024,
+        max_tokens: 2048,
         temperature: 0,
         messages: [
           {
@@ -56,7 +72,10 @@ For each item return:
   "calories": number (kcal),
   "protein": number (grams),
   "carbs": number (grams),
-  "fat": number (grams)
+  "fat": number (grams),
+  "canonicalName": "the generic food, lowercase and singular, no brand, no size/grade words, no amounts — e.g. 'egg', 'white bread toast', 'canned salmon', 'oat milk'. Use the SAME name every time for the same food however it is phrased",
+  "canonicalCount": number (the amount in the canonicalUnit, e.g. 3 for three eggs, 1 for a slice of toast),
+  "canonicalUnit": "" for things counted whole (eggs, bananas), else a simple unit: 'slice', 'can', 'cup', 'tbsp', 'g', 'ml', 'serving'
 }
 
 Use standard USDA nutritional values. Be accurate with portion sizes — "1 cup rice" means ~200g cooked white rice, "3 eggs" means 3 large eggs (~150g total, ~50g each). Round to 1 decimal place for macros, whole numbers for calories.`,
@@ -96,6 +115,11 @@ Use standard USDA nutritional values. Be accurate with portion sizes — "1 cup 
       protein: Math.round((item.protein || 0) * 10) / 10,
       carbs: Math.round((item.carbs || 0) * 10) / 10,
       fat: Math.round((item.fat || 0) * 10) / 10,
+      canonical: canonicalKey(
+        (item as unknown as Record<string, unknown>).canonicalName,
+        (item as unknown as Record<string, unknown>).canonicalCount,
+        (item as unknown as Record<string, unknown>).canonicalUnit,
+      ),
     }));
   } catch (e) {
     console.error("Failed to parse JSON from Claude:", e, text);

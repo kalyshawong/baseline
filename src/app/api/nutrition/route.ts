@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
 import { getLocalDay, getLocalDayStr, getRequestTz, getUserTz, wallTimeToUtc } from "@/lib/date-utils";
 import { estimateMacros, type MacroEstimate, type RecipeContext } from "@/lib/usda";
+import { autoSaveRecurringMeals } from "@/lib/recipes";
 import { apiError } from "@/lib/utils";
 
 // Pages whose server components read NutritionLog. They must be revalidated
@@ -138,6 +139,7 @@ export async function POST(request: NextRequest) {
           protein: est.protein,
           carbs: est.carbs,
           fat: est.fat,
+          canonical: est.canonical ?? null,
           mealType: meal,
           source: source ?? undefined,
           eatenAt: eatenTime,
@@ -193,9 +195,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // A meal she keeps repeating becomes a saved recipe on its own. Never
+    // let this fail the log itself.
+    let savedRecipes: string[] = [];
+    try {
+      savedRecipes = await autoSaveRecurringMeals(await getCurrentUserId());
+    } catch (e) {
+      console.error("autoSaveRecurringMeals failed", e);
+    }
+
     revalidateNutritionPages();
 
     return NextResponse.json({
+      savedRecipes,
       estimates,
       dailyTotals: {
         calories: updated.calories,

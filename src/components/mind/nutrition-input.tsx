@@ -45,6 +45,7 @@ export function NutritionInput({
   const [isPending, startTransition] = useTransition();
   const [results, setResults] = useState<MacroEstimate[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,6 +80,11 @@ export function NutritionInput({
           throw new Error(data.error ?? "Failed to log nutrition");
         }
         const data = await res.json();
+        setNotice(
+          data.savedRecipes?.length
+            ? `You log this a lot — saved as a recipe: ${data.savedRecipes.join(", ")}`
+            : null,
+        );
         setResults(data.estimates);
         setText("");
         setSource("home_cooked");
@@ -172,6 +178,7 @@ export function NutritionInput({
           {isPending ? "Estimating macros..." : "Log Meal"}
         </button>
         {error && <p className="err">{error}</p>}
+        {notice && <p className="note" style={{ marginTop: 8 }}>{notice}</p>}
         {resultsList}
       </form>
     );

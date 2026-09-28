@@ -50,6 +50,7 @@ export function MobileLogFood({
   const [isPending, startTransition] = useTransition();
   const [results, setResults] = useState<MacroEstimate[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -83,6 +84,11 @@ export function MobileLogFood({
           throw new Error(data.error ?? "Failed to log nutrition");
         }
         const data = await res.json();
+        setNotice(
+          data.savedRecipes?.length
+            ? `You log this a lot — saved as a recipe: ${data.savedRecipes.join(", ")}`
+            : null,
+        );
         setResults(data.estimates);
         setText("");
         setSource("home_cooked");
@@ -175,6 +181,7 @@ export function MobileLogFood({
       </form>
 
       {error && <p style={{ marginTop: 8, fontSize: 12, color: "var(--red)" }}>{error}</p>}
+      {notice && <p style={{ marginTop: 8, fontSize: 12 }}>{notice}</p>}
 
       {results && results.length > 0 && (
         <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
