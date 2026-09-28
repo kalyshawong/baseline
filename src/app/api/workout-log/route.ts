@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { inferMuscleGroup } from "@/lib/infer-muscle-group";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
@@ -143,7 +144,9 @@ Workout log: ${text.trim()}`,
           data: {
             userId,
             name,
-            muscleGroup: "core", // placeholder; user can edit — model rarely needs this path
+            // Was a hardcoded "core" placeholder, which inflated core volume
+            // with rows, curls and abductions (2026-09-28).
+            muscleGroup: inferMuscleGroup(name),
             movementPattern: "isolation",
             equipment: "bodyweight",
           },
