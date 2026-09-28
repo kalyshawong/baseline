@@ -267,6 +267,32 @@ async function processMetrics(
         break;
       }
 
+      case "body_mass_index":
+      case "lean_body_mass": {
+        // Smart-scale extras via Apple Health. Lean mass unit follows the
+        // same rule as weight: HAE says "lb", the native plugin sends kg.
+        const isBmi = metric.name === "body_mass_index";
+        const u = (metric.units ?? "kg").toLowerCase();
+        const rows = metric.data.filter((d) => d.qty && d.date);
+        if (rows.length > 0) {
+          await prisma.$transaction(
+            rows.map((d) => {
+              const day = dateStrToUTC(d.date.substring(0, 10));
+              const field: { bmi?: number; leanMassKg?: number } = isBmi
+                ? { bmi: d.qty! }
+                : { leanMassKg: u.startsWith("lb") ? d.qty! * 0.453592 : d.qty! };
+              return prisma.weightLog.upsert({
+                where: { userId_day: { userId: userId, day } },
+                update: field,
+                create: { userId: userId, day, weightKg: 0, ...field },
+              });
+            }),
+          );
+        }
+        count += rows.length;
+        break;
+      }
+
       // --- Apple Watch running & fitness metrics (via Health Auto Export) ---
 
       case "walking_running_distance": {

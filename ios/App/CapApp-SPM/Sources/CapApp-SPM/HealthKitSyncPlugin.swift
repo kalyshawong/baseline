@@ -41,6 +41,8 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
             (.activeEnergyBurned, "active_energy", .kilocalorie()),
             (.bodyMass, "weight_body_mass", .gramUnit(with: .kilo)),
             (.bodyFatPercentage, "body_fat_percentage", .percent()),
+            (.bodyMassIndex, "body_mass_index", .count()),
+            (.leanBodyMass, "lean_body_mass", .gramUnit(with: .kilo)),
             (.distanceWalkingRunning, "walking_running_distance", .meterUnit(with: .kilo)),
             (.respiratoryRate, "respiratory_rate", HKUnit.count().unitDivided(by: .minute())),
             (.vo2Max, "vo2_max", HKUnit(from: "ml/kg*min")),

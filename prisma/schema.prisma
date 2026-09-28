@@ -775,6 +775,9 @@ model WeightLog {
   weightKg     Float
   bodyFatPct   Float?
   muscleMassKg Float?
+  // From Apple Health (smart scale): BMI and lean body mass (= fat-free weight).
+  bmi          Float?
+  leanMassKg   Float?
   notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

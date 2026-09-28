@@ -392,9 +392,12 @@ export default async function BodyPage({
     perMealProtein.set(mt, (perMealProtein.get(mt) ?? 0) + entry.protein);
   }
 
-  const ffm = weightKg && latestBodyFat
+  // Prefer the scale's own lean body mass (Apple Health) over weight × BF%.
+  const latestLeanKg = [...weightLogs].reverse().find((l) => l.leanMassKg != null)?.leanMassKg ?? null;
+  const latestBmi = [...weightLogs].reverse().find((l) => l.bmi != null)?.bmi ?? null;
+  const ffm = latestLeanKg ?? (weightKg && latestBodyFat
     ? ffmFromBodyComposition(weightKg, latestBodyFat)
-    : null;
+    : null);
 
   const weekVolume = weekSets.reduce((sum, s) => sum + s.weight * s.reps, 0);
   const todaysExerciseCal = weekVolume * 0.06 / 7;
@@ -830,6 +833,9 @@ export default async function BodyPage({
                   <div className="wgrid" style={{ marginTop: 8 }}>
                     <div className="c"><div className="k">Lean Mass</div><div className="v num">{unit === "lb" ? kgToLb(ffm) : ffm.toFixed(1)}<small> {unit}</small></div></div>
                     <div className="c"><div className="k">Fat Mass</div><div className="v num">{unit === "lb" ? kgToLb(weightKg - ffm) : (weightKg - ffm).toFixed(1)}<small> {unit}</small></div></div>
+                    {latestBmi != null && (
+                      <div className="c"><div className="k">BMI</div><div className="v num">{latestBmi.toFixed(1)}</div></div>
+                    )}
                   </div>
                 )}
                 <WeightTrendChart logs={weightChartData} unit={unit} targetWeightKg={profile?.targetWeightKg ?? null} />
@@ -1133,6 +1139,7 @@ export default async function BodyPage({
             latestWeightKg={weightKg}
             latestBodyFat={latestBodyFat}
             ffmKg={ffm}
+            bmi={latestBmi}
             unit={unit}
             goal={profile?.goal ?? null}
             targetWeightKg={profile?.targetWeightKg ?? null}

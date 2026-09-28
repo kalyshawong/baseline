@@ -11,6 +11,8 @@ interface Props {
   latestBodyFat: number | null;
   /** Fat-free mass (kg) — when present, a lean/fat split row renders. */
   ffmKg?: number | null;
+  /** BMI from the scale via Apple Health — adds a third cell to the split row. */
+  bmi?: number | null;
   unit: "lb" | "kg";
   goal: string | null;
   targetWeightKg: number | null;
@@ -30,6 +32,7 @@ export function WeightCard({
   latestWeightKg,
   latestBodyFat,
   ffmKg,
+  bmi,
   unit,
   weightTrend,
 }: Props) {
@@ -87,7 +90,7 @@ export function WeightCard({
       {/* Composition split — lean vs fat mass (weight × BF%) */}
       {ffmKg != null && latestWeightKg != null && (
         <div
-          className="grid grid-cols-2 mt-[1px]"
+          className={`grid ${bmi != null ? "grid-cols-3" : "grid-cols-2"} mt-[1px]`}
           style={{ gap: "1px", background: "var(--color-border)" }}
         >
           <div className="bg-[var(--color-surface)] p-[12px_16px]">
@@ -108,6 +111,14 @@ export function WeightCard({
               <small className="text-[11px] font-semibold text-[var(--color-faint)]">{unit}</small>
             </p>
           </div>
+          {bmi != null && (
+            <div className="bg-[var(--color-surface)] p-[12px_16px]">
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-[var(--color-faint)] mb-[4px]">
+                BMI
+              </p>
+              <p className="disp text-[24px] leading-[0.85] num">{bmi.toFixed(1)}</p>
+            </div>
+          )}
         </div>
       )}
     </>
