@@ -435,7 +435,12 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
         // Cycle tracking
         var cycle: [[String: Any]] = []
         if let flowType = HKObjectType.categoryType(forIdentifier: .menstrualFlow) {
-            for case let c as HKCategorySample in try await newSamples(for: flowType) {
+            // Period days are day-level samples that start at midnight, and
+            // are often logged hours or days later. The watermark window
+            // (last sync − 2h) never reaches back to midnight, so a period
+            // logged this afternoon was skipped forever. Use a trailing
+            // 45-day window instead — a handful of samples; server upserts.
+            for case let c as HKCategorySample in try await samples(for: flowType, sinceDaysAgo: 45) {
                 // Raw values are shared by HKCategoryValueMenstrualFlow (iOS 9+)
                 // and its iOS 18 successor HKCategoryValueVaginalBleeding:
                 // 1 unspecified, 2 light, 3 medium, 4 heavy, 5 none.
@@ -496,6 +501,18 @@ public class HealthKitSyncPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func commitWatermark(_ d: Date) {
         UserDefaults.standard.set(d, forKey: "bl_last_sync")
+    }
+
+    private func samples(for type: HKSampleType, sinceDaysAgo days: Int) async throws -> [HKSample] {
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: Date())
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: nil, options: .strictStartDate)
+        return try await withCheckedThrowingContinuation { cont in
+            let q = HKSampleQuery(sampleType: type, predicate: predicate,
+                                  limit: 500, sortDescriptors: nil) { _, s, err in
+                if let err = err { cont.resume(throwing: err) } else { cont.resume(returning: s ?? []) }
+            }
+            store.execute(q)
+        }
     }
 
     private func newSamples(for type: HKSampleType) async throws -> [HKSample] {

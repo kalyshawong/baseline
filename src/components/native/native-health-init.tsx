@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { startNativeHealth } from "@/lib/native-health";
+import { startNativeHealth, syncNativeHealthOnResume } from "@/lib/native-health";
 
 /**
  * Native HealthKit bootstrap.
@@ -24,6 +24,15 @@ export function NativeHealthInit() {
   useEffect(() => {
     void startNativeHealth({ trigger: "auto" });
   }, [pathname]);
+
+  // Reopening the app from the background: sync new workouts / cycle logs.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void syncNativeHealthOnResume();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   return null;
 }

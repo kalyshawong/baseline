@@ -69,6 +69,28 @@ function record(s: NativeHealthStatus) {
 }
 
 let lastTokenStarted: string | null = null;
+let lastResumeSync = 0;
+
+/**
+ * Push new Health data when the app comes back to the foreground.
+ * startNativeHealth only syncs on a cold start (a token already started
+ * returns early), so reopening the app from the background never synced —
+ * workouts and cycle logs sat on the phone until the app was killed and
+ * relaunched. Throttled to once a minute.
+ */
+export async function syncNativeHealthOnResume(): Promise<void> {
+  if (!lastTokenStarted) return; // not started yet — startNativeHealth handles it
+  const now = Date.now();
+  if (now - lastResumeSync < 60_000) return;
+  lastResumeSync = now;
+  try {
+    const { registerPlugin } = await import("@capacitor/core");
+    const HealthKitSync = registerPlugin<HealthKitSyncPlugin>("HealthKitSync");
+    await HealthKitSync.syncNow();
+  } catch (err) {
+    console.warn("[NativeHealth] resume sync failed:", err);
+  }
+}
 
 /**
  * Runs the whole handoff: session → token → Health permission → background
