@@ -22,7 +22,7 @@ function fallbackTz(): string {
   return process.env.APP_TZ || "America/New_York";
 }
 
-function isValidTz(tz: string): boolean {
+export function isValidTz(tz: string): boolean {
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: tz });
     return true;
@@ -62,7 +62,7 @@ function dayStrInTz(d: Date, tz: string): string {
 }
 
 /** Milliseconds that tz is ahead of UTC at the given instant. */
-function tzOffsetMs(tz: string, at: Date): number {
+export function tzOffsetMs(tz: string, at: Date): number {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: tz,
     year: "numeric",

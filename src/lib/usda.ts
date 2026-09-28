@@ -14,7 +14,23 @@ export interface MacroEstimate {
   fat: number;
 }
 
-export async function estimateMacros(rawInput: string): Promise<MacroEstimate[]> {
+/** A saved recipe as the estimator sees it: name + its fixed items. */
+export interface RecipeContext {
+  name: string;
+  items: MacroEstimate[];
+}
+
+export async function estimateMacros(
+  rawInput: string,
+  recipes: RecipeContext[] = [],
+): Promise<MacroEstimate[]> {
+  // Her saved recipes, so a variant ("coffee with 1 tbsp honey") starts from
+  // her real ingredients rather than a generic guess.
+  const recipeBlock = recipes.length
+    ? `\n\nThe user has these saved recipes. If the food mentions one by name, expand it into its ingredients using these values, applying any changes the user states (e.g. a different amount of one ingredient):\n${recipes
+        .map((r) => `- "${r.name}": ${JSON.stringify(r.items.map(({ description, quantity, unit, calories, protein, carbs, fat }) => ({ description, quantity, unit, calories, protein, carbs, fat })))}`)
+        .join("\n")}`
+    : "";
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY not set — add it to .env");
   }
@@ -29,7 +45,7 @@ export async function estimateMacros(rawInput: string): Promise<MacroEstimate[]>
             role: "user",
             content: `Parse this food description and estimate the macronutrient breakdown for each item. Return ONLY a JSON array, no other text.
 
-Food: ${rawInput}
+Food: ${rawInput}${recipeBlock}
 
 For each item return:
 {

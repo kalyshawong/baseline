@@ -89,6 +89,7 @@ model User {
   syncLogs                 SyncLog[]
   experiments              Experiment[]
   experimentLogs           ExperimentLog[]
+  savedRecipes             SavedRecipe[]
   activityTags             ActivityTag[]
   nutritionLogs            NutritionLog[]
   nutritionEntries         NutritionEntry[]
@@ -1137,4 +1138,21 @@ model DiagnoseRun {
   updatedAt   DateTime  @updatedAt
 
   @@index([userId, status])
+}
+
+// A named, fixed-macro meal the user logs often ("coffee" = pod + oat milk +
+// honey). Logging the name reuses these exact items instead of re-estimating,
+// so the same coffee is the same numbers every day. Added 2026-09-28.
+model SavedRecipe {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  // JSON MacroEstimate[] (src/lib/usda.ts) — one per ingredient.
+  items     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
 }

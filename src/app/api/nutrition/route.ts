@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
 import { getLocalDay, getLocalDayStr, getRequestTz, getUserTz, wallTimeToUtc } from "@/lib/date-utils";
-import { estimateMacros } from "@/lib/usda";
+import { estimateMacros, type MacroEstimate, type RecipeContext } from "@/lib/usda";
 import { apiError } from "@/lib/utils";
 
 // Pages whose server components read NutritionLog. They must be revalidated
@@ -90,8 +90,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Estimate macros from plain text via Claude
-    const estimates = await estimateMacros(text);
+    // Saved recipe by exact name ("coffee", "my coffee") → its fixed items,
+    // no estimation. Anything else goes to Claude, with her recipes as
+    // context so variants of a recipe still start from her ingredients.
+    const recipes: RecipeContext[] = (
+      await prisma.savedRecipe.findMany({ where: { userId: await getCurrentUserId() } })
+    ).flatMap((r) => {
+      try {
+        return [{ name: r.name, items: JSON.parse(r.items) as MacroEstimate[] }];
+      } catch {
+        return [];
+      }
+    });
+    const key = String(text).trim().toLowerCase().replace(/^my\s+/, "").replace(/[.!\s]+$/, "");
+    const recipe = recipes.find((r) => r.name.toLowerCase() === key);
+    const estimates = recipe ? recipe.items : await estimateMacros(text, recipes);
 
     // The log day is dayStr (page date param, else viewer-tz today) as a UTC
     // midnight anchor for the userId_day unique key.

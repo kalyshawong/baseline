@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
+import { findRecipeItems, logRecipeEntries, removeRecipeEntries } from "@/lib/recipes";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
 import { apiError } from "@/lib/utils";
@@ -86,17 +88,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Invalid category. Must be one of: ${validCategories.join(", ")}` }, { status: 400 });
     }
 
+    const userId = await getCurrentUserId();
+    const tagName = String(tag).trim().toLowerCase();
+    const tagTime = await resolveTagTimestamp({ time, date, timestamp });
+
+    // A tag named like a saved recipe ("coffee") also logs that recipe's
+    // calories on the tag's day, at the tag's time. Entry ids ride on the
+    // tag's metadata so DELETE can take them back out.
+    let meta: Record<string, unknown> | null =
+      metadata && typeof metadata === "object" ? { ...metadata } : null;
+    const recipeItems = category === "nutrition" ? null : await findRecipeItems(userId, tagName);
+    if (recipeItems) {
+      const ids = await logRecipeEntries({
+        userId,
+        items: recipeItems,
+        eatenAt: tagTime,
+        tz: await getUserTz(),
+        dayStr: typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined,
+        timeUnknown: meta?.timeUnknown === true,
+      });
+      meta = { ...(meta ?? {}), recipe: tagName, recipeEntryIds: ids };
+      revalidatePath("/mind");
+      revalidatePath("/");
+    }
+
     const created = await prisma.activityTag.create({
       data: {
-        userId: await getCurrentUserId(),
+        userId,
         // Normalized at write: "Sex" and "sex" were living as two tags,
         // splitting counts across every analyzer (2026-08-26). One tag,
         // one identity, case-insensitive.
-        tag: String(tag).trim().toLowerCase(),
+        tag: tagName,
         category,
-        metadata: metadata ? JSON.stringify(metadata) : null,
+        metadata: meta ? JSON.stringify(meta) : metadata ? JSON.stringify(metadata) : null,
         experimentId: experimentId ?? null,
-        timestamp: await resolveTagTimestamp({ time, date, timestamp }),
+        timestamp: tagTime,
       },
     });
 
@@ -116,7 +142,20 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
+    const existing = await prisma.activityTag.findUnique({ where: { id } });
     await prisma.activityTag.delete({ where: { id } });
+
+    // Take back the recipe calories this tag logged (see POST).
+    try {
+      const ids = existing?.metadata ? JSON.parse(existing.metadata).recipeEntryIds : null;
+      if (Array.isArray(ids) && ids.length) {
+        await removeRecipeEntries(await getCurrentUserId(), ids);
+        revalidatePath("/mind");
+        revalidatePath("/");
+      }
+    } catch {
+      /* unparseable legacy metadata — nothing linked */
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
