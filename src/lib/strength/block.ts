@@ -5,22 +5,23 @@ import { fatigueSignal, lifterSoreness, bandsWithToday } from "@/lib/strength/bo
 /**
  * Block view — design_handoff_baseline_ios_strength, screen 5.
  *
- * Baseline has no programme editor, so the block is DERIVED from his logs:
- * a block starts on the Monday of the first completed session after a gap of
- * 7+ days without training (or the very first session), runs 5 weeks, and
- * week 6 is the deload. Planned sets for a week = last week's sets (Hold =
- * repeat); week 1 has no plan. Nothing here is invented — every bar is sets
- * he actually did, and the only "plan" is a repeat of the previous week.
+ * DATA ONLY (2026-09-28): Baseline never plans someone's training, so there
+ * are no planned sets, no scheduled deload week and no deload suggestion.
+ * A block is read from the log: it starts on the Monday of the first
+ * completed session after 7+ days off (or the very first session) and runs
+ * until the next 7+ day break. The view shows its last 6 weeks: sets done,
+ * with the previous week's sets as the comparison. Fatigue signals are shown
+ * as data.
  */
 
 export interface BlockWeek {
-  index: number; // 1..6
+  index: number; // week number within the block (1-based)
   label: string;
   start: string;
-  done: number | null; // sets completed (null = future)
+  done: number; // sets completed
   today: number; // today's open-session sets (current week only)
-  plan: number | null; // last week's sets
-  state: "done" | "cur" | "future" | "dl";
+  prev: number | null; // previous week's sets — comparison, not a plan
+  state: "done" | "cur";
 }
 
 export interface DeloadSignal {
@@ -34,7 +35,7 @@ export interface BlockData {
   number: number;
   start: string;
   end: string;
-  currentWeek: number; // 1..6
+  currentWeek: number; // weeks since the block started (1-based)
   weeks: BlockWeek[];
   signals: DeloadSignal[];
   metCount: number;
@@ -66,45 +67,42 @@ export async function blockData(): Promise<BlockData | null> {
   });
   if (!sessions.length) return null;
 
-  // Block boundaries: break on 7+ day gaps; every block is 6 weeks max.
+  // Block boundaries: break on 7+ day gaps only — no fixed length.
   let blockStart = mondayOf(sessions[0].date);
   let blockNumber = 1;
   for (let i = 1; i < sessions.length; i++) {
     const gap = (sessions[i].date.getTime() - sessions[i - 1].date.getTime()) / DAY;
-    if (gap >= 7 || (sessions[i].date.getTime() - blockStart.getTime()) / DAY >= 42) {
+    if (gap >= 7) {
       blockStart = mondayOf(sessions[i].date);
       blockNumber++;
     }
   }
   const now = new Date();
-  while ((now.getTime() - blockStart.getTime()) / DAY >= 42) {
-    blockStart = new Date(blockStart.getTime() + 42 * DAY);
-    blockNumber++;
-  }
-  const currentWeek = Math.min(6, Math.floor((now.getTime() - blockStart.getTime()) / (7 * DAY)) + 1);
-  const end = new Date(blockStart.getTime() + 42 * DAY - 1);
+  const currentWeek = Math.floor((now.getTime() - blockStart.getTime()) / (7 * DAY)) + 1;
+  const end = now;
 
   const { rows: bands } = await bandsWithToday();
   const todaySets = bands.reduce((n, b) => n + b.today, 0);
   const weeks: BlockWeek[] = [];
-  let prev: number | null = null;
-  for (let w = 1; w <= 6; w++) {
-    const ws = new Date(blockStart.getTime() + (w - 1) * 7 * DAY);
-    const we = new Date(ws.getTime() + 7 * DAY);
-    const done = w <= currentWeek ? sessions.filter((s) => s.date >= ws && s.date < we).reduce((n, s) => n + s._count.sets, 0) : null;
+  const firstShown = Math.max(1, currentWeek - 5);
+  for (let w = firstShown; w <= currentWeek; w++) {
+    const setsIn = (k: number) => {
+      const ws = new Date(blockStart.getTime() + (k - 1) * 7 * DAY);
+      const we = new Date(ws.getTime() + 7 * DAY);
+      return sessions.filter((s) => s.date >= ws && s.date < we).reduce((n, s) => n + s._count.sets, 0);
+    };
     weeks.push({
       index: w,
-      label: w === 6 ? "Deload" : `W${w}`,
-      start: iso(ws),
-      done,
+      label: `W${w}`,
+      start: iso(new Date(blockStart.getTime() + (w - 1) * 7 * DAY)),
+      done: setsIn(w),
       today: w === currentWeek ? todaySets : 0,
-      plan: w === 6 ? (prev != null ? Math.round(prev / 2) : null) : prev,
-      state: w === 6 ? (w === currentWeek ? "cur" : "dl") : w < currentWeek ? "done" : w === currentWeek ? "cur" : "future",
+      prev: w > 1 ? setsIn(w - 1) : null,
+      state: w === currentWeek ? "cur" : "done",
     });
-    if (done != null) prev = done;
   }
 
-  // Deload signals
+  // Fatigue signals — shown as data; Baseline doesn't schedule deloads.
   const sore = await lifterSoreness();
   const fatigue = await fatigueSignal(sore);
   const over = bands.filter((b) => b.band && b.sets > b.band[2]).length;

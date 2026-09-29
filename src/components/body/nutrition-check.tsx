@@ -1,3 +1,4 @@
+import { Cite } from "@/components/science/cite";
 /**
  * Nutrition Check card — protein/calorie bars + per-meal breakdown.
  * Design ref: Baseline Body.html → .nutricard
@@ -42,7 +43,7 @@ export function NutritionCheck({ nutrition, bodyWeightKg, dailyCalorieTarget, en
           {/* Protein bar */}
           <div className="mt-[14px]">
             <div className="flex justify-between text-[12.5px] text-[var(--color-text-muted)] mb-[6px]">
-              <span>Protein {proteinTarget && `(target ${proteinTarget}g)`}</span>
+              <span>Protein {proteinTarget && <>(target {proteinTarget}g <Cite ids={["morton2018"]} />)</>}</span>
               <span className="num font-semibold text-[var(--color-text)]">
                 {Math.round(nutrition.protein)}{proteinTarget && ` / ${proteinTarget}g`}
               </span>
@@ -75,11 +76,11 @@ export function NutritionCheck({ nutrition, bodyWeightKg, dailyCalorieTarget, en
           {nutrition.perMealProtein.length > 0 && (
             <div className="mt-4">
               <p className="text-xs text-[var(--color-faint)] mb-[7px]">
-                Per meal (MPS plateaus at ~25g — Moore 2009)
+                Per meal (~20–25g maxes short-term MPS; bigger meals still help <Cite ids={["moore2009", "trommelen2023"]} />)
               </p>
               <div className="space-y-[6px]">
                 {nutrition.perMealProtein.map((m, i) => {
-                  const excess = m.protein > 30;
+                  const excess = false; // no upper limit per meal (Trommelen 2023)
                   const low = m.protein < 20;
                   return (
                     <div
@@ -119,7 +120,7 @@ export function NutritionCheck({ nutrition, bodyWeightKg, dailyCalorieTarget, en
               <p className="font-semibold">Low energy availability detected</p>
               <p className="mt-1">
                 EA: {energyAvailability?.toFixed(1)} kcal/kg FFM. Below 30 impairs recovery
-                (Loucks 2011). HRV may decline 10-20% until restored.
+                and raises REDs risk <Cite ids={["loucks2011", "mountjoy2023"]} />.
               </p>
             </div>
           )}

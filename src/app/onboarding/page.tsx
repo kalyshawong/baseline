@@ -39,5 +39,7 @@ export default async function OnboardingPage({
         phase: base.phase ?? (profile.goal === "gain" || profile.goal === "lose" || profile.goal === "maintain" ? profile.goal : null),
       }
     : base;
-  return <OnboardingFlow initial={seed} editing={editing} startAt={editing ? null : status.resumeAt} />;
+  // ?edit=1&at=split — lifters who onboarded before the split question jump straight to it.
+  const at = editing && params.at === "split" ? ("split" as const) : null;
+  return <OnboardingFlow initial={seed} editing={editing} startAt={at ?? (editing ? null : status.resumeAt)} />;
 }

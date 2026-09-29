@@ -60,6 +60,7 @@ import { MobileCycleCard } from "@/components/mobile/mobile-cycle-card";
 import { MinCard } from "@/components/min-card";
 import { kgToLb } from "@/lib/tdee";
 import { RunLandmarksSettings } from "@/components/body/run-landmarks-settings";
+import { Cite } from "@/components/science/cite";
 
 function formatDuration(seconds: number | null): string {
   if (seconds == null) return "—";
@@ -79,6 +80,9 @@ export default async function BodyPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Hybrid only: /body is the Running body; /body/lift renders this page with
+  // __view=lift (two tabs, her call 2026-09-28).
+  const view: "run" | "lift" = (await searchParams).__view === "lift" ? "lift" : "run";
   // Date-aware (2026-08-20): the appbar's MobileDateNav navigates
   // /body?date=YYYY-MM-DD, but this page used to render "today"
   // unconditionally — flipping dates changed nothing on screen. Every
@@ -119,7 +123,10 @@ export default async function BodyPage({
       }
     : null;
   // Lifter Body tab (strength mode, screen 2) — replaces the cardio-first mobile layout.
-  const lifter = gates.strengthFirst ? await lifterBodyData(showGarmin) : null;
+  // Hybrid (runs + lifts): two tabs on mobile — Run (/body) and Lift (/body/lift).
+  const bodyView: "run" | "lift" | "all" = gates.strengthFirst ? "lift" : gates.hybrid ? view : "all";
+  const hybridTabs = gates.hybrid && !gates.strengthFirst;
+  const lifter = bodyView === "lift" ? await lifterBodyData(showGarmin) : null;
   const block = lifter ? await blockData().catch(() => null) : null;
   const garminCard = showGarmin ? (
     <GarminCard data={garminData} linked={!!garminLink} lastSyncAt={garminLink?.lastSyncAt?.toISOString() ?? null} lastError={garminLink?.lastError ?? null} />
@@ -548,11 +555,11 @@ export default async function BodyPage({
         <div className="bl-m">
           <div className="appbar">
             <div>
-              <h1>BODY</h1>
+              <h1>{hybridTabs ? (bodyView === "lift" ? "LIFT" : "RUN") : "BODY"}</h1>
               <div className="sub">{lifter ? `Rolling 7 days · ${lifter.weekLabel}` : <>Readiness, recovery &amp; composition</>}</div>
             </div>
             <Suspense>
-              <MobileDateNav basePath="/body" />
+              <MobileDateNav basePath={hybridTabs && bodyView === "lift" ? "/body/lift" : "/body"} />
             </Suspense>
           </div>
 
@@ -564,7 +571,7 @@ export default async function BodyPage({
                   <Link href="/body/workout/new?backfill=1" className="linklike">Log past workout</Link>
                 </div>
               </div>
-              <LifterBody data={lifter} blockHref="/body/block" blockLabel={block ? `Block ${block.number} · ${block.currentWeek === 6 ? "Deload week" : `Week ${block.currentWeek} of 5`}` : undefined} />
+              <LifterBody data={lifter} blockHref="/body/block" blockLabel={block ? `Block ${block.number} · Week ${block.currentWeek}` : undefined} />
               <div className="wrap" style={{ marginTop: 14 }}>
                 <DayWorkouts sessions={daySessions} watchWorkouts={dayWatchWorkouts} tz={requestTz} dateLabel={dayLabel} unit={unit} variant="mobile" />
               </div>
@@ -631,7 +638,7 @@ export default async function BodyPage({
             </>
           )}
 
-          {!gates.strengthFirst && (
+          {bodyView !== "lift" && (
           <div className="wrap" style={{ marginTop: 14 }}>
             <div className="stack-lg">
               {guidance && (
@@ -651,18 +658,18 @@ export default async function BodyPage({
                   <div className="top">
                     <div>
                       <div className="ov">
-                        Fatigue Signal <span style={{ textTransform: "none", letterSpacing: 0 }}>(Pritchard 2024)</span>
+                        Fatigue Signal <span style={{ textTransform: "none", letterSpacing: 0 }}>(app composite)</span>
                       </div>
                       <div className="rectext">{fatigue.recommendation}</div>
                     </div>
                     <div className="score"><b className="num">{fatigue.score}</b><span>/8 composite</span></div>
                   </div>
                   <ul>
-                    {weeksSinceDeload >= 5 && <li>{weeksSinceDeload} consecutive training weeks (deload every 5–6)</li>}
+                    {weeksSinceDeload >= 5 && <li>{weeksSinceDeload} consecutive training weeks (lifters deload ~every 4–8 <Cite ids={["rogerson2024"]} />)</li>}
                     {hrvCvElevated && (
                       <li>
                         HRV CV elevated: {cv?.toFixed(1)}%
-                        {hrvCvBaseline ? ` (your normal ~${Math.round(hrvCvThreshold(hrvCvBaseline))}%)` : " (Flatt threshold 10%)"}
+                        {hrvCvBaseline ? ` (your normal ~${Math.round(hrvCvThreshold(hrvCvBaseline))}%)` : " (default 10%, app heuristic)"} <Cite ids={["flatt2017"]} />
                       </li>
                     )}
                     {anyRpeCreep && <li className="red">RPE creep: +1 pt at same loads over recent sessions</li>}
@@ -670,7 +677,7 @@ export default async function BodyPage({
                   </ul>
                   {fatigue.score >= 3 && (
                     <div className="deload">
-                      <b>Deload protocol:</b> Reduce volume 40–60% for 1 week. Keep frequency &amp; loads, fewer sets. Resume after 7 days.
+                      <b>Deload protocol:</b> Reduce volume 40–60% for 1 week (app default). Keep frequency &amp; loads, fewer sets. Resume after 7 days. <Cite ids={["rogerson2024", "bell2023"]} />
                     </div>
                   )}
                 </div>
@@ -679,7 +686,7 @@ export default async function BodyPage({
           </div>
           )}
 
-          {gates.cardio && (
+          {gates.cardio && bodyView !== "lift" && (
             <>
           <div className="g-sec">Running &amp; Cardio</div>
           <div className="wrap">
@@ -706,7 +713,7 @@ export default async function BodyPage({
             </>
           )}
 
-          {!gates.strengthFirst && strengthMobile}
+          {bodyView === "all" && strengthMobile}
 
           <div className="g-sec">Recovery</div>
           <div className="wrap">
@@ -746,13 +753,13 @@ export default async function BodyPage({
                     </div>
                     {perMealArr.length > 0 && (
                       <div className="permeal">
-                        <div className="ttl">Per meal (MPS plateaus at ~25g — Moore 2009)</div>
+                        <div className="ttl">Per meal (~20–25g maxes short-term MPS; bigger meals still help <Cite ids={["moore2009", "trommelen2023"]} />)</div>
                         {perMealArr.map((m, i) => {
-                          const cls = m.protein > 30 ? "ex" : m.protein < 20 ? "low" : "ok";
+                          const cls = m.protein < 20 ? "low" : "ok";
                           return (
                             <div className="m" key={i}>
                               <span>{cap(m.mealType)}</span>
-                              <span className={`amt num ${cls}`}>{Math.round(m.protein)}g{m.protein > 30 ? " (excess)" : m.protein < 20 ? " (low)" : ""}</span>
+                              <span className={`amt num ${cls}`}>{Math.round(m.protein)}g{m.protein < 20 ? " (low)" : ""}</span>
                             </div>
                           );
                         })}
@@ -801,7 +808,7 @@ export default async function BodyPage({
                   </div>
                   {proteinTargetG != null && (
                     <div className="nbar">
-                      <div className="lab"><span>Protein ({proteinGPerKg} g/kg)</span><span className="v num">{Math.round(nProtein ?? 0)} / {proteinTargetG}g</span></div>
+                      <div className="lab"><span>Protein ({proteinGPerKg} g/kg <Cite ids={proteinGPerKg > 1.6 ? ["morton2018", "helms2014"] : ["morton2018"]} />)</span><span className="v num">{Math.round(nProtein ?? 0)} / {proteinTargetG}g</span></div>
                       <div className="track"><i className="prot" style={{ width: `${proteinPct}%` }} /></div>
                     </div>
                   )}
@@ -914,7 +921,7 @@ export default async function BodyPage({
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="ov">
-                    Fatigue Signal <span className="normal-case tracking-normal">(Pritchard 2024)</span>
+                    Fatigue Signal <span className="normal-case tracking-normal">(app composite)</span>
                   </p>
                   <p className="mt-1 text-[15px] font-bold">{fatigue.recommendation}</p>
                 </div>
@@ -928,7 +935,7 @@ export default async function BodyPage({
               <ul className="mt-[14px] flex flex-col gap-[5px] list-none">
                 {weeksSinceDeload >= 5 && (
                   <li className="text-[12.5px]" style={{ color: "var(--color-yellow)" }}>
-                    {weeksSinceDeload} consecutive training weeks (deload every 5-6)
+                    {weeksSinceDeload} consecutive training weeks (lifters deload ~every 4–8 <Cite ids={["rogerson2024"]} />)
                   </li>
                 )}
                 {hrvCvElevated && (
@@ -936,7 +943,7 @@ export default async function BodyPage({
                     HRV CV elevated: {cv?.toFixed(1)}%
                     {hrvCvBaseline
                       ? ` (your normal ~${Math.round(hrvCvThreshold(hrvCvBaseline))}%)`
-                      : " (Flatt threshold 10%)"}
+                      : " (default 10%, app heuristic)"} <Cite ids={["flatt2017"]} />
                   </li>
                 )}
                 {anyRpeCreep && (
@@ -952,7 +959,7 @@ export default async function BodyPage({
               </ul>
               {fatigue.score >= 3 && (
                 <div className="mt-[14px] bg-[var(--color-surface-2)] p-[12px_14px] text-[12.5px] text-[var(--color-text-muted)] leading-relaxed">
-                  <b className="text-[var(--color-text)]">Deload protocol:</b> Reduce volume 40-60% for 1 week. Keep frequency &amp; loads, fewer sets. Resume after 7 days.
+                  <b className="text-[var(--color-text)]">Deload protocol:</b> Reduce volume 40-60% for 1 week (app default). Keep frequency &amp; loads, fewer sets. Resume after 7 days. <Cite ids={["rogerson2024", "bell2023"]} />
                 </div>
               )}
             </div>

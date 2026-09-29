@@ -110,7 +110,7 @@ export function detectRpeCreep(
 }
 
 // --- HRV Coefficient of Variation (on lnRMSSD) ---
-// Research: Flatt & Esco 2016 — elevated CV signals overreaching.
+// Research: Flatt 2017 — rising CV tracked overload; 10% is an app default, not a published cutoff.
 //
 // UNIT FIX (2026-08-26, audit §2.3): the practitioner ~10% threshold is for
 // **ln-transformed** RMSSD. Computed on RAW RMSSD, normal night-to-night
@@ -211,7 +211,7 @@ export function isHrvCvElevated(
 }
 
 // --- Deload composite fatigue score ---
-// Research: Pritchard 2024, Cadegiani 2019
+// App composite. Deload practice: Rogerson 2024, Bell 2023 (sources: lib/citations.ts). "Pritchard 2024" could not be found — removed 2026-09-28.
 export interface FatigueSignals {
   weeksSinceLastDeload: number;
   hrvBelowBaseline: boolean;
@@ -253,7 +253,7 @@ export function proteinTarget(
 }
 
 // --- Per-meal protein check ---
-// Research: Moore 2009 — MPS maxes out at ~20-25g per meal
+// Research: Moore 2009 (~20-25g maxes short-term MPS); Trommelen 2023 — no upper limit, bigger doses still help
 export function perMealProteinStatus(grams: number, age = 30): "low" | "good" | "high" {
   const threshold = age >= 65 ? 30 : age >= 45 ? 25 : 20;
   if (grams < threshold) return "low";
@@ -262,7 +262,7 @@ export function perMealProteinStatus(grams: number, age = 30): "low" | "good" | 
 }
 
 // --- Energy availability ---
-// Research: Loucks 2011 — below 30 kcal/kg FFM impairs recovery
+// Research: Loucks 2011; Mountjoy 2023 (IOC REDs) — ~30 kcal/kg FFM is a guide, not a universal threshold
 export function energyAvailability(
   caloriesConsumed: number | null | undefined,
   exerciseCalories: number | null | undefined,
@@ -370,7 +370,7 @@ export function cyclePhaseGuidance(phase: string | null): CyclePhaseGuidance | n
       return {
         phase: "ovulation",
         headline: "Ovulation — high power, watch joints",
-        note: "Peak power output, but 3-6x higher ACL injury risk (Hewett 2007). Extra warm-up, controlled landings, knee sleeves for heavy squats.",
+        note: "Peak power output. Some studies link this window to more ACL injuries (Wojtys 2002); newer reviews call it mixed (Dos'Santos 2023). Extra warm-up, controlled landings, knee sleeves for heavy squats.",
         aclWarning: true,
         volumeMod: 1.0,
       };
@@ -571,7 +571,7 @@ export function computeTrainingCall(input: TrainingCallInput): TrainingCall | nu
     }
   }
 
-  // Fatigue (Pritchard 2024 / Cadegiani 2019 markers, 0-8 score)
+  // Fatigue (app composite, 0-8 score; see lib/citations.ts)
   if (fatigueScore >= 5) {
     tier = downOne(downOne(tier));
     downgrades.push("fatigue elevated");

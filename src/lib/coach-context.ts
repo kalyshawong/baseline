@@ -263,7 +263,7 @@ export function detectTradeoffs(
   if (weightCut && raceGoal && context.energyAvailability != null && context.energyAvailability < 35) {
     tradeoffs.push({
       severity: context.energyAvailability < 30 ? "critical" : "warning",
-      message: `Cutting weight while training for ${raceGoal.title}. EA is ${context.energyAvailability.toFixed(0)} kcal/kg FFM${context.energyAvailability < 30 ? " — BELOW the 30 threshold (Loucks 2011)" : " — approaching the 30 threshold"}. Suggest reducing deficit or adding rest.`,
+      message: `Cutting weight while training for ${raceGoal.title}. EA is ${context.energyAvailability.toFixed(0)} kcal/kg FFM${context.energyAvailability < 30 ? " — BELOW ~30 (Loucks 2011; IOC REDs consensus, Mountjoy 2023)" : " — approaching the 30 threshold"}. Suggest reducing deficit or adding rest.`,
     });
   }
 
@@ -308,7 +308,7 @@ export function detectTradeoffs(
           : "readiness is also sub-par";
       tradeoffs.push({
         severity: "warning",
-        message: `HRV CV is ${context.hrvCv.toFixed(1)}% — above your ~${thr}% baseline, and ${corroborator}. Flatt & Esco (2016): elevated HRV variability that persists signals non-functional overreaching. Consider deloading regardless of current program week.`,
+        message: `HRV CV is ${context.hrvCv.toFixed(1)}% — above your ~${thr}% baseline, and ${corroborator}. Rising HRV variability alongside lower HRV has tracked overload and fatigue (Flatt 2017), though it is not a universal overreaching marker (Plews 2012). Consider deloading regardless of current program week.`,
       });
     }
   }
@@ -356,15 +356,15 @@ ${goal.subtype === "hyrox" ? "\nHyrox-specific: Running = ~60% of race time (Bra
 You are coaching the user through a strength training block.
 Target: ${goal.target ?? "get stronger"}. Deadline: ${deadlineStr}.
 
-Prioritize: progressive overload (volume load per muscle vs MEV/MAV/MRV), estimated 1RM trends on primary lifts, RPE trend analysis (creep = overreaching), protein intake vs 1.6 g/kg target (Morton 2018), deload timing (every 5-6 weeks per Pritchard 2024).
-Always consider: sleep quality (deep sleep → GH → MPS), cycle phase (follicular = PR window, ovulation = ACL caution per Hewett 2007), energy availability.
+Prioritize: progressive overload (volume load per muscle vs MEV/MAV/MRV), estimated 1RM trends on primary lifts, RPE trend analysis (creep = possible fatigue sign), protein intake vs 1.6 g/kg target (Morton 2018), deload timing (lifters deload ~every 4–8 weeks, avg ~5.6 — Rogerson 2024).
+Always consider: sleep quality (deep sleep → GH → MPS), cycle phase (follicular = PR window, ovulation = ACL caution; evidence mixed — Wojtys 2002, Dos'Santos 2023), energy availability.
 When other goals conflict, protect training stimulus and recovery first.`,
 
     physique: `\n# Active Coaching Focus: Physique / Body Composition
 You are coaching the user toward a physique goal.
 Target: ${goal.target ?? "optimize body composition"}. Deadline: ${deadlineStr}.
 
-Prioritize: per-muscle-group volume balance against MEV/MAV/MRV landmarks, protein distribution across meals (20-25g per meal minimum per Moore 2009), body composition trend, training split adherence.
+Prioritize: per-muscle-group volume balance against MEV/MAV/MRV landmarks, protein distribution across meals (~20-25g+ per meal; larger meals still add benefit — Moore 2009, Trommelen 2023), body composition trend, training split adherence.
 Always consider: energy availability (EA > 30 kcal/kg FFM), cycle phase effects on water retention and perceived progress.`,
 
     cognitive: `\n# Active Coaching Focus: Cognitive Performance
@@ -381,7 +381,7 @@ Target: ${goal.target ?? "optimize body weight"}. Deadline: ${deadlineStr}.
 
 Prioritize: daily energy balance (intake vs expenditure), protein intake (maintain 1.6 g/kg even in deficit), weight trend (use 7-day rolling average, ignore daily fluctuations), energy availability calculation.
 CRITICAL: HRV depression during caloric deficit is a NORMAL physiological response (Altini 2022), NOT a sign of overtraining. Distinguish diet-induced HRV dips from genuine training overload by checking whether the user is in a deficit.
-${goal.subtype === "cut" ? "Cut-specific: EA must stay above 30 kcal/kg FFM (Loucks 2011). Rate of loss should be 0.5-1% BW/week max to preserve muscle. Flag if faster than that." : ""}
+${goal.subtype === "cut" ? "Cut-specific: keep EA around/above ~30 kcal/kg FFM (Loucks 2011; Mountjoy 2023 — not a hard universal threshold). Rate of loss should be 0.5-1% BW/week max to preserve muscle. Flag if faster than that." : ""}
 ${goal.subtype === "bulk" ? "Bulk-specific: Target surplus of 300-500 kcal/day. Track whether weight gain accompanies strength increases (muscle) or just scale movement." : ""}
 Protect training volume to maintain/build muscle during the weight change.`,
 
@@ -450,7 +450,7 @@ function buildHyroxPlanSection(
       } else if (phase === "follicular") {
         guidance = " — peak performance window";
       } else if (phase === "ovulation") {
-        guidance = " — high power but ACL caution (Hewett 2007)";
+        guidance = " — high power; some data link this window to ACL injury, evidence mixed (Wojtys 2002; Dos'Santos 2023)";
       } else if (phase === "menstrual") {
         guidance = " — listen to readiness";
       }
@@ -773,7 +773,7 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
     const elevated = isHrvCvElevated(cvSignals.hrvCv, cvSignals.hrvCvBaseline);
     const thr = Math.round(hrvCvThreshold(cvSignals.hrvCvBaseline));
     ouraLines.push(
-      `- HRV CV: ${cvSignals.hrvCv.toFixed(1)}% (vs your ~${thr}% baseline)${elevated ? " — ELEVATED for you (Flatt & Esco 2016)" : ""}`,
+      `- HRV CV: ${cvSignals.hrvCv.toFixed(1)}% (vs your ~${thr}% baseline)${elevated ? " — ELEVATED for you (Flatt 2017)" : ""}`,
     );
   }
   // Only add if we have any data beyond the header
@@ -834,7 +834,7 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
     cycleLines.push(`- Current phase: ${cyclePhase.phase}`);
     if (guidance) {
       cycleLines.push(`- Guidance: ${guidance.note}`);
-      if (guidance.aclWarning) cycleLines.push(`- ⚠ ACL injury risk elevated (Hewett 2007)`);
+      if (guidance.aclWarning) cycleLines.push(`- ⚠ ACL caution: some studies link this window to more ACL injuries; evidence mixed (Wojtys 2002; Dos'Santos 2023)`);
       if (guidance.volumeMod < 1) cycleLines.push(`- Volume adjustment: ${Math.round((1 - guidance.volumeMod) * 100)}% reduction recommended`);
     }
     const src = cyclePhase.source === "healthkit" ? "auto-synced from Apple Health" : "manually logged";
@@ -930,7 +930,7 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
         const ea = computeEA(todayNutrition.calories, exerciseCals, ffm);
         if (ea != null) {
           computedEA = ea;
-          nutritionLines.push(`- Energy availability: ${ea.toFixed(1)} kcal/kg FFM${ea < 30 ? " (LOW — Loucks 2011 threshold breached)" : ""}`);
+          nutritionLines.push(`- Energy availability: ${ea.toFixed(1)} kcal/kg FFM${ea < 30 ? " (LOW — below ~30, Loucks 2011; REDs risk, Mountjoy 2023)" : ""}`);
         }
       }
     }
@@ -1350,7 +1350,7 @@ Available tools:
 - \`get_pre_workout_fuel({ workout_id, hours? })\` — the canonical "what did I eat in the N hours before this workout?" tool. Already handles meal-time bands, midnight-crossing windows, and returns per-item \`gap_hours_min/max\`. **Prefer this over reconstructing the same computation from \`get_food_log\`** whenever the question is about a specific workout's pre-fuel. Defaults to a 4-hour window.
 - \`get_workouts({ date }) or ({ start_date, end_date })\` — list of workouts in a window: name, time, duration, HR, calories.
 - \`get_workout_details({ workout_id })\` — full data for one workout: structured fields + aggregated HR samples + attached WorkoutNote narrative + signal snapshot at note-save time.
-- \`get_signals({ date })\` — for one local day: overnight HRV (raw ms), HRV CV (7-day coefficient of variation %, the overreaching metric — >10% flags autonomic instability per Flatt & Esco 2016), sleep (duration + Oura score + stages), Oura Readiness score, Baseline composite score, stress summary.
+- \`get_signals({ date })\` — for one local day: overnight HRV (raw ms), HRV CV (7-day coefficient of variation %, a strain metric — Baseline flags values above the user's own normal, or 10% as an app default; Flatt 2017), sleep (duration + Oura score + stages), Oura Readiness score, Baseline composite score, stress summary.
 - \`get_cycle({ date })\` (or no args for today) — active cycle phase plus recent transitions.
 - \`get_goals()\` — active goals (weight, race prep, etc.) with deadlines.
 
@@ -1389,25 +1389,25 @@ You can call multiple tools in parallel in a single turn — do that when you kn
 # Research Foundation
 
 ## Recovery & Readiness
-- **HRV (Plews 2013):** 7-day rolling avg of Ln RMSSD is the standard. Single-day readings are noisy. Values > 1 SD below baseline for 2+ days = accumulated fatigue.
-- **HRV CV (Flatt & Esco 2016):** Elevated day-to-day variability over 2-3 weeks signals non-functional overreaching even before absolute HRV drops.
+- **HRV (Plews 2013):** 7-day rolling avg of Ln RMSSD is the recommended approach. Single-day readings are noisy. Values > 1 SD below baseline for 2+ days = accumulated fatigue.
+- **HRV CV (Flatt 2017; Plews 2012):** Rising day-to-day variability with falling HRV tracked overload and fatigue, but CV can also fall in non-functional overreaching — treat it as one signal, not a rule. The 10% cutoff is an app default, not a published threshold.
 - **Sleep (Lamon 2021):** One night of total sleep deprivation reduces muscle protein synthesis 18%, raises cortisol 21%. Deep sleep target: 1.5-2h/night.
 
 ## Progressive Overload
-- **Volume (Schoenfeld 2017, Israetel 2021):** ~0.37% muscle mass per additional weekly set. MEV/MAV/MRV landmarks: Quads 8/12-18/22, Back 8/12-18/22, Chest 8/12-18/22. Beyond MRV = overreaching.
+- **Volume (Schoenfeld 2017, Israetel 2021):** each extra weekly set adds ~0.37 percentage points of growth, with diminishing returns (Pelland 2026). MEV/MAV/MRV landmarks (Israetel — book framework, not peer-reviewed): Quads 8/12-18/22, Back 8/12-18/22, Chest 8/12-18/22. Beyond MRV = overreaching.
 - **Frequency (Schoenfeld 2016):** 2x/week per muscle group beats 1x when volume equated. Diminishing returns beyond 2x.
 - **Autoregulation hierarchy (2025 meta-analysis):** APRE > velocity > RPE > percentage-based for strength gains. RPE 6-8 for hypertrophy, 8-9 for strength.
-- **Deload (Pritchard 2024):** 5-6 week cycles with 1 week of 40-60% volume reduction. RPE creep at same load = reliable early overreaching marker.
+- **Deload (Rogerson 2024; Bell 2023):** Lifters deload about every 5.6 ± 2.3 weeks for ~1 week, cutting sets/reps and effort. The 40-60% volume cut is Baseline's default, not a published figure. RPE creep at the same load = possible fatigue sign, not a validated marker.
 
 ## Nutrition
-- **Protein target (Morton 2018):** 1.6 g/kg/day captures 95% of hypertrophy benefit. Max useful dose ~2.2 g/kg.
-- **Per-meal protein (Moore 2009):** MPS maxes out at ~20-25g per meal (30g for 65+). More than 30g doesn't help.
-- **Energy availability (Loucks 2011):** Below 30 kcal/kg FFM/day impairs recovery, disrupts cycle, drops HRV 10-20%. This is a hard floor.
+- **Protein target (Morton 2018; Nunes 2022):** Benefit plateaus around 1.6 g/kg/day (95% CI up to 2.2), so 2.2 is a safe upper target. Higher in a cut for lean lifters (Helms 2014).
+- **Per-meal protein (Moore 2009; Trommelen 2023):** ~20-25g maxes the short-term MPS response after leg exercise, but 40g beat 20g after whole-body training (Macnaughton 2016) and 100g gave a larger, longer (12 h) response (Trommelen 2023). Never call a big meal "excess"; daily total matters most. Older adults need more per meal.
+- **Energy availability (Loucks 2011; Mountjoy 2023):** Below ~30 kcal/kg FFM/day raises REDs risk (recovery, cycle, bone). The IOC 2023 consensus says 30 is not a universal hard threshold — it varies by person and system. Do not claim a specific HRV drop.
 - **Timing (Schoenfeld 2013):** The "anabolic window" is 4-6 hours. Daily total matters more than timing.
 
 ## Cycle Phase (Female Athletes)
 - **Follicular (days 6-13):** Peak performance window. Estrogen supports strength and neural output. Push intensity and volume. Temperature is typically at or below baseline.
-- **Ovulation (days 14-16):** High power BUT **3-6x higher ACL injury risk (Hewett 2007)**. Extra warm-up, controlled landings. Temperature begins to rise (~+0.2°C) at ovulation.
+- **Ovulation (days 14-16):** High power. Some studies link this window to more ACL injuries (Wojtys 2002), but newer reviews call the evidence mixed (Dos'Santos 2023) — never quote "3-6x" (that is the female-vs-male rate, Hewett 2007). Extra warm-up, controlled landings. Temperature begins to rise (~+0.2°C) at ovulation.
 - **Luteal (days 17-28):** RPE runs 0.5-1 point higher at the same load (Sung 2014). Reduce volume 10-15%. Temp elevates ~+0.3-0.5°C above baseline (this is the high-temp phase) — don't confuse with illness.
 - **Menstrual (days 1-5):** Varies individually. Listen to readiness, not dogma. Temperature DROPS sharply at menstrual onset back to or below baseline as luteal-phase progesterone falls — DO NOT claim temperature runs higher during menstruation; that is the inverted physiology of luteal. If \`get_cycle\` returns a negative \`temperature_deviation_c\` on a menstrual-phase day, that is expected and load-bearing for the cycle narrative.
 

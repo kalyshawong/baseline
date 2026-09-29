@@ -1,4 +1,5 @@
 import type { CyclePhaseGuidance } from "@/lib/training";
+import { Cite } from "@/components/science/cite";
 
 /**
  * Cycle phase guidance card — red left border, Bebas headline.
@@ -32,9 +33,9 @@ export function CyclePhaseGuidanceCard({ guidance }: { guidance: CyclePhaseGuida
             color: "var(--color-red)",
           }}
         >
-          <p className="font-semibold">Joint awareness (Hewett 2007, Wojtys 2002)</p>
+          <p className="font-semibold">Joint awareness</p>
           <p className="mt-1">
-            ACL injury risk is 3-6x higher during ovulation. Avoid maximal plyometrics and high-impact cutting drills.
+            Some studies link the ovulatory window to more ACL injuries; newer reviews call the evidence mixed. Warm up well and keep landings controlled. <Cite ids={["wojtys2002", "hewett2007", "dossantos2023"]} />
           </p>
         </div>
       )}

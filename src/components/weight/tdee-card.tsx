@@ -1,4 +1,5 @@
 import type { CalorieFlag } from "@/lib/tdee";
+import { Cite } from "@/components/science/cite";
 
 /**
  * TDEE & Targets card — calorie/protein bars with design system styling.
@@ -79,7 +80,7 @@ export function TdeeCard({
       {proteinTarget && (
         <div className="mt-[14px]">
           <div className="flex justify-between text-[12.5px] text-[var(--color-text-muted)] mb-[6px]">
-            <span>Protein ({proteinGPerKg} g/kg)</span>
+            <span>Protein ({proteinGPerKg} g/kg <Cite ids={proteinGPerKg > 1.6 ? ["morton2018", "helms2014"] : ["morton2018"]} />)</span>
             <span className="num font-semibold text-[var(--color-text)]">
               {actualProtein != null ? Math.round(actualProtein) : 0} / {proteinTarget}g
             </span>
@@ -119,8 +120,8 @@ export function TdeeCard({
         >
           <p className="font-semibold">Low energy availability</p>
           <p className="mt-1">
-            EA: {energyAvailability?.toFixed(1)} kcal/kg FFM. Below 30 impairs recovery
-            (Loucks 2011).
+            EA: {energyAvailability?.toFixed(1)} kcal/kg FFM. Below ~30 impairs recovery
+            and raises REDs risk <Cite ids={["loucks2011", "mountjoy2023"]} />.
           </p>
         </div>
       )}

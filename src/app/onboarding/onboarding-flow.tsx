@@ -22,6 +22,7 @@ import {
 import { saveIntakeAction } from "./actions";
 import { basalMetabolicRate } from "@/lib/tdee";
 import { proteinPerKg, proteinTargetG } from "@/lib/protein";
+import { SPLIT_KINDS, SPLIT_MUSCLES, WEEKDAYS, presetDays, splitComplete, type SplitKind, type TrainingSplit } from "@/lib/strength/split";
 
 /**
  * The pilot app's IntakeFlow, on the web. Copy is the pilot's verbatim
@@ -30,12 +31,13 @@ import { proteinPerKg, proteinTargetG } from "@/lib/protein";
  * questions only for people who train.
  */
 
-type StepId = "welcome" | "goals" | "device" | "about" | "body" | "cycle" | "meds" | "training" | "schedule" | "question" | "ritual" | "build";
+export type StepId = "welcome" | "goals" | "device" | "about" | "body" | "cycle" | "meds" | "training" | "split" | "schedule" | "question" | "ritual" | "build";
 
 function stepsFor(s: IntakeState): StepId[] {
   const trains = s.goals.includes("running") || s.goals.includes("strength");
   const askCycle = s.sex !== "male";
-  return ["welcome", "goals", "device", "about", "body", ...(askCycle ? (["cycle"] as StepId[]) : []), "meds", ...(trains ? (["training"] as StepId[]) : []), "schedule", "question", "ritual", "build"];
+  const lifts = s.goals.includes("strength");
+  return ["welcome", "goals", "device", "about", "body", ...(askCycle ? (["cycle"] as StepId[]) : []), "meds", ...(trains ? (["training"] as StepId[]) : []), ...(lifts ? (["split"] as StepId[]) : []), "schedule", "question", "ritual", "build"];
 }
 
 const GOALS: { id: GoalId; title: string; detail: string }[] = [
@@ -385,6 +387,20 @@ export function OnboardingFlow({ initial, editing, startAt = null }: { initial: 
         </Step>
       )}
 
+      {step === "split" && lifts && (
+        <SplitStep
+          split={state.split}
+          onChange={(split) => patch({ split })}
+          footer={
+            <>
+              <button type="button" className="btn w-full" disabled={!splitComplete(state.split)} onClick={next}>Continue</button>
+              <button type="button" className="btn-ghost text-sm" onClick={() => { patch({ split: null }); next(); }}>I don’t follow a split</button>
+              <button type="button" className="btn-ghost text-sm" onClick={back}>Back</button>
+            </>
+          }
+        />
+      )}
+
       {step === "schedule" && (
         <Step
           ov="Your rhythm"
@@ -460,6 +476,7 @@ function Summary({ s }: { s: IntakeState }) {
   if (wearable || dev.has("oura")) lines.push("Sleep and night resting heart rate, against your own baseline band");
   if (dev.has("oura")) lines.push("Overnight HRV, stress, SpO₂ and resilience from your Oura");
   if (has("strength")) lines.push("Strength log first: sets, volume vs your landmarks, estimated 1RM, fatigue signal");
+  if (has("strength") && s.split?.days.length) lines.push(`Your split: ${s.split.days.map((d) => d.name).join(" / ")}${s.split.daysPerWeek ? `, ${s.split.daysPerWeek}× a week` : ""} — what’s usually next, and how often each muscle gets trained`);
   if (has("running")) lines.push(`Running & cardio${dev.has("apple") ? " with run dynamics from your Watch" : ""}`);
   if (wearable && (has("running") || has("strength"))) lines.push("Training load recomputed from your recorded workouts");
   if (s.cycle === "regular" || s.cycle === "irregular") lines.push("Cycle phase, and every analysis adjusted for it");
@@ -564,6 +581,75 @@ function BodyStep({ state, patch, footer }: { state: IntakeState; patch: (p: Par
       <Why lead={estimate && !state.bmrKcal ? `Estimated: ${estimate.toLocaleString()} kcal a day.` : "Optional."}>
         If you’ve had an InBody or DEXA scan, type the BMR it gave you. Otherwise leave it blank — we estimate it from your height, weight and age.
       </Why>
+    </Step>
+  );
+}
+
+/* ---------------- training split ---------------- */
+
+function SplitStep({ split, onChange, footer }: { split: TrainingSplit | null; onChange: (s: TrainingSplit) => void; footer: React.ReactNode }) {
+  const field = "w-full px-3 py-2 border bg-transparent text-sm";
+  const fieldStyle = { borderColor: "var(--color-border)" };
+  const s: TrainingSplit | null = split;
+  const pick = (kind: SplitKind) => {
+    if (s?.kind === kind) return;
+    const days = presetDays(kind);
+    onChange({ kind, daysPerWeek: s?.daysPerWeek ?? null, weekdays: s?.weekdays ?? [], days: kind === "own" ? [{ name: "", muscles: [] }] : days });
+  };
+  const setDay = (i: number, p: Partial<{ name: string; muscles: string[] }>) =>
+    s && onChange({ ...s, days: s.days.map((d, j) => (j === i ? { ...d, ...p } : d)) });
+  const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+
+  return (
+    <Step
+      ov="Your training"
+      title={"What’s your\nsplit?"}
+      sub="Your routine, not ours. Baseline never plans your sessions. It uses your split to know what’s usually next and how often each muscle gets trained, and checks it against your logs after two weeks."
+      footer={footer}
+    >
+      {SPLIT_KINDS.map((k) => (
+        <OptionRow key={k.id} title={k.title} detail={k.detail} selected={s?.kind === k.id} onClick={() => pick(k.id)} />
+      ))}
+
+      {s ? (
+        <>
+          <div className="ov mt-5">Days a week</div>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+              <Chip key={n} label={String(n)} selected={s.daysPerWeek === n} onClick={() => onChange({ ...s, daysPerWeek: n })} />
+            ))}
+          </div>
+
+          <div className="ov mt-5">Usual days <span className="text-[var(--color-text-muted)] normal-case">· optional</span></div>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            {WEEKDAYS.map((w, i) => (
+              <Chip key={w} label={w} selected={s.weekdays.includes(i)} onClick={() => onChange({ ...s, weekdays: toggle(s.weekdays, i).sort((a, b) => a - b) })} />
+            ))}
+          </div>
+
+          <div className="ov mt-5">{s.kind === "own" ? "Your days, in order" : "What each day hits"}</div>
+          {s.days.map((d, i) => (
+            <div key={i} className="mt-3 border px-3 py-3" style={fieldStyle}>
+              <div className="flex gap-2 items-center">
+                <input className={field} style={fieldStyle} placeholder={`Day ${i + 1} name`} aria-label={`Day ${i + 1} name`} maxLength={24}
+                  value={d.name} onChange={(e) => setDay(i, { name: e.target.value })} />
+                {s.kind === "own" && s.days.length > 1 ? (
+                  <button type="button" className="btn-ghost text-xs" aria-label={`Remove day ${i + 1}`} onClick={() => onChange({ ...s, days: s.days.filter((_, j) => j !== i) })}>Remove</button>
+                ) : null}
+              </div>
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {SPLIT_MUSCLES.map((m) => (
+                  <Chip key={m.id} label={m.label} selected={d.muscles.includes(m.id)} onClick={() => setDay(i, { muscles: toggle(d.muscles, m.id) })} />
+                ))}
+              </div>
+            </div>
+          ))}
+          {s.kind === "own" && s.days.length < 7 ? (
+            <button type="button" className="btn-ghost text-sm mt-3" onClick={() => onChange({ ...s, days: [...s.days, { name: "", muscles: [] }] })}>+ Add a day</button>
+          ) : null}
+          <Why lead="Exercises:">not asked. They come from the first time you log each day.</Why>
+        </>
+      ) : null}
     </Step>
   );
 }

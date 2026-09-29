@@ -10,6 +10,9 @@
  * Med NAMES are never stored — only whether something affects heart or sleep.
  */
 
+import { normalizeSplit, type TrainingSplit } from "@/lib/strength/split";
+export type { TrainingSplit } from "@/lib/strength/split";
+
 export type GoalId = "heart_steady" | "sleep" | "running" | "strength" | "food_gi" | "general";
 export type DeviceId = "apple" | "suunto" | "oura" | "garmin" | "none";
 export type WearHistory = "new" | "weeks" | "months";
@@ -47,6 +50,8 @@ export interface IntakeState {
   bmrKcal: number | null;
   /** Bulk / cut / maintain — asked when strength is a goal; sets the protein target. */
   phase: Phase | null;
+  /** Their own training split — asked when strength is a goal. Never a plan from us. */
+  split: TrainingSplit | null;
 }
 
 /** Height, weight and age answered — BMR and protein can be computed. */
@@ -72,6 +77,7 @@ export const EMPTY_INTAKE: IntakeState = {
   age: null,
   bmrKcal: null,
   phase: null,
+  split: null,
 };
 
 const GOALS = new Set<GoalId>(["heart_steady", "sleep", "running", "strength", "food_gi", "general"]);
@@ -115,6 +121,7 @@ export function normalizeIntake(raw: unknown): IntakeState {
     age: numIn(o.age, 13, 120, true),
     bmrKcal: numIn(o.bmrKcal, 700, 4500, true),
     phase: oneOf(o.phase, ["gain", "maintain", "lose"] as const),
+    split: normalizeSplit(o.split),
   };
 }
 
@@ -146,6 +153,8 @@ export interface DashboardGates {
   foodGi: boolean;
   /** Strength log leads the Body page. */
   strengthFirst: boolean;
+  /** Runs AND lifts — lifting call + run/legs conflict on Today (2026-09-28). */
+  hybrid: boolean;
 }
 
 const EVERYTHING: DashboardGates = {
@@ -165,6 +174,7 @@ const EVERYTHING: DashboardGates = {
   cycle: true,
   foodGi: true,
   strengthFirst: false,
+  hybrid: true,
 };
 
 export function gatesFor(intake: IntakeState | null): DashboardGates {
@@ -195,6 +205,7 @@ export function gatesFor(intake: IntakeState | null): DashboardGates {
     cycle: cycleTracked,
     foodGi: g.has("food_gi"),
     strengthFirst: lifts && !runs,
+    hybrid: lifts && runs,
   };
 }
 

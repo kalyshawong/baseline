@@ -10,7 +10,7 @@ import { PwaRegister } from "@/components/pwa-register";
 import { NativeHealthInit } from "@/components/native/native-health-init";
 import { TzCookie } from "@/components/tz-cookie";
 import { DayRollover } from "@/components/day-rollover";
-import { MobileTabBar } from "@/components/mobile/mobile-tab-bar";
+import { MobileNav } from "@/components/mobile/mobile-nav";
 import { DemoBanner } from "@/components/demo-banner";
 import { TzMismatchBanner } from "@/components/tz-mismatch-banner";
 
@@ -79,7 +79,7 @@ export default function RootLayout({
           <Nav />
         </div>
         {children}
-        <MobileTabBar />
+        <MobileNav />
       </body>
     </html>
   );

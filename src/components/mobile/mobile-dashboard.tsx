@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import type { HrvBaselineSummary } from "@/lib/training-call";
 import type { TrainingCall } from "@/lib/training";
 import { SyncButton } from "@/components/dashboard/sync-button";
@@ -101,6 +101,8 @@ export type MobileDashboardProps = {
   sleepTargetTime: string | null;
   mealCount: number;
   workoutSummary: string | null;
+  /** Hybrid mode (runs + lifts): lifting call + run/legs conflict, under Today's Call. */
+  hybrid?: ReactNode;
 };
 
 const STATUS_LABEL: Record<string, string> = { green: "Push", yellow: "Caution", red: "Recover" };
@@ -291,6 +293,8 @@ export function MobileDashboard(p: MobileDashboardProps) {
               <div className="rec">{p.call.actionLine}</div>
             </div>
           )}
+
+          {p.hybrid}
 
           {/* Readiness + Sleep mini row */}
           {(p.readiness != null || p.sleep?.totalSleepDuration != null) && (

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { activityLabel, kgToLb, lbToKg } from "@/lib/tdee";
+import { Cite } from "@/components/science/cite";
 
 interface Profile {
   bodyWeightKg: number | null;
@@ -137,7 +138,7 @@ export function WeightGoalSettings({ profile }: { profile: Profile | null }) {
 
           <div>
             <p className="mb-1 text-xs text-[var(--color-text-muted)]">
-              For accurate TDEE (Mifflin-St Jeor)
+              For accurate TDEE (Mifflin-St Jeor <Cite ids={["mifflin1990", "frankenfield2005"]} />)
             </p>
             <div className="grid grid-cols-3 gap-2">
               <input

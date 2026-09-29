@@ -194,7 +194,7 @@ export function LifterBody({ data, blockHref, blockLabel }: { data: LifterBodyDa
 
       {blockHref ? (
         <div className="wrap" style={{ marginTop: 14 }}>
-          <Link href={blockHref} className="st-link"><span className="k">Block</span><span className="t">{blockLabel ?? "This block"}</span><span className="s">Volume ramp and deload signals</span></Link>
+          <Link href={blockHref} className="st-link"><span className="k">Block</span><span className="t">{blockLabel ?? "This block"}</span><span className="s">Your weeks and fatigue signals</span></Link>
         </div>
       ) : null}
     </>

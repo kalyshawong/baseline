@@ -11,6 +11,7 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
+import { Cite } from "@/components/science/cite";
 
 interface VolumeTrendRow {
   week: string;
@@ -179,7 +180,7 @@ export function TrendsCharts() {
               Estimated 1RM Trend
             </h2>
             <p className="text-xs text-[var(--color-text-muted)]">
-              Epley formula per compound lift
+              Epley formula per compound lift · most accurate at ≤10 reps <Cite ids={["epley1985", "reynolds2006"]} />
             </p>
           </div>
           <div className="mb-3 flex flex-wrap gap-1.5">

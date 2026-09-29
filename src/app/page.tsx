@@ -23,6 +23,8 @@ import { MobileDashboard } from "@/components/mobile/mobile-dashboard";
 import { EveningCheckin } from "@/components/dashboard/evening-checkin";
 import { LifterToday } from "@/components/strength/lifter-today";
 import { lifterToday } from "@/lib/strength/today";
+import { hybridToday } from "@/lib/hybrid";
+import { HybridCard } from "@/components/hybrid/hybrid-card";
 import { blockData } from "@/lib/strength/block";
 import "@/app/strength.css";
 import { getEveningCheckinData, type CheckinData } from "@/lib/evening-checkin";
@@ -495,15 +497,18 @@ export default async function Dashboard({
       : null;
 
   // Strength mode (screen 3): lifters get the call card instead of the cardio dashboard on mobile.
-  const lifterData = gates.strengthFirst ? await lifterToday().catch(() => null) : null;
+  const lifterData = gates.strengthFirst ? await lifterToday(gates.intake?.split ?? null).catch(() => null) : null;
   const lifterBlock = lifterData ? await blockData().catch(() => null) : null;
+  // Hybrid (runs + lifts): same lifting call, plus the run/legs conflict — today only.
+  const hybridLift = gates.hybrid && isToday ? await lifterToday(gates.intake?.split ?? null).catch(() => null) : null;
+  const hybridData = hybridLift ? await hybridToday(hybridLift.muscles.map((m) => m.id)).catch(() => null) : null;
 
   return (
     <>
       {/* Mobile (Baseline iOS design) — below md only */}
       <div className="md:hidden">
         {lifterData ? (
-          <LifterToday data={lifterData} dateLabel={viewDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz }).toUpperCase()} blockLabel={lifterBlock ? `Block ${lifterBlock.number} · ${lifterBlock.currentWeek === 6 ? "Deload week" : `Week ${lifterBlock.currentWeek} of 5`}` : undefined} />
+          <LifterToday data={lifterData} dateLabel={viewDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz }).toUpperCase()} blockLabel={lifterBlock ? `Block ${lifterBlock.number} · Week ${lifterBlock.currentWeek}` : undefined} />
         ) : (
         <MobileDashboard
           tz={tz}
@@ -549,6 +554,7 @@ export default async function Dashboard({
           sleepTargetTime={sleepTargetTime}
           mealCount={nutritionEntryCount}
           workoutSummary={workoutSummary}
+          hybrid={hybridLift && hybridData ? <HybridCard lift={hybridLift} hybrid={hybridData} /> : null}
         />
         )}
       </div>

@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { estimate1RM } from "@/lib/training";
 import { GoalTagger } from "./goal-tagger";
+import { Cite } from "@/components/science/cite";
 
 interface Exercise {
   id: string;
@@ -387,7 +388,7 @@ export function WorkoutLogger({
                   {currentSuggestion.action === "decrease" && "↓ Decrease weight"}
                 </span>
                 <span className="font-mono text-[10px] opacity-70">
-                  Zourdos 2016
+                  <Cite ids={["zourdos2016"]} dash={false} />
                 </span>
               </div>
               <p className="mt-1 leading-relaxed">{currentSuggestion.message}</p>

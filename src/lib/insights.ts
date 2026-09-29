@@ -307,11 +307,12 @@ export async function generateInsights(): Promise<FindingsResult> {
 
   const [allTags, allLifeLogs, sleepData, readinessData, nutritionLogs, nutritionEntries, phaseLogs] = await Promise.all([
     prisma.activityTag.findMany({
-      where: { timestamp: { gte: windowStart } },
+      // hybrid = swap yes/no answers (2026-09-28) — bookkeeping, not a life signal
+      where: { timestamp: { gte: windowStart }, NOT: { category: "hybrid" } },
       select: { tag: true, category: true, timestamp: true },
     }),
     prisma.lifeContextLog.findMany({
-      where: { day: { gte: windowStart } },
+      where: { day: { gte: windowStart }, NOT: { def: { label: "Training break" } } },
       select: { day: true, def: { select: { label: true, category: true, groupKey: true } } },
     }),
     prisma.dailySleep.findMany({

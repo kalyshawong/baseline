@@ -46,7 +46,7 @@ Metric definitions you MUST respect — do NOT confuse these:
 - "Baseline composite score" is Baseline's proprietary 0-100 daily score (readiness + HRV trend + sleep quality + temp). It is NOT the same as the Oura Readiness score even though both are 0-100.
 - "Oura Readiness score" is Oura's own 0-100 score, calculated separately. Cite it as "Readiness" only; never call Baseline composite the "readiness score."
 - "HRV (overnight)" is the raw HRV in ms from last night. On its own it's a single point and easy to over-interpret.
-- "HRV CV" is the coefficient of variation across the trailing 7 days, as a percentage. This is the load-bearing metric Hyrox/hybrid athletes care about — >10% suggests autonomic instability and overreaching (Flatt & Esco 2016). When you reference HRV in a multi-day sense (overreaching, fatigue, instability), use HRV CV, not the raw overnight value.
+- "HRV CV" is the coefficient of variation across the trailing 7 days, as a percentage. This is the load-bearing metric Hyrox/hybrid athletes care about — values above the athlete's own normal (10% is Baseline's default, not a published cutoff) suggest strain (Flatt 2017). When you reference HRV in a multi-day sense (overreaching, fatigue, instability), use HRV CV, not the raw overnight value.
 
 Style rules:
 - Lead with the most likely explanation. Cite actual numbers (HRV CV %, Baseline composite, Readiness, sleep duration, time-gaps, etc.) — vague analysis is useless analysis.

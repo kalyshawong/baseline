@@ -70,11 +70,31 @@ const TABS = [
   },
 ];
 
-export function MobileTabBar() {
+/** Hybrid (runs + lifts): Body splits into two tabs — Run and Lift (2026-09-28). */
+const LIFT_PATHS = /^\/body\/(lift|session|checkin|block)(\/|$)/;
+const RUN_TAB = {
+  href: "/body",
+  label: "Run",
+  isActive: (p: string) => p.startsWith("/body") && !LIFT_PATHS.test(p),
+  icon: TABS[2].icon,
+};
+const LIFT_TAB = {
+  href: "/body/lift",
+  label: "Lift",
+  isActive: (p: string) => LIFT_PATHS.test(p),
+  icon: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M6 7v10M3 9.5v5M18 7v10M21 9.5v5M6 12h12" />
+    </svg>
+  ),
+};
+
+export function MobileTabBar({ hybrid = false }: { hybrid?: boolean }) {
   const pathname = usePathname() ?? "/";
+  const tabs = hybrid ? [TABS[0], TABS[1], RUN_TAB, LIFT_TAB, TABS[3], TABS[4]] : TABS;
   return (
-    <nav className="m-tabbar md:hidden" aria-label="Primary">
-      {TABS.map((t) => (
+    <nav className="m-tabbar md:hidden" aria-label="Primary" style={hybrid ? { gridTemplateColumns: `repeat(${tabs.length}, 1fr)` } : undefined}>
+      {tabs.map((t) => (
         <Link
           key={t.href}
           href={t.href}

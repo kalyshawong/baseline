@@ -1,4 +1,5 @@
 import { volumeZones, classifyVolume, volumeStatusLabel } from "@/lib/training";
+import { Cite } from "@/components/science/cite";
 
 /**
  * Weekly Volume zones card — MEV/MAV/MRV bar chart.
@@ -44,7 +45,7 @@ export function VolumeZones({ data }: { data: MuscleVolume[] }) {
     <div className="panel p-[22px_24px]">
       <p className="ov">Weekly Volume</p>
       <p className="text-xs text-[var(--color-faint)] mt-[2px]">
-        Sets per muscle group vs MEV/MAV/MRV (Israetel 2021)
+        Sets per muscle group vs MEV/MAV/MRV <Cite ids={["israetel2021"]} dash={false} /> · more sets = more growth, with diminishing returns <Cite ids={["schoenfeld2017", "pelland2026"]} />
       </p>
 
       {/* Alerts */}

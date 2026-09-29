@@ -5,8 +5,9 @@ import { fmtMin, type LifterToday as TodayData } from "@/lib/strength/today";
 
 /**
  * Today, lifter version — design_handoff_baseline_ios_strength, screen 3.
- * Call card (Push / Hold / Deload per muscle on deck) · What made the call
- * (four inputs vs own normal, no HRV) · Start · Morning / Evening / Block links.
+ * DATA ONLY (2026-09-28): no Push / Hold / Deload. "Usually next" card (their
+ * split's next day, muscles on deck, times trained this week) · Today vs your
+ * normal (four inputs, no HRV) · Start · Morning / Evening / Block links.
  */
 
 const f1 = (n: number) => (Math.round(n * 10) / 10).toFixed(1).replace(/\.0$/, "");
@@ -34,30 +35,33 @@ export function LifterToday({ data, dateLabel, blockLabel }: { data: TodayData; 
       </div>
 
       <div className="wrap" style={{ marginTop: 14 }}><div className="stack-lg">
-        <section className={`st-call${d.anyPush ? "" : " nopush"}`}>
-          <div className="hd"><span className="ov">Today&apos;s call</span><span className="sess">{sessionLabel}</span></div>
+        <section className="st-call">
+          <div className="hd"><span className="ov">{d.nextSource ? "Usually next" : "Today"}</span><span className="sess">{sessionLabel}</span></div>
           {d.muscles.length ? d.muscles.map((m) => (
             <div className="st-mrow" key={m.id}>
               <div>
                 <div className="mn">{m.name}</div>
                 <div className="ms">
-                  {m.sets} sets this week{m.band ? ` · your band ${m.band[0]}–${m.band[2]}` : ""}{m.sore != null ? ` · soreness ${m.sore}` : ""}
+                  {m.sets} sets this week{m.band ? ` · band ${m.band[0]}–${m.band[2]}` : ""}{m.sore != null ? ` · soreness ${m.sore}` : ""}
                 </div>
               </div>
-              <div className={`vd ${m.verdict.toLowerCase()}`}>{m.verdict}</div>
+              <div className="vd num" aria-label={`Trained ${m.hits} times in the last 7 days`}>{m.hits}×</div>
             </div>
           )) : (
-            <div className="st-mrow"><div><div className="mn">No session on deck</div><div className="ms">Log your first session and the next one gets a call per muscle.</div></div></div>
+            <div className="st-mrow"><div><div className="mn">{d.template ? `First ${d.template}` : "Nothing logged yet"}</div><div className="ms">{d.template ? "Log it once and its muscles show here." : "Log a session and it shows here."}</div></div></div>
           )}
           <div className="st-legend">
-            <span><b className="push">Push</b>add load or a set vs last session</span>
-            <span><b className="hold">Hold</b>repeat last session</span>
-            <span><b className="deload">Deload</b>half the sets, −10% load</span>
+            <span>× = times trained in the last 7 days{d.muscles.some((m) => m.usualHits != null) ? ` · your split: ${d.muscles.map((m) => `${m.name.toLowerCase()} ${m.usualHits}×`).join(", ")}` : ""}</span>
+            <span>
+              {d.splitLabel ? `Your split · ${d.splitLabel}` : d.nextSource === "history" ? "Next = the session you’ve gone longest without" : ""}
+              {d.week.stated ? `${d.splitLabel || d.nextSource ? " · " : ""}${d.week.done} of ${d.week.stated} sessions this week` : d.week.done ? `${d.splitLabel || d.nextSource ? " · " : ""}${d.week.done} session${d.week.done === 1 ? "" : "s"} this week` : ""}
+            </span>
+            {!d.splitLabel ? <Link href="/onboarding?edit=1&at=split" className="st-g">Add your split →</Link> : null}
           </div>
         </section>
 
         <section className="panel">
-          <div className="ph"><span className="ov">What made the call</span><span className="st-k">vs your 60-day normal</span></div>
+          <div className="ph"><span className="ov">Today vs your normal</span><span className="st-k">vs your 60-day normal</span></div>
           <div className="st-in">
             <div className="b">
               <div className="l">Sleep last night</div>
@@ -80,7 +84,7 @@ export function LifterToday({ data, dateLabel, blockLabel }: { data: TodayData; 
               {d.soreness.present && d.soreness.lines.length ? (
                 <div className="v">{d.soreness.lines[0]}<small>{d.soreness.lines.slice(1).join(" · ").toLowerCase()}</small></div>
               ) : (
-                <div className="c" style={{ marginTop: 4 }}>{d.soreness.present ? "Nothing sore in today's muscles" : "No check-in last night — soreness left out of today's call"}</div>
+                <div className="c" style={{ marginTop: 4 }}>{d.soreness.present ? "Nothing sore in today's muscles" : "No check-in last night"}</div>
               )}
             </div>
             <span className={`ef ${d.soreness.effect.tone}`}>{d.soreness.effect.text}</span>
@@ -120,7 +124,7 @@ export function LifterToday({ data, dateLabel, blockLabel }: { data: TodayData; 
           </Link>
           <Link href="/body/block" className="st-link">
             <span className="k">Block</span><span className="t">{blockLabel ?? "This block"}</span>
-            <span className="s">Volume ramp and deload signals</span>
+            <span className="s">Your weeks and fatigue signals</span>
           </Link>
         </div>
       </div></div>
