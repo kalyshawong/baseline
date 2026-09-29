@@ -825,22 +825,22 @@ export default async function BodyPage({
       {/* ─── PAGE HEADER ─── */}
       <div className="flex items-center justify-between" style={{ paddingTop: "26px" }}>
         <div>
-          <h1 className="disp text-[46px] leading-[0.9] tracking-[0.02em] whitespace-nowrap">BODY</h1>
+          <h1 className="disp text-[46px] leading-[0.9] tracking-[0.02em] whitespace-nowrap">{hybridTabs ? (bodyView === "lift" ? "LIFT" : "RUN") : "BODY"}</h1>
           <p className="mt-[3px] text-sm font-medium text-[var(--color-text-muted)]">
             Training readiness, recovery &amp; composition
           </p>
         </div>
-        <DateNav basePath="/body" />
+        <DateNav basePath={hybridTabs && bodyView === "lift" ? "/body/lift" : "/body"} />
       </div>
 
       {/* ─── HYROX STRIP ─── */}
       <div className="mt-6">
-        {gates.cardio && <HyroxSummaryCard />}
+        {gates.cardio && bodyView !== "lift" && <HyroxSummaryCard />}
       </div>
 
       {garminCard ? <div className="mt-6">{garminCard}</div> : null}
 
-      {gates.strengthFirst && strengthDesktop}
+      {bodyView === "lift" && strengthDesktop}
 
       {/* ─── READINESS HERO BAND ─── */}
       <div className="mt-6">
@@ -971,7 +971,7 @@ export default async function BodyPage({
         </div>
       </div>
 
-      {gates.cardio && (
+      {gates.cardio && bodyView !== "lift" && (
         <>
       {/* ─── RUNNING & CARDIO ─── */}
       <SectionLabel>Running &amp; Cardio</SectionLabel>
@@ -1009,7 +1009,7 @@ export default async function BodyPage({
         </>
       )}
 
-      {!gates.strengthFirst && strengthDesktop}
+      {bodyView === "all" && strengthDesktop}
 
       {/* ─── RECOVERY ─── */}
       <SectionLabel>Recovery</SectionLabel>

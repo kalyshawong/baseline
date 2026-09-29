@@ -13,14 +13,23 @@ const links = [
   { href: "/account", label: "Account" },
 ];
 
-function isActive(pathname: string, href: string): boolean {
+/** Hybrid (runs + lifts): Body splits into Run and Lift (2026-09-29). */
+const LIFT_PATHS = /^\/body\/(lift|session|checkin|block)(\/|$)/;
+const hybridLinks = links.flatMap((l) =>
+  l.href === "/body" ? [{ href: "/body", label: "Run" }, { href: "/body/lift", label: "Lift" }] : [l],
+);
+
+function isActive(pathname: string, href: string, hybrid = false): boolean {
   if (href === "/") return pathname === "/";
+  if (hybrid && href === "/body/lift") return LIFT_PATHS.test(pathname);
+  if (hybrid && href === "/body") return pathname.startsWith("/body") && !LIFT_PATHS.test(pathname);
   return pathname.startsWith(href);
 }
 
-export function Nav() {
+export function Nav({ hybrid = false }: { hybrid?: boolean }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const items = hybrid ? hybridLinks : links;
 
   return (
     <nav className="sticky top-0 z-50 border-b-2 border-[var(--color-border)] bg-[var(--color-bg)]">
@@ -37,12 +46,12 @@ export function Nav() {
 
         {/* Desktop nav */}
         <div className="hidden gap-1.5 sm:flex">
-          {links.map((l) => (
+          {items.map((l) => (
             <Link
               key={l.href}
               href={l.href}
               className={`angled-clip px-4 py-2 text-[13px] font-bold uppercase tracking-[0.06em] transition duration-150 ease-out-strong ${
-                isActive(pathname, l.href)
+                isActive(pathname, l.href, hybrid)
                   ? "bg-[var(--color-gold)] text-[var(--color-bg)] accent-glow"
                   : "text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]"
               }`}
@@ -73,13 +82,13 @@ export function Nav() {
       {/* Mobile dropdown */}
       {open && (
         <div className="border-t-2 border-[var(--color-border)] px-9 py-2 sm:hidden">
-          {links.map((l) => (
+          {items.map((l) => (
             <Link
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}
               className={`block px-4 py-2.5 text-[13px] font-bold uppercase tracking-[0.06em] transition duration-150 ease-out-strong ${
-                isActive(pathname, l.href)
+                isActive(pathname, l.href, hybrid)
                   ? "bg-[var(--color-gold)] text-[var(--color-bg)]"
                   : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
               }`}

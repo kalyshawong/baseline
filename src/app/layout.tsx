@@ -5,12 +5,11 @@ import "./mobile.css";
 import "./mobile-mind.css";
 import "./dashboard-desktop.css";
 import "./mind-desktop.css";
-import { Nav } from "@/components/nav";
 import { PwaRegister } from "@/components/pwa-register";
 import { NativeHealthInit } from "@/components/native/native-health-init";
 import { TzCookie } from "@/components/tz-cookie";
 import { DayRollover } from "@/components/day-rollover";
-import { MobileNav } from "@/components/mobile/mobile-nav";
+import { MobileNav, DesktopNav } from "@/components/mobile/mobile-nav";
 import { DemoBanner } from "@/components/demo-banner";
 import { TzMismatchBanner } from "@/components/tz-mismatch-banner";
 
@@ -76,7 +75,7 @@ export default function RootLayout({
         <DemoBanner />
         <TzMismatchBanner />
         <div className="hidden md:block">
-          <Nav />
+          <DesktopNav />
         </div>
         {children}
         <MobileNav />

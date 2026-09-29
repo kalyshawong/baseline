@@ -641,6 +641,14 @@ export default async function Dashboard({
           ]}
         />
 
+      {/* Hybrid (runs + lifts): lifting + run/legs card. Mobile styles as a
+          stopgap until her desktop design pass. */}
+      {hybridLift && hybridData && (
+        <div className="bl-m" style={{ minHeight: 0, paddingTop: 0, background: "none", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "start" }}>
+          <HybridCard lift={hybridLift} hybrid={hybridData} />
+        </div>
+      )}
+
       {/* Row 2 · evidence: sleep | your baseline | calories over cycle */}
       <section className="evidence">
         <SleepCompact

@@ -1,14 +1,22 @@
+import { cache } from "react";
 import { getIntakeStatus } from "@/lib/intake";
 import { MobileTabBar } from "@/components/mobile/mobile-tab-bar";
+import { Nav } from "@/components/nav";
 
-/** Server wrapper: hybrid users (runs + lifts) get Run and Lift tabs instead of Body. */
-export async function MobileNav() {
-  let hybrid = false;
+/** Hybrid users (runs + lifts) get Run and Lift in place of Body — both navs, one lookup per request. */
+export const isHybridNav = cache(async (): Promise<boolean> => {
   try {
     const { gates } = await getIntakeStatus();
-    hybrid = gates.hybrid && !gates.strengthFirst;
+    return gates.hybrid && !gates.strengthFirst;
   } catch {
-    /* signed out / no DB — default tabs */
+    return false; // signed out / no DB — default tabs
   }
-  return <MobileTabBar hybrid={hybrid} />;
+});
+
+export async function MobileNav() {
+  return <MobileTabBar hybrid={await isHybridNav()} />;
+}
+
+export async function DesktopNav() {
+  return <Nav hybrid={await isHybridNav()} />;
 }
