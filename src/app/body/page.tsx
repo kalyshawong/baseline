@@ -481,7 +481,7 @@ export default async function BodyPage({
                       <div>
                         <div className="nm">{session.templateName ?? "Freestyle"}</div>
                         <div className="dt">
-                          {session.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                          {session.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}
                           {" · "}{session.sets.length} sets
                           {session.completedAt && session.sessionVolume != null && <> · {Math.round(session.sessionVolume).toLocaleString()} vol</>}
                         </div>
@@ -574,6 +574,7 @@ export default async function BodyPage({
                           weekday: "short",
                           month: "short",
                           day: "numeric",
+                          timeZone: "UTC", // session.date is a UTC-midnight calendar day
                         })}
                         {" · "}{session.sets.length} sets
                         {session.completedAt && session.sessionVolume != null && (
