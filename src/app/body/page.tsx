@@ -10,7 +10,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { hasSmartScale } from "@/lib/smart-scale";
 import { getCurrentUserId } from "@/lib/current-user";
-import { getDateFromParams, getRequestTz } from "@/lib/date-utils";
+import { getDateFromParams, getRequestTz, getLocalDayBounds } from "@/lib/date-utils";
 import { getScoreForDate } from "@/lib/baseline-score";
 import {
   cyclePhaseGuidance,
@@ -222,6 +222,15 @@ export default async function BodyPage({
       templateName: true,
       sets: { select: { setNumber: true, reps: true, weight: true, isWarmup: true, exercise: { select: { name: true } } } },
     },
+  });
+  // Apple Watch workouts that day (local-day bounds) — shown alongside the
+  // logged exercises so a past day always shows what she did.
+  const requestTz = await getRequestTz();
+  const { start: dayStart, end: dayEnd } = getLocalDayBounds(viewDate.toISOString().slice(0, 10), requestTz);
+  const dayWatchWorkouts = await prisma.healthKitWorkout.findMany({
+    where: { startedAt: { gte: dayStart, lt: dayEnd } },
+    orderBy: { startedAt: "asc" },
+    select: { id: true, name: true, startedAt: true, durationSeconds: true, activeCalories: true, avgHeartRate: true, distance: true, distanceUnit: true },
   });
   const dayLabel = viewDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 
@@ -468,7 +477,7 @@ export default async function BodyPage({
                   ))}
                 </div>
               )}
-              <DayWorkouts sessions={daySessions} dateLabel={dayLabel} unit={unit} variant="mobile" />
+              <DayWorkouts sessions={daySessions} watchWorkouts={dayWatchWorkouts} tz={requestTz} dateLabel={dayLabel} unit={unit} variant="mobile" />
               <div className="listcard">
                 <div className="ov" style={{ marginBottom: 12 }}>Recent Workouts</div>
                 {recentSessions.length === 0 ? (
@@ -546,7 +555,7 @@ export default async function BodyPage({
               </div>
             )}
 
-            <DayWorkouts sessions={daySessions} dateLabel={dayLabel} unit={unit} variant="desktop" />
+            <DayWorkouts sessions={daySessions} watchWorkouts={dayWatchWorkouts} tz={requestTz} dateLabel={dayLabel} unit={unit} variant="desktop" />
 
             {/* Recent Workouts */}
             <div className="panel p-[22px_24px]">
@@ -639,7 +648,7 @@ export default async function BodyPage({
               </div>
               <LifterBody data={lifter} blockHref="/body/block" blockLabel={block ? `Block ${block.number} · ${block.currentWeek === 6 ? "Deload week" : `Week ${block.currentWeek} of 5`}` : undefined} />
               <div className="wrap" style={{ marginTop: 14 }}>
-                <DayWorkouts sessions={daySessions} dateLabel={dayLabel} unit={unit} variant="mobile" />
+                <DayWorkouts sessions={daySessions} watchWorkouts={dayWatchWorkouts} tz={requestTz} dateLabel={dayLabel} unit={unit} variant="mobile" />
               </div>
             </>
           ) : (

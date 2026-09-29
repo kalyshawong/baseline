@@ -14,13 +14,29 @@ export interface DayWorkoutSession {
  * and grouped by exercise in the order they were done.
  * Weights are stored in kg and shown in the profile unit.
  */
+export interface DayWatchWorkout {
+  id: string;
+  name: string;
+  startedAt: Date;
+  durationSeconds: number | null;
+  activeCalories: number | null;
+  avgHeartRate: number | null;
+  distance: number | null;
+  distanceUnit: string | null;
+}
+
 export function DayWorkouts({
   sessions,
+  watchWorkouts = [],
+  tz,
   dateLabel,
   unit,
   variant,
 }: {
   sessions: DayWorkoutSession[];
+  /** Apple Watch workouts that day — what she did even if nothing was logged. */
+  watchWorkouts?: DayWatchWorkout[];
+  tz?: string;
   dateLabel: string;
   unit: "lb" | "kg";
   variant: "mobile" | "desktop";
@@ -59,12 +75,49 @@ export function DayWorkouts({
     );
   });
 
+  const watchRows = watchWorkouts.map((w) => {
+    const time = w.startedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", ...(tz ? { timeZone: tz } : {}) });
+    const bits = [
+      w.durationSeconds ? `${Math.round(w.durationSeconds / 60)} min` : null,
+      w.distance ? `${w.distance.toFixed(2)} ${w.distanceUnit ?? "km"}` : null,
+      w.activeCalories ? `${Math.round(w.activeCalories)} kcal` : null,
+      w.avgHeartRate ? `avg ${Math.round(w.avgHeartRate)} bpm` : null,
+    ].filter(Boolean).join(" · ");
+    if (variant === "mobile") {
+      return (
+        <div key={w.id} className="lrow">
+          <div>
+            <div className="nm">{w.name}</div>
+            <div className="dt">{time} · Apple Watch</div>
+          </div>
+          <div className="rt"><div className="sm">{bits}</div></div>
+        </div>
+      );
+    }
+    return (
+      <div key={w.id} className="flex items-center justify-between bg-[var(--color-surface-2)] px-[14px] py-[9px] text-[13px] mt-[6px]">
+        <span>
+          <span className="font-semibold">{w.name}</span>
+          <span className="text-[11.5px] text-[var(--color-faint)]"> · {time} · Apple Watch</span>
+        </span>
+        <span className="text-[11.5px] text-[var(--color-faint)] tabular-nums">{bits}</span>
+      </div>
+    );
+  });
+
   const body =
-    rows.length === 0 ? (
+    rows.length === 0 && watchRows.length === 0 ? (
       <p style={{ fontSize: 12.5, color: "var(--dim, var(--color-text-muted))" }}>No workouts logged on {dateLabel}.</p>
     ) : (
       <>
+        {watchRows}
         {rows}
+        {rows.length === 0 && (
+          <p style={{ fontSize: 12, color: "var(--dim, var(--color-text-muted))", marginTop: 10 }}>
+            No exercises logged for this day.{" "}
+            <Link href="/body/workout/new?backfill=1" className="linklike">Log past workout</Link>
+          </p>
+        )}
         {sessions.length === 1 && (
           <Link href={`/body/workout/${sessions[0].id}`} className="linklike" style={{ display: "inline-block", marginTop: 10, fontSize: 12 }}>
             Edit workout
