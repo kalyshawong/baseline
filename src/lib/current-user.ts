@@ -32,7 +32,12 @@ export const SOLO_USER_ID = "usr_kalysha";
 const tenantOverride = new AsyncLocalStorage<{ userId: string }>();
 
 export function runAsUser<T>(userId: string, fn: () => Promise<T>): Promise<T> {
-  return tenantOverride.run({ userId }, fn);
+  // Await INSIDE the context. A bare Prisma call (\`() => prisma.x.findMany()\`)
+  // returns a lazy PrismaPromise that only runs when .then() is called — which
+  // would otherwise happen after run() returns, outside the override, so the
+  // query silently ran as the fallback tenant (found 2026-09-28: demo answer
+  // generation read usr_kalysha's workouts).
+  return tenantOverride.run({ userId }, async () => await fn());
 }
 
 export async function getCurrentUserId(): Promise<string> {

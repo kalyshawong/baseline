@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { getCurrentUserId, runAsUser } from "@/lib/current-user";
+import { runAsUser } from "@/lib/current-user";
 import { runCoachTurn } from "@/lib/coach-run";
 import { buildWorkoutDiscussionStarter } from "@/lib/workout-discussion";
 import { DEMO_USER_ID } from "@/lib/demo/constants";
@@ -60,8 +60,8 @@ export async function generateDemoWorkoutAnswers(now: Date = new Date()): Promis
 
   const since = new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000);
   const until = new Date(now.getTime() + 2 * 86_400_000); // seed keeps one "tomorrow"
-  const workouts = await runAsUser(DEMO_USER_ID, () =>
-    prisma.healthKitWorkout.findMany({
+  const workouts = await runAsUser(DEMO_USER_ID, async () =>
+    await prisma.healthKitWorkout.findMany({
       where: { startedAt: { gte: since, lt: until } },
       orderBy: { startedAt: "desc" },
       take: MAX_WORKOUTS,
@@ -107,11 +107,7 @@ async function answerOne(w: { id: string; name: string; startedAt: Date }): Prom
   const question = await runAsUser(DEMO_USER_ID, () =>
     buildWorkoutDiscussionStarter("healthkit", w.id, DEMO_TZ),
   );
-  if (!question) {
-    const row = await raw().healthKitWorkout.findUnique({ where: { id: w.id }, select: { userId: true } });
-    const seen = await runAsUser(DEMO_USER_ID, () => getCurrentUserId());
-    throw new Error(`no draft for workout (row user ${row?.userId ?? "none"}, tenant ${seen})`);
-  }
+  if (!question) throw new Error("no draft for workout");
 
   const turn = await runAsUser(DEMO_USER_ID, () =>
     runCoachTurn({ history: [{ role: "user", content: question }] }),
