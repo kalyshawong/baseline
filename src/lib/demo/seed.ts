@@ -347,6 +347,146 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
     host.sessionVolume = Math.round(volume);
   }
 
+  // ---- synthetic strength history (Kalysha, 2026-09-28: "demo is for fake
+  // data! fill in!") ------------------------------------------------------------
+  // Her real in-app strength log only starts in late September, so the
+  // 8-week volume trend was flat and the PRs dated from June. The demo now
+  // carries a made-up 8-week upper/lower split (4 days a week) ending on the
+  // showcase upper day, with loads climbing ~2% a week toward the showcase
+  // loads. Every other real strength session is dropped. Loads are rounded
+  // to 5 lb (2.5 lb for small dumbbells).
+  type Lift = { name: string; sets: number; reps: number; lb: number };
+  const LOWER_A: Lift[] = [
+    { name: "Back Squat", sets: 4, reps: 6, lb: 135 },
+    { name: "Romanian Deadlift", sets: 3, reps: 8, lb: 115 },
+    { name: "Leg Press", sets: 3, reps: 10, lb: 250 },
+    { name: "Seated Leg Curl", sets: 3, reps: 10, lb: 70 },
+    { name: "Calf Raise", sets: 4, reps: 10, lb: 90 },
+    { name: "Cable Crunch", sets: 3, reps: 12, lb: 60 },
+  ];
+  const UPPER_B: Lift[] = [
+    { name: "Pull-Up", sets: 3, reps: 6, lb: 0 },
+    { name: "Dumbbell Row", sets: 3, reps: 8, lb: 40 },
+    { name: "Incline Bench Press", sets: 4, reps: 8, lb: 85 },
+    { name: "Cable Fly", sets: 4, reps: 10, lb: 25 },
+    { name: "Lateral Raise", sets: 3, reps: 12, lb: 15 },
+    { name: "Face Pull", sets: 3, reps: 12, lb: 40 },
+  ];
+  const LOWER_B: Lift[] = [
+    { name: "Bulgarian Split Squat", sets: 3, reps: 8, lb: 30 },
+    { name: "Hip Thrust", sets: 3, reps: 8, lb: 155 },
+    { name: "Leg Extension", sets: 3, reps: 12, lb: 80 },
+    { name: "Lying Leg Curl", sets: 3, reps: 10, lb: 60 },
+    { name: "Calf Raise", sets: 4, reps: 12, lb: 80 },
+    { name: "Hanging Leg Raise", sets: 3, reps: 12, lb: 0 },
+  ];
+  const LB = 2.20462;
+  const hostSession = sessions.find((x) => x.date.getTime() === showcase.getTime());
+  const upperA: Lift[] = UPPER_DAY.map((e) => ({
+    name: e.name,
+    sets: e.sets,
+    reps: e.reps,
+    lb: (e.kg ?? lastKg.get(e.name) ?? e.fallbackKg) * LB,
+  }));
+  const allLiftNames = [...new Set([...LOWER_A, ...UPPER_B, ...LOWER_B].map((l) => l.name))];
+  const moreCatalog = await db.exercise.findMany({
+    where: { userId: null, name: { in: allLiftNames } },
+    select: { id: true, name: true },
+  });
+  for (const e of moreCatalog) catalogId.set(e.name, e.id);
+  // Drop every real strength session except the showcase host.
+  {
+    const dropIds = new Set(sessions.filter((x) => x !== hostSession).map((x) => x.id));
+    for (let i = sessions.length - 1; i >= 0; i--) if (dropIds.has(sessions[i].id)) sessions.splice(i, 1);
+    for (let i = sets.length - 1; i >= 0; i--) if (dropIds.has(sets[i].sessionId)) sets.splice(i, 1);
+  }
+  if (hostSession) hostSession.templateName = "Upper A";
+  const roundLb = (lb: number) => (lb < 50 ? Math.round(lb / 2.5) * 2.5 : Math.round(lb / 5) * 5);
+  // Session instants are pre-shift source times; subtract the wall-clock
+  // correction the transform will add so every lift reads 5:30 PM US-Eastern.
+  const liftAt = (day: Date, minutes: number) => {
+    const t = new Date(day.getTime() + (21 * 60 + 30 + minutes) * 60_000);
+    return new Date(t.getTime() - corrMs(t));
+  };
+  const WEEKS = 8;
+  // Day offsets inside each week, counted back from the showcase upper day.
+  const PATTERN: { off: number; name: string; lifts: Lift[] }[] = [
+    { off: 0, name: "Upper A", lifts: upperA },
+    { off: -2, name: "Lower B", lifts: LOWER_B },
+    { off: -3, name: "Upper B", lifts: UPPER_B },
+    { off: -5, name: "Lower A", lifts: LOWER_A },
+  ];
+  let synthN = 0;
+  for (let w = 0; w < WEEKS; w++) {
+    const scale = 1 / (1 + 0.02 * w); // w weeks before the showcase week
+    for (const slot of PATTERN) {
+      if (w === 0 && slot.off === 0) continue; // the showcase host already exists
+      const day = new Date(showcase.getTime() + (slot.off - 7 * w) * DAY);
+      const id = `synth_lift_${w}_${slot.off}`;
+      const startedAt = liftAt(day, 0);
+      let k = 0;
+      let volume = 0;
+      for (const lift of slot.lifts) {
+        const exerciseId = catalogId.get(lift.name);
+        if (!exerciseId) continue;
+        const kg = lift.lb > 0 ? roundLb(lift.lb * scale) / LB : 0;
+        for (let n = 1; n <= lift.sets; n++) {
+          volume += kg * lift.reps;
+          sets.push({
+            id: `synth_set_${++synthN}`,
+            userId: SOLO_USER_ID,
+            sessionId: id,
+            exerciseId,
+            setNumber: n,
+            reps: lift.reps,
+            weight: kg,
+            rpe: 8,
+            rir: 2,
+            restSeconds: 120,
+            isWarmup: false,
+            isPR: false,
+            notes: null,
+            createdAt: new Date(startedAt.getTime() + k++ * 150_000),
+          });
+        }
+      }
+      sessions.push({
+        id,
+        userId: SOLO_USER_ID,
+        date: day,
+        startedAt,
+        completedAt: new Date(startedAt.getTime() + 62 * 60_000),
+        durationMin: 62,
+        readinessScore: null,
+        cyclePhase: null,
+        sessionRPE: 8,
+        sessionVolume: Math.round(volume),
+        notes: null,
+        templateName: slot.name,
+        createdAt: startedAt,
+        updatedAt: startedAt,
+      } as (typeof sessions)[number]);
+    }
+  }
+  // PRs: the first set of a session whose estimated 1RM (Epley) beats every
+  // earlier set of that exercise — the same rule the app applies on save.
+  {
+    const best = new Map<string, number>();
+    const seenInSession = new Set<string>();
+    for (const st of [...sets].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())) {
+      st.isPR = false;
+      if (st.weight <= 0) continue;
+      const e1rm = st.weight * (1 + st.reps / 30);
+      const prior = best.get(st.exerciseId);
+      const key = `${st.sessionId}|${st.exerciseId}`;
+      if (prior != null && e1rm > prior + 1e-6 && !seenInSession.has(key)) {
+        st.isPR = true;
+        seenInSession.add(key);
+      }
+      if (prior == null || e1rm > prior) best.set(st.exerciseId, e1rm);
+    }
+  }
+
   // A night (or a workout) must move as one piece: correcting its start and
   // end separately splits them by 12h on the travel days where the home/away
   // flag flips in between. Both ends take the correction of the row's anchor.
@@ -407,10 +547,10 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
   // signal snapshot; narrative, analysis and GI labels are synthetic.
   const SYNTH_NOTES: { narrative: string; gi: string }[] = [
     { narrative: "Sample note. Legs felt fresh, held pace through the last third. No stomach issues.", gi: "none" },
-    { narrative: "Sample note. Ate close to the start and felt heavy for the first 15 minutes, settled after.", gi: "mild" },
+    { narrative: "Sample note. Felt heavy for the first 15 minutes, settled after.", gi: "mild" },
     { narrative: "Sample note. Easy effort, nasal breathing the whole way. Nothing to report.", gi: "none" },
-    { narrative: "Sample note. Cramping from the midpoint, had to walk twice. Large lunch two hours before.", gi: "moderate" },
-    { narrative: "Sample note. Strong session, negative split. Light snack 90 minutes out.", gi: "none" },
+    { narrative: "Sample note. Side cramp from the midpoint, had to walk twice.", gi: "moderate" },
+    { narrative: "Sample note. Strong session, negative split.", gi: "none" },
   ];
   const stripCycle = (s: string | null): string | null => {
     if (!s) return null;
@@ -544,6 +684,79 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
     .filter(Boolean)
     .join("\n\n");
 
+  // ---- synthetic weigh-ins + running metrics (2026-09-28, "fill in!") -----
+  // Weight: none of her real weigh-ins. A smart-scale series for the demo's
+  // "Race-weight cut" goal: ~3 kg down over 150 days, 5–6 weigh-ins a week,
+  // ±0.35 kg day-to-day noise, body fat drifting 24% → 22.5%. Rows are in
+  // demo days (already shifted), so they bypass tx().
+  const wRand = mulberry32(20260928);
+  const endKg = round1((profile?.bodyWeightKg ?? 57) * WEIGHT_SCALE);
+  const WEIGH_DAYS = 150;
+  const weightRows: Row[] = [];
+  for (let back = WEIGH_DAYS; back >= 0; back--) {
+    if (back > 0 && wRand() < 0.2) continue; // skipped mornings
+    const f = 1 - back / WEIGH_DAYS; // 0 → 1 across the series
+    const kg = round1(endKg + 3.1 * (1 - f) + (wRand() - 0.5) * 0.7);
+    const bf = Math.round((24 - 1.5 * f + (wRand() - 0.5) * 0.6) * 10) / 10;
+    weightRows.push({
+      userId: DEMO_USER_ID,
+      day: new Date(demoToday.getTime() - back * DAY),
+      weightKg: kg,
+      bodyFatPct: bf,
+      muscleMassKg: null,
+      leanMassKg: round1(kg * (1 - bf / 100)),
+      bmi: round1(kg / (1.68 * 1.68)),
+      notes: null,
+    });
+  }
+
+  // Running metrics: her watch left gaps (no cardio recovery or effort score
+  // most days, and today's distance read 0.0 km mid-sync). Real values are
+  // kept; every missing one is filled. Run days get run dynamics derived from
+  // that day's run (speed = distance / time), so "Last run" is the real last
+  // run; every day gets a walking + running distance of at least the logged
+  // workouts plus 2–5 km of everyday walking.
+  const workoutKmByDay = new Map<string, { runKm: number; runSec: number; totalKm: number; hasWorkout: boolean }>();
+  for (const w of hkWorkouts) {
+    const k = livedDay(w.startedAt);
+    const km = w.distance == null ? 0 : (w.distanceUnit ?? "km").toLowerCase() === "m" ? w.distance / 1000 : w.distance;
+    const e = workoutKmByDay.get(k) ?? { runKm: 0, runSec: 0, totalKm: 0, hasWorkout: false };
+    e.hasWorkout = true;
+    e.totalKm += km;
+    if (/run/i.test(w.name) && km > 0) {
+      e.runKm += km;
+      e.runSec += w.durationSeconds;
+    }
+    workoutKmByDay.set(k, e);
+  }
+  const runByDay = new Map(running.map((r) => [iso(r.day), r]));
+  const firstDay = bedtimes[0].day;
+  const runningRows: Row[] = [];
+  for (let d = utcMidnight(firstDay).getTime(); d <= sourceLast.getTime(); d += DAY) {
+    const day = new Date(d);
+    const k = iso(day);
+    const src = runByDay.get(k);
+    const wk = workoutKmByDay.get(k);
+    const r = mulberry32(hash(`run-${k}`));
+    const ran = !!wk && wk.runKm > 0;
+    const kmh = ran ? (wk.runKm / wk.runSec) * 3600 : null;
+    const fill = <T,>(v: T | null | undefined, synth: T | null): T | null => (v ?? synth);
+    const distM = Math.round(((wk?.totalKm ?? 0) + 2 + r() * 3) * 1000);
+    runningRows.push({
+      userId: DEMO_USER_ID,
+      day: shDay(day),
+      runningSpeed: fill(src?.runningSpeed, kmh != null ? Math.round(kmh * 10) / 10 : null),
+      runningPower: fill(src?.runningPower, kmh != null ? Math.round(kmh * 15 + (r() - 0.5) * 8) : null),
+      groundContactTime: fill(src?.groundContactTime, ran ? Math.round(255 + (r() - 0.5) * 20) : null),
+      verticalOscillation: fill(src?.verticalOscillation, ran ? Math.round((8.2 + (r() - 0.5) * 0.6) * 10) / 10 : null),
+      strideLength: fill(src?.strideLength, kmh != null ? Math.round(((kmh * 1000) / 60 / 168) * 100) / 100 : null),
+      cardioRecovery: fill(src?.cardioRecovery, wk?.hasWorkout ? Math.round(24 + r() * 10) : null),
+      walkingRunningDistance: Math.max(src?.walkingRunningDistance ?? 0, distM),
+      respiratoryRate: src?.respiratoryRate ?? null,
+      physicalEffort: fill(src?.physicalEffort, Math.round((ran ? 6 + r() * 3 : wk?.hasWorkout ? 3.5 + r() * 2 : 1.5 + r() * 1.5) * 10) / 10),
+    });
+  }
+
   // ---- write: wipe + insert in one transaction ------------------------------
   const counts: Record<string, number> = {};
   const D = { userId: DEMO_USER_ID };
@@ -619,7 +832,7 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
       await put("DailyStress", t.dailyStress, stress.map((r) => tx(r)));
       await put("DailySpO2", t.dailySpO2, spo2.map((r) => tx(r)));
       await put("DailyResilience", t.dailyResilience, resilience.map((r) => tx(r)));
-      await put("DailyRunningMetrics", t.dailyRunningMetrics, running.map((r) => tx(r)));
+      await put("DailyRunningMetrics", t.dailyRunningMetrics, runningRows);
       await put("DailyVO2Max", t.dailyVO2Max, vo2.map((r) => tx(r)));
       await put("SleepTimeRecommendation", t.sleepTimeRecommendation, sleepRecs.map((r) => tx(r)));
       await put("HeartRateSample", t.heartRateSample, hrRows);
@@ -661,17 +874,7 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
         t.goalWorkoutTag,
         goalTags.filter((g) => keptSessionIds.has(g.sessionId)).map((r) => tx(r, ["goalId", "sessionId"])),
       );
-      await put(
-        "WeightLog",
-        t.weightLog,
-        weights.map((r) =>
-          tx(r, [], {
-            notes: null,
-            weightKg: round1(r.weightKg * WEIGHT_SCALE),
-            muscleMassKg: r.muscleMassKg != null ? round1(r.muscleMassKg * WEIGHT_SCALE) : null,
-          }),
-        ),
-      );
+      await put("WeightLog", t.weightLog, weightRows);
       await put(
         "HealthKitWorkout",
         t.healthKitWorkout,
