@@ -3,6 +3,7 @@ import { inferMuscleGroup } from "@/lib/infer-muscle-group";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
+import { getLocalDayStr, getRequestTz } from "@/lib/date-utils";
 import { withAnthropicRetry } from "@/lib/anthropic-retry";
 import { apiError } from "@/lib/utils";
 
@@ -32,13 +33,21 @@ interface ParsedWorkout {
 
 export async function POST(request: NextRequest) {
   try {
-    const { text } = await request.json();
+    const { text, date: chosenDate } = await request.json();
     if (typeof text !== "string" || !text.trim()) {
       return NextResponse.json({ error: "text required" }, { status: 400 });
     }
 
     const userId = await getCurrentUserId();
-    const todayStr = new Date().toISOString().slice(0, 10);
+    // Local "today" (UTC today is already tomorrow after 8pm Eastern).
+    const todayStr = getLocalDayStr(await getRequestTz());
+    // The date picker on the log form (defaults to the day being viewed).
+    // Before 2026-09-28 there was no date input: any log without a date in
+    // the text silently landed on today, merging three days into one.
+    const defaultDate =
+      typeof chosenDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(chosenDate) && chosenDate <= todayStr
+        ? chosenDate
+        : todayStr;
 
     // Library names help the model normalize nicknames → canonical names.
     const library = await prisma.exercise.findMany({
@@ -54,16 +63,18 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "user",
-            content: `Parse this workout log into JSON. Today's date: ${todayStr}.
+            content: `Parse this workout log into JSON. Today's date: ${todayStr}. Workout date chosen by the user: ${defaultDate}.
 
 Exercise library (match to these canonical names when the text plausibly refers to them, e.g. "bulgarians" → "Bulgarian Split Squat", "RDLs" → "Romanian Deadlift"; otherwise keep the user's name in Title Case):
 ${library.map((e) => e.name).join(", ")}
 
 Rules:
-- Resolve relative dates ("two days ago", "yesterday") against today's date; default to today.
+- date: use the chosen workout date (${defaultDate}) UNLESS the text itself names a day ("yesterday", "two days ago", "Sunday", "Sep 21") — then resolve that against today's date. Never a date after today.
 - NEVER collapse a variant into its parent exercise: "single leg RDL" is NOT "Romanian Deadlift", "paused bench" is NOT "Bench Press", "incline curl" is NOT "Bicep Curl". Only map to a library name when it is the SAME movement. If a qualified variant isn't in the library, keep the user's qualified name in Title Case (e.g. "Single Leg Romanian Deadlift") — it will be created.
 - Weights: assume kg unless "lb" stated (convert lb→kg, 1 decimal).
-- "3x8 @25" = 3 sets of 8 reps at 25kg. If an exercise has no sets/reps, OMIT it from entries entirely (never emit null sets/reps).
+- "3x8 @25" = 3 sets of 8 reps at 25kg. "4x70lb of lat pulldowns" = 4 sets at 70 lb with NO reps stated. "60lb x 3 x 7" = 60 lb, 3 sets of 7.
+- Reps can come from elsewhere in the text: "(8 reps)" after an exercise, or "(all 8 reps)" / "all 8 reps" applying to every exercise that lacks its own reps.
+- NEVER invent or guess sets or reps, and never read a weight as reps. If an exercise still has no reps (or no sets), OMIT it from entries entirely (never emit null sets/reps) — it will be reported back as skipped.
 - templateName: short session label from context ("Legs", "Push", "Pull") or null.
 - Respond with ONLY the JSON, no prose:
 {"date":"YYYY-MM-DD","templateName":string|null,"entries":[{"exercise":string,"sets":n,"reps":n,"weightKg":n,"rpe":n|null}]}
@@ -158,6 +169,8 @@ Workout log: ${text.trim()}`,
       resolved.push({ exerciseId: ex.id, name: ex.name, p: entry });
     }
 
+    // Guard the model's date: malformed or future → the chosen date.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(parsed.date ?? "") || parsed.date > todayStr) parsed.date = defaultDate;
     const date = new Date(`${parsed.date}T00:00:00.000Z`);
     const sessionVolume = resolved.reduce(
       (sum, r) => sum + r.p.sets * r.p.reps * r.p.weightKg,
