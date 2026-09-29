@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { runAsUser } from "@/lib/current-user";
+import { getCurrentUserId, runAsUser } from "@/lib/current-user";
 import { runCoachTurn } from "@/lib/coach-run";
 import { buildWorkoutDiscussionStarter } from "@/lib/workout-discussion";
 import { DEMO_USER_ID } from "@/lib/demo/constants";
@@ -107,7 +107,11 @@ async function answerOne(w: { id: string; name: string; startedAt: Date }): Prom
   const question = await runAsUser(DEMO_USER_ID, () =>
     buildWorkoutDiscussionStarter("healthkit", w.id, DEMO_TZ),
   );
-  if (!question) throw new Error("no draft for workout");
+  if (!question) {
+    const row = await raw().healthKitWorkout.findUnique({ where: { id: w.id }, select: { userId: true } });
+    const seen = await runAsUser(DEMO_USER_ID, () => getCurrentUserId());
+    throw new Error(`no draft for workout (row user ${row?.userId ?? "none"}, tenant ${seen})`);
+  }
 
   const turn = await runAsUser(DEMO_USER_ID, () =>
     runCoachTurn({ history: [{ role: "user", content: question }] }),
