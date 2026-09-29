@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { seedDemoTenant, lastDemoSeedAt } from "@/lib/demo/seed";
+import { generateDemoWorkoutAnswers, hasDemoWorkoutAnswers } from "@/lib/demo/workout-answers";
 
 /**
  * Daily demo reseed (Vercel cron — see vercel.json).
@@ -13,7 +14,7 @@ import { seedDemoTenant, lastDemoSeedAt } from "@/lib/demo/seed";
  * holding CRON_SECRET (if set) may force a run with ?force=1.
  */
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const MIN_INTERVAL_MS = 20 * 60 * 60 * 1000;
 
@@ -25,11 +26,22 @@ export async function GET(req: NextRequest) {
 
     const last = await lastDemoSeedAt();
     if (!force && last && Date.now() - last.getTime() < MIN_INTERVAL_MS) {
-      return NextResponse.json({ ok: true, skipped: true, lastSeedAt: last.toISOString() });
+      // Seed is fresh, but its workout answers may never have been generated
+      // (first deploy of the feature, or a run that timed out). Fill them in
+      // only when none exist, so repeat hits cost nothing.
+      const workoutAnswers = (await hasDemoWorkoutAnswers())
+        ? undefined
+        : await generateDemoWorkoutAnswers().catch((e) => ({ error: String((e as Error)?.message ?? e).slice(0, 300) }));
+      return NextResponse.json({ ok: true, skipped: true, lastSeedAt: last.toISOString(), workoutAnswers });
     }
 
     const report = await seedDemoTenant();
-    return NextResponse.json({ ok: true, ...report });
+    // Real coach answers for the demo's recent workouts. A failure here leaves
+    // the demo usable (those workouts fall back to the draft + canned reply).
+    const workoutAnswers = await generateDemoWorkoutAnswers().catch((e) => ({
+      error: String((e as Error)?.message ?? e).slice(0, 300),
+    }));
+    return NextResponse.json({ ok: true, ...report, workoutAnswers });
   } catch (err) {
     console.error("[demo reseed] failed", err);
     return NextResponse.json({ ok: false }, { status: 500 });

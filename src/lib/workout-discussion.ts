@@ -21,20 +21,6 @@ function formatClockTime(d: Date): string {
   });
 }
 
-function formatShortDate(d: Date): string {
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: activeTz,
-  });
-}
-
-function formatDurationMin(seconds: number): string {
-  const m = Math.round(seconds / 60);
-  if (m < 60) return `${m} min`;
-  return `${Math.floor(m / 60)}h ${m % 60}m`;
-}
-
 /**
  * Builds a user-message draft for /coach that opens a deep-dive
  * conversation about a specific workout. Triggered by the "Discuss
@@ -59,11 +45,12 @@ function formatDurationMin(seconds: number): string {
 export async function buildWorkoutDiscussionStarter(
   source: string,
   workoutId: string,
+  tz?: string,
 ): Promise<string | null> {
   if (!isValidWorkoutSource(source)) return null;
 
   try {
-    activeTz = await getRequestTz();
+    activeTz = tz ?? (await getRequestTz());
   } catch {
     activeTz = undefined;
   }
@@ -71,15 +58,12 @@ export async function buildWorkoutDiscussionStarter(
   const workout = await getWorkoutByIdAndSource(source, workoutId);
   if (!workout) return null;
 
-  // Pull everything the coach might need to explain a bad workout in
-  // one paralel batch. The user's principle: "coach should be able to
-  // pull and analyze all inputted context and data to find the reason
-  // behind a bad workout." So we proactively include food log entries
-  // for the workout's day (with timestamps) and the trailing 7 days of
-  // training history (so the coach can spot cumulative-load patterns).
-  const sevenDaysBefore = new Date(
-    workout.startedAt.getTime() - 7 * 24 * 60 * 60 * 1000,
-  );
+  // Scope (Kalysha, 2026-09-28): a question about ONE workout carries only
+  // that workout, how she came into it (signals) and what she ate BEFORE
+  // it. Meals eaten after it and the trailing 7-day workout list were
+  // dropped — "coach is pulling too many things ... only pull what i ate
+  // before and ignore everything after." The coach can still fetch more
+  // with its tools if she asks.
   const { getCurrentPeriodDay } = await import("@/lib/cycle-phase");
   // Compute cycle-day on the WORKOUT'S local day (matches how the
   // signal snapshot was anchored), then pass it into the prompt so
@@ -91,7 +75,7 @@ export async function buildWorkoutDiscussionStarter(
     where: { userId_day: { userId: await getCurrentUserId(), day: workout.workoutDate } },
     select: { temperatureDeviation: true, temperatureTrendDeviation: true },
   });
-  const [note, nutritionLog, recentWorkouts] = await Promise.all([
+  const [note, nutritionLog] = await Promise.all([
     prisma.workoutNote.findUnique({
       where: {
         userId_workoutSource_workoutId: { userId: await getCurrentUserId(), workoutSource: source, workoutId },
@@ -100,13 +84,6 @@ export async function buildWorkoutDiscussionStarter(
     prisma.nutritionLog.findUnique({
       where: { userId_day: { userId: await getCurrentUserId(), day: workout.workoutDate } },
       include: { entries: { orderBy: { eatenAt: "asc" } } },
-    }),
-    prisma.healthKitWorkout.findMany({
-      where: {
-        startedAt: { gte: sevenDaysBefore, lt: workout.startedAt },
-      },
-      orderBy: { startedAt: "desc" },
-      take: 7,
     }),
   ]);
 
@@ -217,47 +194,28 @@ export async function buildWorkoutDiscussionStarter(
       if (entry.fat > 0) macros.push(`${Math.round(entry.fat)}g fat`);
       return `- ${time} · ${entry.description} · ${Math.round(entry.calories)} cal${macros.length > 0 ? ` · ${macros.join(", ")}` : ""}`;
     };
-    // Split around the session start: a meal eaten after the workout cannot
-    // have fueled it and must not enter the pre-workout narrative (added
-    // 2026-08-26 after a post-run 7:30 PM dinner, carrying corrupted
-    // early-AM timestamps, was narrated as middle-of-the-night pre-run
-    // eating). Time-unknown entries stay in the candidate list — their
-    // meal_type band still bounds them.
-    const before = nutritionLog.entries.filter(
-      (e) => e.timeUnknown || e.eatenAt.getTime() <= startedAt.getTime(),
+    // Only meals that could have fueled the session. A meal eaten after
+    // the workout cannot explain it (a post-run dinner with corrupted
+    // early-AM timestamps was once narrated as pre-run eating, 2026-08-26),
+    // so after-workout entries are left out entirely. Time-unknown entries
+    // stay only when their meal_type band can start before the workout.
+    const bandStartHour: Record<string, number> = { breakfast: 0, lunch: 12, dinner: 17 };
+    const localHour = Number(
+      startedAt.toLocaleString("en-US", { hour: "numeric", hourCycle: "h23", timeZone: activeTz }),
     );
-    const after = nutritionLog.entries.filter(
-      (e) => !e.timeUnknown && e.eatenAt.getTime() > startedAt.getTime(),
+    const before = nutritionLog.entries.filter((e) =>
+      e.timeUnknown
+        ? (bandStartHour[e.mealType] ?? 0) <= localHour
+        : e.eatenAt.getTime() <= startedAt.getTime(),
     );
     lines.push("");
-    lines.push(
-      `Food log that day (${nutritionLog.entries.length} entries, ${Math.round(nutritionLog.calories)} cal total). User's meal-time convention: breakfast = before noon, lunch = 12-5pm, dinner = 5pm onward. Treat "time unknown" entries' meal_type as a coarse time band.`,
-    );
-    lines.push(
-      before.length > 0
-        ? "Eaten BEFORE this workout (candidate fuel):"
-        : "Nothing logged before this workout.",
-    );
-    for (const entry of before) lines.push(entryLine(entry));
-    if (after.length > 0) {
+    if (before.length > 0) {
       lines.push(
-        "Eaten AFTER this workout ended (recovery intake — not relevant to how the workout went):",
+        `Eaten before this workout (meal-time convention: breakfast = before noon, lunch = 12-5pm, dinner = 5pm onward; "time unknown" entries use meal_type as a coarse band):`,
       );
-      for (const entry of after) lines.push(entryLine(entry));
-    }
-  }
-
-  // Trailing 7-day training context. Lets the coach reason about
-  // cumulative load — "was this a deload day or a 4th hard day in a
-  // row?" — without having to ask the user.
-  if (recentWorkouts.length > 0) {
-    lines.push("");
-    lines.push(`Last ${recentWorkouts.length} workouts before this one:`);
-    for (const w of recentWorkouts) {
-      const dateStr = formatShortDate(w.startedAt);
-      const dur = formatDurationMin(w.durationSeconds);
-      const hr = w.avgHeartRate != null ? `, HR avg ${w.avgHeartRate}` : "";
-      lines.push(`- ${dateStr}: ${w.name}, ${dur}${hr}`);
+      for (const entry of before) lines.push(entryLine(entry));
+    } else {
+      lines.push("Nothing logged before this workout that day.");
     }
   }
 

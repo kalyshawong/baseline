@@ -9,6 +9,8 @@ import { getHrvBaselineChoice } from "@/lib/training-call";
 import { ChatInterface } from "@/components/coach/chat-interface";
 import { MobileCoach } from "@/components/mobile/mobile-coach";
 import { buildWorkoutDiscussionStarter } from "@/lib/workout-discussion";
+import { isDemoUserId } from "@/lib/demo/constants";
+import { demoWorkoutSessionId } from "@/lib/demo/workout-answers";
 
 export const dynamic = "force-dynamic";
 
@@ -19,12 +21,24 @@ export default async function CoachPage({
 }) {
   if ((await getIntakeStatus()).needsOnboarding) redirect("/onboarding");
   const params = await searchParams;
-  const sessionId = typeof params.session === "string" ? params.session : null;
 
   const workoutId =
     typeof params.workout === "string" ? params.workout : null;
   const workoutSource =
     typeof params.source === "string" ? params.source : "healthkit";
+
+  // Public demo: "Discuss with coach" opens the real, pre-generated answer
+  // for that workout (src/lib/demo/workout-answers.ts) instead of a draft the
+  // demo coach can't answer live.
+  let demoWorkoutSession: string | null = null;
+  if (workoutId && typeof params.session !== "string" && isDemoUserId(await getCurrentUserId())) {
+    const id = demoWorkoutSessionId(workoutSource, workoutId);
+    if (await prisma.chatSession.findUnique({ where: { id }, select: { id: true } })) {
+      demoWorkoutSession = id;
+    }
+  }
+  const sessionId =
+    typeof params.session === "string" ? params.session : demoWorkoutSession;
   const workoutStarter =
     workoutId && !sessionId
       ? await buildWorkoutDiscussionStarter(workoutSource, workoutId)

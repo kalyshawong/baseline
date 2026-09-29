@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/db";
-import { buildCoachContext, COACH_SYSTEM_PROMPT, goalSystemPromptSection } from "@/lib/coach-context";
+import { buildCoachContext } from "@/lib/coach-context";
 import { apiError } from "@/lib/utils";
-import { withAnthropicRetry } from "@/lib/anthropic-retry";
-import { COACH_TOOLS, runCoachTool } from "@/lib/coach-tools";
+import { runCoachTurn } from "@/lib/coach-run";
 import { getCurrentUserId, SOLO_USER_ID } from "@/lib/current-user";
 import { DEMO_USER_ID } from "@/lib/demo/constants";
 import { demoCoachReply } from "@/lib/demo/coach";
-
-const client = new Anthropic();
 
 // --- BUG-004 fix: rate limiting + context caching ---
 
@@ -147,13 +143,6 @@ export async function POST(request: NextRequest) {
     // Build context (cached for 5 min to avoid 14+ queries every message)
     const contextBlock = await getCachedContext(focusGoalId);
 
-    // Get the focus goal for the dynamic system prompt section
-    const focusGoal = focusGoalId
-      ? await prisma.goal.findUnique({ where: { id: focusGoalId } })
-      : await prisma.goal.findFirst({ where: { isPrimary: true, status: "active" } });
-
-    const goalPromptSection = goalSystemPromptSection(focusGoal);
-
     // Prior conversation history
     const history = session.messages.map((m) => ({
       role: m.role as "user" | "assistant",
@@ -161,87 +150,11 @@ export async function POST(request: NextRequest) {
     }));
     history.push({ role: "user", content: message });
 
-    const dailyBriefSection = mode === "today"
-      ? `\n\nToday's coaching mode: DAILY BRIEF. The user wants a concise check-in. Structure your response as:
-1. Body budget (readiness, sleep, physical capacity)
-2. Mind budget (stress recovery, cognitive capacity)
-3. Active goals check-in (one line per goal: on track / needs attention / conflict)
-4. Today's recommendation (what to prioritize, what to eat, when to sleep)
-Keep it under 250 words. Be direct and specific with numbers.`
-      : "";
-
-    const systemPrompt = `${COACH_SYSTEM_PROMPT}${goalPromptSection}${dailyBriefSection}\n\n---\n\n${contextBlock}`;
-
-    // --- Tool-use loop ---
-    // The coach now has tools (defined in src/lib/coach-tools.ts) it can
-    // call to pull food log, workouts, signals, cycle, goals on demand.
-    // Loop pattern: send messages → model returns either text (done) or
-    // tool_use (run tools, append tool_results, loop). MAX_ITERATIONS
-    // bounds runaway tool chains; in practice 2-4 rounds suffice for any
-    // "explain why this workout was bad" question.
-    const MAX_TOOL_ITERATIONS = 8;
-    const messages: Anthropic.MessageParam[] = history.map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
-
-    let response: Anthropic.Message | null = null;
-    let iterations = 0;
-    while (iterations < MAX_TOOL_ITERATIONS) {
-      response = await withAnthropicRetry(
-        () =>
-          client.messages.create({
-            model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
-            max_tokens: 2048,
-            system: systemPrompt,
-            tools: COACH_TOOLS,
-            messages,
-          }),
-        { label: `coach-iter-${iterations}` },
-      );
-
-      if (response.stop_reason !== "tool_use") break;
-
-      // Append the assistant's response (containing tool_use blocks) to
-      // messages, then run each requested tool and append a single user
-      // message containing all the tool_results.
-      messages.push({ role: "assistant", content: response.content });
-      const toolUses = response.content.filter(
-        (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
-      );
-      const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
-        toolUses.map(async (tu) => ({
-          type: "tool_result" as const,
-          tool_use_id: tu.id,
-          content: await runCoachTool(tu.name, tu.input),
-        })),
-      );
-      messages.push({ role: "user", content: toolResults });
-      iterations++;
+    const turn = await runCoachTurn({ history, contextBlock, focusGoalId, mode });
+    if (!turn.ok) {
+      return NextResponse.json({ error: turn.reason }, { status: 502 });
     }
-
-    if (!response) {
-      return NextResponse.json(
-        { error: "Coach returned no response." },
-        { status: 502 },
-      );
-    }
-
-    // BUG-C2 fix: never persist a blank assistant message. If Anthropic returns
-    // no text content (empty array, tool_use only, or safety-filtered), surface
-    // an explicit error instead of silently saving "".
-    const assistantText = response.content
-      .flatMap((block) => (block.type === "text" ? [block.text] : []))
-      .join("")
-      .trim();
-
-    if (!assistantText) {
-      const reason =
-        iterations >= MAX_TOOL_ITERATIONS
-          ? `Coach exceeded ${MAX_TOOL_ITERATIONS} tool-use iterations without converging on an answer. Try a more specific question.`
-          : "Coach returned an empty response. Try rephrasing your question.";
-      return NextResponse.json({ error: reason }, { status: 502 });
-    }
+    const assistantText = turn.text;
 
     const assistantMsg = await prisma.chatMessage.create({
       data: { userId: await getCurrentUserId(), sessionId: session.id, role: "assistant", content: assistantText },
