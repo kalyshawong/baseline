@@ -149,7 +149,12 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
 
   // ---- anchor + shift ------------------------------------------------------
   const sourceLast = new Date(showcase.getTime() + DAY); // last source day kept
-  const anchor = new Date(utcMidnight(now).getTime() + DAY); // where sourceLast lands
+  // The showcase lands on TODAY IN NEW YORK (2026-09-28): anchored on the UTC
+  // date, a US visitor after 8 PM Eastern opened the demo on the day before
+  // the showcase (no run, no lift, no food). Visitors ahead of New York get
+  // the kept "tomorrow" day.
+  const nyToday = new Date(now.toLocaleDateString("en-CA", { timeZone: "America/New_York" }) + "T00:00:00.000Z");
+  const anchor = new Date(nyToday.getTime() + DAY); // where sourceLast lands
   const shiftMs = anchor.getTime() - sourceLast.getTime();
   const srcCutoff = new Date(sourceLast.getTime() + DAY); // exclusive, for instants
   const DAY_FIELDS = new Set([
@@ -739,7 +744,9 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
     const wk = workoutKmByDay.get(k);
     const r = mulberry32(hash(`run-${k}`));
     const ran = !!wk && wk.runKm > 0;
-    const kmh = ran ? (wk.runKm / wk.runSec) * 3600 : null;
+    // Some watch "runs" are run-walks or hikes (7 km in 110 min); dynamics
+    // are derived from a plausible running pace, 8.3–11 km/h.
+    const kmh = ran ? Math.min(11, Math.max(8.3, (wk.runKm / wk.runSec) * 3600)) : null;
     const fill = <T,>(v: T | null | undefined, synth: T | null): T | null => (v ?? synth);
     const distM = Math.round(((wk?.totalKm ?? 0) + 2 + r() * 3) * 1000);
     runningRows.push({
@@ -960,7 +967,7 @@ export async function lastDemoSeedAt(): Promise<Date | null> {
 /** Bump when the seed's output changes shape: the reseed endpoint reruns a
  *  seed written by an older version even inside its 20h interval, so a
  *  deploy shows up in the demo without waiting for the next cron. */
-export const DEMO_SEED_VERSION = "2026-09-28-fill";
+export const DEMO_SEED_VERSION = "2026-09-28-fill-ny";
 
 export async function lastDemoSeed(): Promise<{ at: Date; current: boolean } | null> {
   const row = await raw().syncLog.findFirst({

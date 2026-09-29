@@ -126,10 +126,11 @@ export default async function BodyPage({
   ) : null;
   const viewDate = getDateFromParams(await searchParams, await getRequestTz());
 
-  // Week window (Monday-Sunday)
+  // Rolling 7 days ending on the viewed day (2026-09-28). A Monday-start week
+  // read as near-empty every Monday and Tuesday — the demo's volume card
+  // showed one session "below MEV" — and matches the lifter view's window.
   const weekStart = new Date(viewDate);
-  const dayOfWeek = weekStart.getUTCDay() || 7;
-  weekStart.setUTCDate(weekStart.getUTCDate() - (dayOfWeek - 1));
+  weekStart.setUTCDate(weekStart.getUTCDate() - 6);
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -155,7 +156,7 @@ export default async function BodyPage({
       return resolveCyclePhase(viewDate);
     })(),
     prisma.workoutSet.findMany({
-      where: { isWarmup: false, session: { date: { gte: weekStart } } },
+      where: { isWarmup: false, session: { date: { gte: weekStart, lte: viewDate } } },
       include: { exercise: true },
     }),
     prisma.userProfile.findUnique({ where: { userId: await getCurrentUserId() } }),
@@ -283,6 +284,10 @@ export default async function BodyPage({
   }));
 
   // --- Personal records ---
+  // Stored in kg; shown in the user's unit, lb rounded to 0.5 (same rule as
+  // DayWorkouts). The card printed raw kg floats ("70.30690096252415 × 8").
+  const prW = (kg: number) =>
+    kg === 0 ? "BW" : unit === "lb" ? `${Math.round(kgToLb(kg) * 2) / 2}` : `${Math.round(kg * 10) / 10}`;
   const prs = await prisma.workoutSet.findMany({
     where: { isPR: true, isWarmup: false },
     orderBy: { createdAt: "desc" },
@@ -465,8 +470,8 @@ export default async function BodyPage({
                         <div className="dt">{pr.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                       </div>
                       <div className="rt">
-                        <div className="big num">{pr.weight} × {pr.reps}</div>
-                        <div className="sm">e1RM {Math.round(estimate1RM(pr.weight, pr.reps))}</div>
+                        <div className="big num">{prW(pr.weight)} × {pr.reps}</div>
+                        <div className="sm">e1RM {prW(Math.round(estimate1RM(pr.weight, pr.reps) * 10) / 10)}</div>
                       </div>
                     </div>
                   ))}
@@ -517,10 +522,10 @@ export default async function BodyPage({
                     </div>
                     <div className="text-right num">
                       <p className="disp text-[20px] tracking-[0.02em]">
-                        {pr.weight} &times; {pr.reps}
+                        {prW(pr.weight)} &times; {pr.reps}
                       </p>
                       <p className="text-[11px] text-[var(--color-faint)]">
-                        e1RM {Math.round(estimate1RM(pr.weight, pr.reps))}
+                        e1RM {prW(Math.round(estimate1RM(pr.weight, pr.reps) * 10) / 10)}
                       </p>
                     </div>
                   </div>
@@ -681,9 +686,9 @@ export default async function BodyPage({
             <div className="mgrid c3">
               {/* Run dynamics come from the LAST RUN (latest-known, like
                   VO2max) — a rest day's all-null row was rendering dashes. */}
-              <MCard label="Run Speed" value={lastRun?.runningSpeed != null ? lastRun.runningSpeed.toFixed(1) : "—"} unit="km/h" detail={lastRun?.day ? `Last run ${lastRun.day.toLocaleDateString()}` : undefined} />
+              <MCard label="Run Speed" value={lastRun?.runningSpeed != null ? lastRun.runningSpeed.toFixed(1) : "—"} unit="km/h" detail={lastRun?.day ? `Last run ${lastRun.day.toLocaleDateString("en-US", { timeZone: "UTC" })}` : undefined} />
               <MCard label="Run Power" value={lastRun?.runningPower != null ? Math.round(lastRun.runningPower) : "—"} unit="W" />
-              <MCard label="VO₂ Max" value={latestVO2Max?.vo2Max != null ? latestVO2Max.vo2Max.toFixed(1) : "—"} detail={latestVO2Max?.day ? `Updated ${latestVO2Max.day.toLocaleDateString()}` : undefined} />
+              <MCard label="VO₂ Max" value={latestVO2Max?.vo2Max != null ? latestVO2Max.vo2Max.toFixed(1) : "—"} detail={latestVO2Max?.day ? `Updated ${latestVO2Max.day.toLocaleDateString("en-US", { timeZone: "UTC" })}` : undefined} />
               <MCard label="Gnd Contact" value={lastRun?.groundContactTime != null ? Math.round(lastRun.groundContactTime) : "—"} unit="ms" />
               <MCard label="Vert. Osc." value={lastRun?.verticalOscillation != null ? lastRun.verticalOscillation.toFixed(1) : "—"} unit="cm" />
               <MCard label="Stride" value={lastRun?.strideLength != null ? lastRun.strideLength.toFixed(2) : "—"} unit="m" />
@@ -979,10 +984,10 @@ export default async function BodyPage({
             respiratoryRate: todayRunning?.respiratoryRate ?? null,
             physicalEffort: todayRunning?.physicalEffort ?? null,
           } : null}
-          runDate={lastRun?.day ? `Last run ${lastRun.day.toLocaleDateString()}` : null}
+          runDate={lastRun?.day ? `Last run ${lastRun.day.toLocaleDateString("en-US", { timeZone: "UTC" })}` : null}
           vo2Max={latestVO2Max?.vo2Max ?? null}
           vo2MaxDate={latestVO2Max?.day
-            ? `Updated ${latestVO2Max.day.toLocaleDateString()}`
+            ? `Updated ${latestVO2Max.day.toLocaleDateString("en-US", { timeZone: "UTC" })}`
             : null}
         />
         <RunLandmarksSettings
