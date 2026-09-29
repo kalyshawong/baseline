@@ -41,7 +41,10 @@ export function DayWorkouts({
   unit: "lb" | "kg";
   variant: "mobile" | "desktop";
 }) {
-  const fmt = (kg: number) => (kg === 0 ? "BW" : unit === "lb" ? `${kgToLb(kg)}` : `${Math.round(kg * 10) / 10}`);
+  // Logged in lb, stored in kg (1 decimal) — round lb to the nearest 0.5 so
+  // 100 lb doesn't come back as "100.1 lb".
+  const fmt = (kg: number) =>
+    kg === 0 ? "BW" : unit === "lb" ? `${Math.round(kgToLb(kg) * 2) / 2}` : `${Math.round(kg * 10) / 10}`;
 
   const byEx = new Map<string, { reps: number; weight: number }[]>();
   for (const s of sessions) {
