@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { seedDemoTenant, lastDemoSeedAt } from "@/lib/demo/seed";
+import { seedDemoTenant, lastDemoSeed } from "@/lib/demo/seed";
 import { generateDemoWorkoutAnswers, hasDemoWorkoutAnswers } from "@/lib/demo/workout-answers";
 
 /**
@@ -24,8 +24,9 @@ export async function GET(req: NextRequest) {
     const authed = !!secret && req.headers.get("authorization") === `Bearer ${secret}`;
     const force = authed && req.nextUrl.searchParams.get("force") === "1";
 
-    const last = await lastDemoSeedAt();
-    if (!force && last && Date.now() - last.getTime() < MIN_INTERVAL_MS) {
+    const lastSeed = await lastDemoSeed();
+    const last = lastSeed?.at ?? null;
+    if (!force && last && lastSeed?.current && Date.now() - last.getTime() < MIN_INTERVAL_MS) {
       // Seed is fresh, but its workout answers may never have been generated
       // (first deploy of the feature, or a run that timed out). Fill them in
       // only when none exist, so repeat hits cost nothing.

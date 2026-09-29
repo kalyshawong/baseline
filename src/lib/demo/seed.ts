@@ -913,7 +913,7 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
         },
       });
       await t.syncLog.create({
-        data: { userId: DEMO_USER_ID, status: "success", details: "Demo reseed", syncDate: now },
+        data: { userId: DEMO_USER_ID, status: "success", details: `Demo reseed ${DEMO_SEED_VERSION}`, syncDate: now },
       });
 
       await t.chatSession.create({
@@ -954,12 +954,22 @@ export async function seedDemoTenant(now: Date = new Date()): Promise<SeedReport
 
 /** When the demo tenant was last reseeded (null = never). */
 export async function lastDemoSeedAt(): Promise<Date | null> {
+  return (await lastDemoSeed())?.at ?? null;
+}
+
+/** Bump when the seed's output changes shape: the reseed endpoint reruns a
+ *  seed written by an older version even inside its 20h interval, so a
+ *  deploy shows up in the demo without waiting for the next cron. */
+export const DEMO_SEED_VERSION = "2026-09-28-fill";
+
+export async function lastDemoSeed(): Promise<{ at: Date; current: boolean } | null> {
   const row = await raw().syncLog.findFirst({
     where: { userId: DEMO_USER_ID },
     orderBy: { syncDate: "desc" },
-    select: { syncDate: true },
+    select: { syncDate: true, details: true },
   });
-  return row?.syncDate ?? null;
+  if (!row) return null;
+  return { at: row.syncDate, current: (row.details ?? "").includes(DEMO_SEED_VERSION) };
 }
 
 function round1(v: number): number {
