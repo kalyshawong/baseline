@@ -138,7 +138,6 @@ export default async function BodyPage({
     score,
     phaseLog,
     weekSets,
-    recentSessions,
     profile,
     recentSleep,
     todayNutrition,
@@ -158,16 +157,6 @@ export default async function BodyPage({
     prisma.workoutSet.findMany({
       where: { isWarmup: false, session: { date: { gte: weekStart } } },
       include: { exercise: true },
-    }),
-    prisma.workoutSession.findMany({
-      orderBy: { date: "desc" },
-      take: 5,
-      include: {
-        sets: {
-          where: { isWarmup: false },
-          include: { exercise: { select: { name: true, muscleGroup: true } } },
-        },
-      },
     }),
     prisma.userProfile.findUnique({ where: { userId: await getCurrentUserId() } }),
     prisma.dailySleep.findMany({
@@ -484,28 +473,6 @@ export default async function BodyPage({
                 </div>
               )}
               <DayWorkouts sessions={daySessions} watchWorkouts={dayWatchWorkouts} tz={requestTz} dateLabel={dayLabel} unit={unit} variant="mobile" />
-              <div className="listcard">
-                <div className="ov" style={{ marginBottom: 12 }}>Recent Workouts</div>
-                {recentSessions.length === 0 ? (
-                  <p style={{ fontSize: 12.5, color: "var(--dim)" }}>
-                    No workouts logged yet. <Link href="/body/workout/new" className="linklike">Start your first session</Link>.
-                  </p>
-                ) : (
-                  recentSessions.map((session) => (
-                    <Link key={session.id} href={`/body/workout/${session.id}`} className="lrow">
-                      <div>
-                        <div className="nm">{session.templateName ?? "Freestyle"}</div>
-                        <div className="dt">
-                          {session.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}
-                          {" · "}{session.sets.length} sets
-                          {session.completedAt && session.sessionVolume != null && <> · {Math.round(session.sessionVolume).toLocaleString()} vol</>}
-                        </div>
-                      </div>
-                      <span className={`wstatus ${session.completedAt ? "done" : "active"}`}>{session.completedAt ? "done" : "active"}</span>
-                    </Link>
-                  ))
-                )}
-              </div>
             </div>
           </div>
 
@@ -527,11 +494,11 @@ export default async function BodyPage({
 
         <div className="mb-[14px]"><QuickWorkoutLog key={viewDate.toISOString()} defaultDate={viewDate.toISOString().slice(0, 10)} today={getLocalDayStr(requestTz)} /></div>
 
-        {/* Two-column: VolumeZones left (1.5fr), PRs + Workouts right (1fr) */}
+        {/* Two-column: VolumeZones left (1.5fr), PRs + day workouts right (1fr) */}
         <div className="grid grid-cols-[1.5fr_1fr] gap-[14px] items-stretch">
           <VolumeZones data={weeklyVolumeData} />
 
-          <div className="flex flex-col gap-[14px] h-full justify-between">
+          <div className="flex flex-col gap-[14px]">
             {/* Recent PRs */}
             {prs.length > 0 && (
               <div className="panel p-[22px_24px]">
@@ -562,66 +529,6 @@ export default async function BodyPage({
             )}
 
             <DayWorkouts sessions={daySessions} watchWorkouts={dayWatchWorkouts} tz={requestTz} dateLabel={dayLabel} unit={unit} variant="desktop" />
-
-            {/* Recent Workouts */}
-            <div className="panel p-[22px_24px]">
-              <p className="ov mb-[14px]">Recent Workouts</p>
-              {recentSessions.length === 0 ? (
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  No workouts logged yet.{" "}
-                  <Link href="/body/workout/new" className="underline hover:text-white">
-                    Start your first session
-                  </Link>
-                  .
-                </p>
-              ) : (
-                recentSessions.map((session, i) => (
-                  <Link
-                    key={session.id}
-                    href={`/body/workout/${session.id}`}
-                    className="flex items-center justify-between bg-[var(--color-surface-2)] px-[14px] py-[11px] text-[13px] hover:bg-white/10"
-                    style={{ marginTop: i > 0 ? "7px" : 0 }}
-                  >
-                    <div>
-                      <p className="font-semibold">{session.templateName ?? "Freestyle"}</p>
-                      <p className="text-[11.5px] text-[var(--color-faint)] mt-[2px]">
-                        {session.date.toLocaleDateString("en-US", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          timeZone: "UTC", // session.date is a UTC-midnight calendar day
-                        })}
-                        {" · "}{session.sets.length} sets
-                        {session.completedAt && session.sessionVolume != null && (
-                          <> · {Math.round(session.sessionVolume).toLocaleString()} vol</>
-                        )}
-                      </p>
-                    </div>
-                    {session.completedAt ? (
-                      <span
-                        className="text-[10px] font-bold uppercase px-[9px] py-[3px] rounded-full"
-                        style={{
-                          background: "color-mix(in oklch, var(--color-green), transparent 80%)",
-                          color: "var(--color-green)",
-                        }}
-                      >
-                        done
-                      </span>
-                    ) : (
-                      <span
-                        className="text-[10px] font-bold uppercase px-[9px] py-[3px] rounded-full"
-                        style={{
-                          background: "color-mix(in oklch, var(--color-yellow), transparent 80%)",
-                          color: "var(--color-yellow)",
-                        }}
-                      >
-                        active
-                      </span>
-                    )}
-                  </Link>
-                ))
-              )}
-            </div>
           </div>
         </div>
       </div>

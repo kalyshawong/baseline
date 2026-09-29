@@ -357,7 +357,15 @@ Total volume load (sets × reps × weight) per session and per exercise.
 
 Estimated one-rep maximum.
 
-**Science:** The Epley formula (1RM = weight × (1 + reps/30)) provides a non-maximal estimate with mean error of 2.7–3.3 kg for bench press (González-Badillo & Sánchez-Medina, 2010). Tracking e1RM over time is the primary measure of strength progression. For Hyrox, absolute strength in the squat, deadlift, and pressing patterns translates to station performance — particularly sled push (125/152kg) and lunges (24kg).
+**Science:** The Epley formula (1RM = weight × (1 + reps/30); Epley, 1985) is a well-validated way to estimate 1RM without a max attempt, with clear limits:
+- **Accurate at low reps, taken close to failure.** Epley and other classic equations predicted tested 1RM closely for bench press and squat, but most underestimated deadlift (LeSuer et al., 1997). Estimates from 5-rep sets were far more accurate than from 10- or 20-rep sets (Reynolds, Gordon & Robergs, 2006).
+- **Error grows with reps and varies by exercise.** A meta-regression of 952 reps-to-failure tests (7,289 people, 269 studies) found reps at a given %1RM differ a lot by exercise — at 70–80% 1RM, leg press ≈ 13–19 reps vs bench press ≈ 9–14 — and between-person spread widens at lighter loads. Sex, age and training status did not clearly moderate the relationship (Nuzzo, Pinto, Nosaka & Steele, 2024).
+- **Best formula differs by sex and lift.** Before and after 16 weeks of training in 62 women and 57 men, Brown, Brzycki and Lander were most accurate for women's bench and squat; Lombardi for men's (Ribeiro et al., 2024).
+- **Machine and cable lifts are under-validated.** Most validation is on barbell lifts; few studies test pulls (García-Ramos et al., 2019, on two upper-body pulling exercises). A 2026 preprint (not peer reviewed; author at Fitbod) on 303,494 near-failure sets across 388 exercises found fixed-factor formulas like Epley are least consistent on light cable/dumbbell movements, and a load-dependent equation cut inconsistency 17–22% overall and up to 40% on those lifts (Marzagão, 2026).
+
+**Implementation rules that follow from this:** plot the **best** e1RM per session (not an arbitrary set); only count sets of **1–10 reps** near failure (or RIR-adjusted, see `session-plan.ts`); compare each machine only to its own history. Tracking e1RM over time is the primary measure of strength progression. For Hyrox, absolute strength in the squat, deadlift, and pressing patterns translates to station performance — particularly sled push (125/152kg) and lunges (24kg).
+
+*Correction (2026-09-28):* this section previously attributed an Epley "mean error of 2.7–3.3 kg" to González-Badillo & Sánchez-Medina (2010). That paper is about movement velocity as a measure of loading intensity, not Epley accuracy; the claim has been removed. The paper remains a valid source for velocity-based training (see `body-mode-research.md` §2.2).
 
 ### 8.4 Exercise metadata (muscleGroup, movementPattern, equipment, isCompound)
 **Domains:** 🏋️ STR (primary)
@@ -635,8 +643,15 @@ Based on this analysis, several derived metrics would add significant value to B
 
 ### Strength & Hypertrophy
 - González-Badillo, J.J., & Sánchez-Medina, L. (2010). *Int J Sports Med*, 31(5), 347–352.
+- Epley, B. (1985). *Poundage Chart*. Boyd Epley Workout. Lincoln, NE.
+- García-Ramos, A., et al. (2019). Validity of different velocity-based methods and repetitions-to-failure equations for predicting the 1 repetition maximum during 2 upper-body pulling exercises. *JSCR*. doi:10.1519/JSC.0000000000003076 — https://www.ovid.com/jnls/nsca-jscr/abstract/10.1519/jsc.0000000000003076
 - Israetel, M., Hoffmann, J., & Smith, C.W. (2021). *Scientific Principles of Hypertrophy Training*. RP.
+- LeSuer, D.A., McCormick, J.H., Mayhew, J.L., Wasserstein, R.L., & Arnold, M.D. (1997). The accuracy of prediction equations for estimating 1-RM performance in the bench press, squat, and deadlift. *JSCR*, 11(4), 211–213. https://journals.lww.com/nsca-jscr/abstract/1997/11000/the_accuracy_of_prediction_equations_for.1.aspx
+- Marzagão, T. (2026). A weight-dependent 1RM prediction equation: optimized on 303,494 near-failure sets across 388 exercises. *SportRxiv* preprint (not peer reviewed). https://sportrxiv.org/index.php/server/preprint/view/768 · arXiv:2603.17495
 - Morton, R.W., et al. (2018). *Br J Sports Med*, 52(6), 376–384.
+- Nuzzo, J.L., Pinto, M.D., Nosaka, K., & Steele, J. (2024). Maximal number of repetitions at percentages of the one repetition maximum: a meta-regression and moderator analysis. *Sports Med*, 54, 303–321. https://link.springer.com/article/10.1007/s40279-023-01937-7
+- Reynolds, J.M., Gordon, T.J., & Robergs, R.A. (2006). Prediction of one repetition maximum strength from multiple repetition maximum testing and anthropometry. *JSCR*, 20(3), 584–592. https://pubmed.ncbi.nlm.nih.gov/16937972/
+- Ribeiro, et al. (2024). Accuracy of 1RM prediction equations before and after resistance training in three different lifts. *Int J Strength Cond*. https://journal.iusca.org/index.php/Journal/article/view/327
 - Schoenfeld, B.J., et al. (2016). *JSCR*, 30(7), 1805–1812.
 - Schoenfeld, B.J., et al. (2017). *J Sports Sci*, 35(11), 1073–1082.
 - Zourdos, M.C., et al. (2016). *JSCR*, 30(1), 267–275.

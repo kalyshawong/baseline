@@ -70,8 +70,7 @@ The training-focused dashboard. Five sections: a Hyrox summary card, Composition
 - *Volume Zones* — per-muscle-group weekly sets vs. MEV/MAV/MRV gauge.
   *Science:* Schoenfeld, Ogborn & Krieger (2017) — dose-response: ~0.37% muscle mass per extra weekly set, non-linear. Israetel, Hoffmann & Smith (2021) — MV ~6, MEV ~8–12, MAV ~12–20, MRV ~20–30+ sets/muscle/week.
 - *Recent PRs* — top 5 PRs with estimated 1RM via Epley formula.
-  *Science:* Epley estimate mean error 2.7–3.3 kg for bench press (González-Badillo & Sánchez-Medina 2010) — reliable without risky 1RM attempts.
-- *Recent workouts list* — last 5 sessions with volume and active/done status, links to `/body/workout/[id]`.
+  *Science:* Epley (1985) is accurate for low-rep sets taken near failure (LeSuer et al. 1997; Reynolds et al. 2006); error grows above ~10 reps and varies by exercise (Nuzzo et al. 2024 meta-regression), and machine/cable lifts are least validated (Marzagão 2026 preprint). Full sources: `research/variable-research.md` §8.3.
 
 **Recovery.**
 - *Sleep breakdown + Bedtime recommendation* — as on the dashboard.
