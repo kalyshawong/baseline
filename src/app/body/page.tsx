@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getIntakeStatus } from "@/lib/intake";
+import { proteinPerKg, proteinTargetG as proteinTargetGFor } from "@/lib/protein";
 import { GarminCard, type GarminCardData } from "@/components/garmin/garmin-card";
 import { LifterBody } from "@/components/strength/lifter-body";
 import { lifterBodyData } from "@/lib/strength/body";
@@ -256,8 +257,13 @@ export default async function BodyPage({
         activityLevel: profile.activityLevel,
         goal: profile.goal,
         targetWeightKg: profile.targetWeightKg,
+        bmrKcal: profile.bmrKcal,
       })
     : null;
+  // Bodybuilders (strength goal in their intake) get a phase-scaled target;
+  // legacy everything-on accounts keep 1.6 g/kg.
+  const proteinOpts = { bodybuilding: !!gates.intake && gates.lifts, phase: profile?.goal ?? null };
+  const proteinGPerKg = proteinPerKg(proteinOpts);
   const goalCals = tdee ? goalCalories(tdee, profile?.goal ?? "maintain") : null;
 
   const weightChartData = movingAverage(
@@ -436,7 +442,7 @@ export default async function BodyPage({
   ]);
 
   // --- Mobile card values (nutrition / weight / TDEE) ---
-  const proteinTargetG = weightKg ? Math.round(weightKg * 1.6) : null;
+  const proteinTargetG = proteinTargetGFor(weightKg, proteinOpts);
   const calTargetG = profile?.dailyCalorieTarget ?? null;
   const nProtein = todayNutrition?.protein ?? null;
   const nCals = todayNutrition?.calories ?? null;
@@ -883,7 +889,7 @@ export default async function BodyPage({
                   </div>
                   {proteinTargetG != null && (
                     <div className="nbar">
-                      <div className="lab"><span>Protein (1.6 g/kg)</span><span className="v num">{Math.round(nProtein ?? 0)} / {proteinTargetG}g</span></div>
+                      <div className="lab"><span>Protein ({proteinGPerKg} g/kg)</span><span className="v num">{Math.round(nProtein ?? 0)} / {proteinTargetG}g</span></div>
                       <div className="track"><i className="prot" style={{ width: `${proteinPct}%` }} /></div>
                     </div>
                   )}
@@ -1148,6 +1154,7 @@ export default async function BodyPage({
               : null
           }
           bodyWeightKg={weightKg}
+          proteinTarget={proteinTargetG}
           dailyCalorieTarget={profile?.dailyCalorieTarget ?? null}
           energyAvailability={eaValue}
         />
@@ -1189,7 +1196,8 @@ export default async function BodyPage({
           tdee={tdee}
           goalCals={goalCals}
           actualCals={todayNutrition?.calories ?? null}
-          proteinTarget={weightKg ? Math.round(weightKg * 1.6) : null}
+          proteinTarget={proteinTargetG}
+          proteinGPerKg={proteinGPerKg}
           actualProtein={todayNutrition?.protein ?? null}
           flag={null}
           energyAvailability={eaValue}

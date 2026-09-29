@@ -1,3 +1,4 @@
+import { proteinTargetG } from "./protein";
 /**
  * Body Mode training logic.
  * Research citations in docs/body-mode-research.md
@@ -243,11 +244,12 @@ export function computeFatigueScore(signals: FatigueSignals): {
   return { score, recommendation };
 }
 
-// --- Protein target ---
-// Research: Morton 2018 meta-analysis — 1.6 g/kg captures 95% of hypertrophy benefit
-export function proteinTarget(bodyWeightKg: number | null | undefined): number {
-  if (bodyWeightKg == null || bodyWeightKg <= 0) return 0;
-  return Math.round(bodyWeightKg * 1.6);
+// --- Protein target --- (rules live in protein.ts)
+export function proteinTarget(
+  bodyWeightKg: number | null | undefined,
+  opts?: { bodybuilding?: boolean; phase?: string | null },
+): number {
+  return proteinTargetG(bodyWeightKg, opts) ?? 0;
 }
 
 // --- Per-meal protein check ---

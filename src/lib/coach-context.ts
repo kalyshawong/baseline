@@ -1,3 +1,5 @@
+import { getIntakeStatus } from "@/lib/intake";
+import { proteinPerKg } from "@/lib/protein";
 import { prisma } from "./db";
 import { getCurrentUserId } from "./current-user";
 import { getLocalDay, getRequestTz } from "./date-utils";
@@ -901,8 +903,10 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
     // Protein target + TDEE
     const weightKg = weightLogs[0]?.weightKg ?? profile?.bodyWeightKg;
     if (weightKg) {
-      const pTarget = proteinTarget(weightKg);
-      nutritionLines.push(`- Protein target (1.6 g/kg Morton 2018): ${pTarget}g — ${Math.round((todayNutrition.protein / pTarget) * 100)}% hit`);
+      const { gates } = await getIntakeStatus();
+      const pOpts = { bodybuilding: !!gates.intake && gates.lifts, phase: profile?.goal ?? null };
+      const pTarget = proteinTarget(weightKg, pOpts);
+      nutritionLines.push(`- Protein target (${proteinPerKg(pOpts)} g/kg): ${pTarget}g — ${Math.round((todayNutrition.protein / pTarget) * 100)}% hit`);
     }
     if (profile && weightKg) {
       const tdee = totalDailyEnergyExpenditure({

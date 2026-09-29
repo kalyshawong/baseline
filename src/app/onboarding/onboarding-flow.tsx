@@ -10,6 +10,8 @@ import {
   type GoalId,
   type IntakeState,
   type MedEffect,
+  type Phase,
+  type Unit,
   type QuestionTemplateId,
   type RecordsHabit,
   type RitualSlot,
@@ -18,6 +20,8 @@ import {
   type WearHistory,
 } from "@/lib/intake-config";
 import { saveIntakeAction } from "./actions";
+import { basalMetabolicRate } from "@/lib/tdee";
+import { proteinPerKg, proteinTargetG } from "@/lib/protein";
 
 /**
  * The pilot app's IntakeFlow, on the web. Copy is the pilot's verbatim
@@ -26,12 +30,12 @@ import { saveIntakeAction } from "./actions";
  * questions only for people who train.
  */
 
-type StepId = "welcome" | "goals" | "device" | "about" | "cycle" | "meds" | "training" | "schedule" | "question" | "ritual" | "build";
+type StepId = "welcome" | "goals" | "device" | "about" | "body" | "cycle" | "meds" | "training" | "schedule" | "question" | "ritual" | "build";
 
 function stepsFor(s: IntakeState): StepId[] {
   const trains = s.goals.includes("running") || s.goals.includes("strength");
   const askCycle = s.sex !== "male";
-  return ["welcome", "goals", "device", "about", ...(askCycle ? (["cycle"] as StepId[]) : []), "meds", ...(trains ? (["training"] as StepId[]) : []), "schedule", "question", "ritual", "build"];
+  return ["welcome", "goals", "device", "about", "body", ...(askCycle ? (["cycle"] as StepId[]) : []), "meds", ...(trains ? (["training"] as StepId[]) : []), "schedule", "question", "ritual", "build"];
 }
 
 const GOALS: { id: GoalId; title: string; detail: string }[] = [
@@ -81,6 +85,23 @@ const RECORDS: { id: RecordsHabit; label: string }[] = [
   { id: "some", label: "Sometimes" },
   { id: "rarely", label: "Rarely" },
 ];
+
+const PHASE: { id: Phase; label: string }[] = [
+  { id: "gain", label: "Bulking" },
+  { id: "lose", label: "Cutting" },
+  { id: "maintain", label: "Maintaining" },
+];
+
+const LB_PER_KG = 2.20462;
+const CM_PER_IN = 2.54;
+const r1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Mifflin-St Jeor needs a binary sex; "other" uses the midpoint of the two constants. */
+function estimateBmr(s: IntakeState): number | null {
+  if (s.heightCm == null || s.weightKg == null || s.age == null) return null;
+  if (s.sex === "male" || s.sex === "female") return Math.round(basalMetabolicRate(s.weightKg, s.heightCm, s.age, s.sex));
+  return Math.round(basalMetabolicRate(s.weightKg, s.heightCm, s.age, "female") + 83);
+}
 
 const SCHEDULE: { id: ScheduleKind; title: string; detail: string }[] = [
   { id: "steady", title: "Pretty consistent", detail: "Similar bed and wake times most days" },
@@ -168,10 +189,16 @@ function Why({ lead, children }: { lead: string; children: React.ReactNode }) {
 
 /* ---------------- flow ---------------- */
 
-export function OnboardingFlow({ initial, editing }: { initial: IntakeState | null; editing: boolean }) {
+export function OnboardingFlow({ initial, editing, startAt = null }: { initial: IntakeState | null; editing: boolean; startAt?: StepId | null }) {
   const router = useRouter();
   const [state, setState] = useState<IntakeState>(initial ?? EMPTY_INTAKE);
-  const [idx, setIdx] = useState(editing || initial ? 1 : 0);
+  const [idx, setIdx] = useState(() => {
+    if (startAt) {
+      const i = stepsFor(initial ?? EMPTY_INTAKE).indexOf(startAt);
+      if (i > 0) return i;
+    }
+    return editing || initial ? 1 : 0;
+  });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const steps = useMemo(() => stepsFor(state), [state]);
@@ -182,6 +209,8 @@ export function OnboardingFlow({ initial, editing }: { initial: IntakeState | nu
   const toggleIn = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
   const trains = state.goals.includes("running") || state.goals.includes("strength");
+  const lifts = state.goals.includes("strength");
+  const bodybuilding = { bodybuilding: lifts, phase: state.phase };
   const hasReal = state.devices.some((d) => d !== "none");
 
   const submit = () => {
@@ -294,6 +323,10 @@ export function OnboardingFlow({ initial, editing }: { initial: IntakeState | nu
         </Step>
       )}
 
+      {step === "body" && (
+        <BodyStep state={state} patch={patch} footer={<Continue disabled={state.heightCm == null || state.weightKg == null || state.age == null} />} />
+      )}
+
       {step === "cycle" && (
         <Step
           ov="Your physiology, not an average"
@@ -325,13 +358,30 @@ export function OnboardingFlow({ initial, editing }: { initial: IntakeState | nu
           ov="Your training"
           title={"Do you record\nyour sessions?"}
           sub="Performance answers come from recorded workouts — pace against heart rate, load against effort. No recordings, no performance verdicts; everything else still works."
-          footer={<Continue disabled={state.records === null} />}
+          footer={<Continue disabled={state.records === null || (lifts && state.phase === null)} />}
         >
           <div className="flex gap-2 flex-wrap">
             {RECORDS.map((r) => (
               <Chip key={r.id} label={r.label} selected={state.records === r.id} onClick={() => patch({ records: r.id })} />
             ))}
           </div>
+          {lifts ? (
+            <>
+              <div className="ov mt-5">Which phase are you in?</div>
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {PHASE.map((p) => (
+                  <Chip key={p.id} label={p.label} selected={state.phase === p.id} onClick={() => patch({ phase: p.id })} />
+                ))}
+              </div>
+              {state.phase && state.weightKg != null ? (
+                <p className="mt-4 text-sm">
+                  Daily protein: <span className="font-semibold">{proteinTargetG(state.weightKg, bodybuilding)} g</span>
+                  <span className="text-[var(--color-text-muted)]"> · {proteinPerKg(bodybuilding)} g per kg of body weight</span>
+                </p>
+              ) : null}
+              <Why lead="How it’s set:">1.6–2.2 g per kg is the range where extra protein still builds muscle. Cutting sits at the top, to hold on to muscle in a deficit.</Why>
+            </>
+          ) : null}
         </Step>
       )}
 
@@ -402,6 +452,8 @@ export function OnboardingFlow({ initial, editing }: { initial: IntakeState | nu
 
 function Summary({ s }: { s: IntakeState }) {
   const has = (g: GoalId) => s.goals.includes(g);
+  const bmr = s.bmrKcal ?? estimateBmr(s);
+  const protein = proteinTargetG(s.weightKg, { bodybuilding: has("strength"), phase: s.phase });
   const dev = new Set(s.devices);
   const wearable = dev.has("apple") || dev.has("suunto") || dev.has("garmin");
   const lines: string[] = [];
@@ -412,6 +464,8 @@ function Summary({ s }: { s: IntakeState }) {
   if (wearable && (has("running") || has("strength"))) lines.push("Training load recomputed from your recorded workouts");
   if (s.cycle === "regular" || s.cycle === "irregular") lines.push("Cycle phase, and every analysis adjusted for it");
   if (has("food_gi")) lines.push("Meals and how your gut felt, turned into questions you can test");
+  if (bmr) lines.push(`BMR ${bmr.toLocaleString()} kcal a day${s.bmrKcal ? " (from your scan)" : " (estimated from height, weight and age)"}`);
+  if (protein) lines.push(`Protein target ${protein} g a day`);
   lines.push("Your daily check-in — the tags every experiment runs on");
   const skipped: string[] = [];
   if (!has("running")) skipped.push("running & cardio");
@@ -428,5 +482,88 @@ function Summary({ s }: { s: IntakeState }) {
         <Why lead="Left out on purpose:">{skipped.join(", ")} — nothing to fill them with, so they don’t appear. Add a device or goal later and they come back.</Why>
       ) : null}
     </div>
+  );
+}
+
+/* ---------------- body basics ---------------- */
+
+function BodyStep({ state, patch, footer }: { state: IntakeState; patch: (p: Partial<IntakeState>) => void; footer: React.ReactNode }) {
+  const unit: Unit = state.unit ?? "lb";
+  const imperial = unit === "lb";
+  const totalIn = state.heightCm != null ? state.heightCm / CM_PER_IN : null;
+  const [ft, setFt] = useState(totalIn != null ? String(Math.floor(totalIn / 12)) : "");
+  const [inch, setInch] = useState(totalIn != null ? String(Math.round(totalIn % 12)) : "");
+  const [cm, setCm] = useState(state.heightCm != null ? String(Math.round(state.heightCm)) : "");
+  const [wt, setWt] = useState(state.weightKg != null ? String(r1(imperial ? state.weightKg * LB_PER_KG : state.weightKg)) : "");
+  const [age, setAge] = useState(state.age != null ? String(state.age) : "");
+  const [bmr, setBmr] = useState(state.bmrKcal != null ? String(state.bmrKcal) : "");
+
+  const num = (v: string) => (v.trim() === "" ? NaN : Number(v));
+  const inRange = (n: number, lo: number, hi: number) => Number.isFinite(n) && n >= lo && n <= hi;
+
+  const setHeight = (f: string, i: string, c: string, u: Unit) => {
+    const h = u === "lb" ? (num(f) * 12 + (i.trim() === "" ? 0 : num(i))) * CM_PER_IN : num(c);
+    patch({ unit: u, heightCm: inRange(h, 100, 250) ? r1(h) : null });
+  };
+  const setWeight = (w: string, u: Unit) => {
+    const kg = u === "lb" ? num(w) / LB_PER_KG : num(w);
+    patch({ unit: u, weightKg: inRange(kg, 20, 400) ? r1(kg) : null });
+  };
+  const switchUnit = (u: Unit) => {
+    if (u === unit) return;
+    if (state.heightCm != null) {
+      const t = state.heightCm / CM_PER_IN;
+      setFt(String(Math.floor(t / 12)));
+      setInch(String(Math.round(t % 12)));
+      setCm(String(Math.round(state.heightCm)));
+    }
+    if (state.weightKg != null) setWt(String(r1(u === "lb" ? state.weightKg * LB_PER_KG : state.weightKg)));
+    patch({ unit: u });
+  };
+
+  const estimate = estimateBmr(state);
+  const field = "w-full px-3 py-2 border bg-transparent text-sm";
+  const fieldStyle = { borderColor: "var(--color-border)" };
+
+  return (
+    <Step
+      ov="Your physiology, not an average"
+      title={"Height, weight\nand age."}
+      sub="These set your BMR — the energy your body burns at rest — and, if you lift, your daily protein target."
+      footer={footer}
+    >
+      <div className="flex gap-2">
+        <Chip label="lb · ft" selected={imperial} onClick={() => switchUnit("lb")} />
+        <Chip label="kg · cm" selected={!imperial} onClick={() => switchUnit("kg")} />
+      </div>
+
+      <div className="ov mt-5">Height</div>
+      {imperial ? (
+        <div className="flex gap-2 mt-2">
+          <input className={field} style={fieldStyle} inputMode="numeric" placeholder="ft" aria-label="Height, feet" value={ft}
+            onChange={(e) => { setFt(e.target.value); setHeight(e.target.value, inch, cm, "lb"); }} />
+          <input className={field} style={fieldStyle} inputMode="numeric" placeholder="in" aria-label="Height, inches" value={inch}
+            onChange={(e) => { setInch(e.target.value); setHeight(ft, e.target.value, cm, "lb"); }} />
+        </div>
+      ) : (
+        <input className={`${field} mt-2`} style={fieldStyle} inputMode="numeric" placeholder="cm" aria-label="Height, cm" value={cm}
+          onChange={(e) => { setCm(e.target.value); setHeight(ft, inch, e.target.value, "kg"); }} />
+      )}
+
+      <div className="ov mt-5">Weight</div>
+      <input className={`${field} mt-2`} style={fieldStyle} inputMode="decimal" placeholder={imperial ? "lb" : "kg"} aria-label="Weight" value={wt}
+        onChange={(e) => { setWt(e.target.value); setWeight(e.target.value, unit); }} />
+
+      <div className="ov mt-5">Age</div>
+      <input className={`${field} mt-2`} style={fieldStyle} inputMode="numeric" placeholder="years" aria-label="Age" value={age}
+        onChange={(e) => { setAge(e.target.value); const n = num(e.target.value); patch({ age: inRange(n, 13, 120) ? Math.round(n) : null }); }} />
+
+      <div className="ov mt-5">BMR</div>
+      <input className={`${field} mt-2`} style={fieldStyle} inputMode="numeric" placeholder={estimate ? `${estimate} (estimated)` : "kcal per day"} aria-label="BMR, kcal per day" value={bmr}
+        onChange={(e) => { setBmr(e.target.value); const n = num(e.target.value); patch({ bmrKcal: inRange(n, 700, 4500) ? Math.round(n) : null }); }} />
+      <Why lead={estimate && !state.bmrKcal ? `Estimated: ${estimate.toLocaleString()} kcal a day.` : "Optional."}>
+        If you’ve had an InBody or DEXA scan, type the BMR it gave you. Otherwise leave it blank — we estimate it from your height, weight and age.
+      </Why>
+    </Step>
   );
 }

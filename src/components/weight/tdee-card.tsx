@@ -10,6 +10,7 @@ interface Props {
   goalCals: number | null;
   actualCals: number | null;
   proteinTarget: number | null;
+  proteinGPerKg?: number;
   actualProtein: number | null;
   flag: CalorieFlag | null;
   energyAvailability: number | null;
@@ -20,6 +21,7 @@ export function TdeeCard({
   goalCals,
   actualCals,
   proteinTarget,
+  proteinGPerKg = 1.6,
   actualProtein,
   flag,
   energyAvailability,
@@ -77,7 +79,7 @@ export function TdeeCard({
       {proteinTarget && (
         <div className="mt-[14px]">
           <div className="flex justify-between text-[12.5px] text-[var(--color-text-muted)] mb-[6px]">
-            <span>Protein (1.6 g/kg)</span>
+            <span>Protein ({proteinGPerKg} g/kg)</span>
             <span className="num font-semibold text-[var(--color-text)]">
               {actualProtein != null ? Math.round(actualProtein) : 0} / {proteinTarget}g
             </span>

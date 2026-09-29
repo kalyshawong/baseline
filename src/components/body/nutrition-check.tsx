@@ -14,10 +14,12 @@ interface Props {
   bodyWeightKg: number | null;
   dailyCalorieTarget: number | null;
   energyAvailability: number | null;
+  /** Precomputed target (phase-aware for bodybuilders); falls back to 1.6 g/kg. */
+  proteinTarget?: number | null;
 }
 
-export function NutritionCheck({ nutrition, bodyWeightKg, dailyCalorieTarget, energyAvailability }: Props) {
-  const proteinTarget = bodyWeightKg ? Math.round(bodyWeightKg * 1.6) : null;
+export function NutritionCheck({ nutrition, bodyWeightKg, dailyCalorieTarget, energyAvailability, proteinTarget: target }: Props) {
+  const proteinTarget = target !== undefined ? target : bodyWeightKg ? Math.round(bodyWeightKg * 1.6) : null;
   const proteinPct = proteinTarget && nutrition
     ? Math.min(100, (nutrition.protein / proteinTarget) * 100)
     : 0;
@@ -40,7 +42,7 @@ export function NutritionCheck({ nutrition, bodyWeightKg, dailyCalorieTarget, en
           {/* Protein bar */}
           <div className="mt-[14px]">
             <div className="flex justify-between text-[12.5px] text-[var(--color-text-muted)] mb-[6px]">
-              <span>Protein {proteinTarget && `(target ${proteinTarget}g — Morton 2018)`}</span>
+              <span>Protein {proteinTarget && `(target ${proteinTarget}g)`}</span>
               <span className="num font-semibold text-[var(--color-text)]">
                 {Math.round(nutrition.protein)}{proteinTarget && ` / ${proteinTarget}g`}
               </span>

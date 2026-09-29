@@ -1,3 +1,4 @@
+import { proteinTargetG as proteinTargetGFor } from "@/lib/protein";
 import { prisma } from "@/lib/db";
 import { getLocalDayBounds, getLocalDayStr, getRequestTz } from "@/lib/date-utils";
 import { lifterSoreness } from "@/lib/strength/body";
@@ -51,7 +52,7 @@ export async function lifterCheckinData(): Promise<CheckinData> {
     dateStr,
     session: session ? { id: session.id, template: session.templateName, rpe: session.sessionRPE } : null,
     soreness: sore.levels,
-    proteinTargetG: kg ? Math.round(kg * 1.6) : null,
+    proteinTargetG: proteinTargetGFor(kg, { bodybuilding: true, phase: goal }),
     proteinAnswer: proteinTag ? (proteinTag.tag.split(" ")[1] as "yes" | "close" | "no") : null,
     tags,
     tagsToday: tagsToday.filter((t) => t.category !== "nutrition").map((t) => t.tag),

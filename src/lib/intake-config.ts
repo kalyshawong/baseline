@@ -20,6 +20,8 @@ export type ContextFlag = "travel" | "altitude";
 export type RitualSlot = "evening" | "morning" | "none";
 export type Sex = "male" | "female" | "other";
 export type MedEffect = "heart" | "sleep" | "unsure";
+export type Phase = "gain" | "maintain" | "lose";
+export type Unit = "lb" | "kg";
 export type QuestionTemplateId = "baseline_first" | "sleep_change" | "recovery_change" | "performance_change" | "food_watch";
 
 export interface IntakeState {
@@ -36,6 +38,20 @@ export interface IntakeState {
   context: ContextFlag[];
   question: QuestionTemplateId | null;
   ritual: RitualSlot | null;
+  /** Body basics — asked of everyone; mirrored to UserProfile. Stored metric. */
+  unit: Unit | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  age: number | null;
+  /** Measured BMR if they know it (InBody/DEXA); null = Mifflin-St Jeor estimate. */
+  bmrKcal: number | null;
+  /** Bulk / cut / maintain — asked when strength is a goal; sets the protein target. */
+  phase: Phase | null;
+}
+
+/** Height, weight and age answered — BMR and protein can be computed. */
+export function bodyComplete(s: IntakeState | null): boolean {
+  return !!s && s.heightCm != null && s.weightKg != null && s.age != null;
 }
 
 export const EMPTY_INTAKE: IntakeState = {
@@ -50,10 +66,21 @@ export const EMPTY_INTAKE: IntakeState = {
   context: [],
   question: null,
   ritual: null,
+  unit: null,
+  heightCm: null,
+  weightKg: null,
+  age: null,
+  bmrKcal: null,
+  phase: null,
 };
 
 const GOALS = new Set<GoalId>(["heart_steady", "sleep", "running", "strength", "food_gi", "general"]);
 const DEVICES = new Set<DeviceId>(["apple", "suunto", "oura", "garmin", "none"]);
+const numIn = (v: unknown, min: number, max: number, integer = false): number | null => {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  if (!Number.isFinite(n) || n < min || n > max) return null;
+  return integer ? Math.round(n) : Math.round(n * 10) / 10;
+};
 const oneOf = <T extends string>(v: unknown, allowed: readonly T[]): T | null =>
   typeof v === "string" && (allowed as readonly string[]).includes(v) ? (v as T) : null;
 
@@ -82,6 +109,12 @@ export function normalizeIntake(raw: unknown): IntakeState {
     context: Array.isArray(o.context) ? (o.context.filter((c) => c === "travel" || c === "altitude") as ContextFlag[]) : [],
     question: oneOf(o.question, ["baseline_first", "sleep_change", "recovery_change", "performance_change", "food_watch"] as const),
     ritual: oneOf(o.ritual, ["evening", "morning", "none"] as const),
+    unit: oneOf(o.unit, ["lb", "kg"] as const),
+    heightCm: numIn(o.heightCm, 100, 250),
+    weightKg: numIn(o.weightKg, 20, 400),
+    age: numIn(o.age, 13, 120, true),
+    bmrKcal: numIn(o.bmrKcal, 700, 4500, true),
+    phase: oneOf(o.phase, ["gain", "maintain", "lose"] as const),
   };
 }
 

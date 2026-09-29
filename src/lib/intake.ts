@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getCurrentUserId, SOLO_USER_ID } from "@/lib/current-user";
 import { DEMO_USER_ID } from "@/lib/demo/constants";
-import { gatesFor, normalizeIntake, type DashboardGates, type IntakeState } from "@/lib/intake-config";
+import { bodyComplete, gatesFor, normalizeIntake, type DashboardGates, type IntakeState } from "@/lib/intake-config";
 
 export * from "@/lib/intake-config";
 
@@ -17,6 +17,8 @@ export interface IntakeStatus {
   userId: string;
   /** Owner + demo never see onboarding; a new account without answers does. */
   needsOnboarding: boolean;
+  /** Answered before body basics existed (Sep 29 2026) — resume at that step. */
+  resumeAt: "body" | null;
   intake: IntakeState | null;
   gates: DashboardGates;
 }
@@ -37,9 +39,11 @@ export async function getIntakeStatus(): Promise<IntakeStatus> {
     }
   }
   const completed = !!row?.intakeCompletedAt && !!intake;
+  const missingBody = completed && !bodyComplete(intake);
   return {
     userId,
-    needsOnboarding: !exempt && !completed,
+    needsOnboarding: !exempt && (!completed || missingBody),
+    resumeAt: !exempt && missingBody ? "body" : null,
     intake: completed ? intake : null,
     gates: gatesFor(completed ? intake : null),
   };

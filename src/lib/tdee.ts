@@ -11,6 +11,8 @@ export interface ProfileData {
   activityLevel: string; // sedentary | light | moderate | active | very_active
   goal: string; // lose | maintain | gain
   targetWeightKg: number | null;
+  /** Measured BMR — replaces the Mifflin-St Jeor estimate when set. */
+  bmrKcal?: number | null;
 }
 
 const activityMultipliers: Record<string, number> = {
@@ -46,6 +48,9 @@ export function basalMetabolicRate(weightKg: number, heightCm: number, age: numb
 
 // TDEE = BMR × activity multiplier
 export function totalDailyEnergyExpenditure(profile: ProfileData): number | null {
+  if (profile.bmrKcal) {
+    return Math.round(profile.bmrKcal * (activityMultipliers[profile.activityLevel] ?? 1.55));
+  }
   if (!profile.heightCm || !profile.age || !profile.sex) {
     // Fallback: crude estimate if height/age/sex missing
     // 14 kcal/lb for active women, 15 for active men — approximate

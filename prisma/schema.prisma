@@ -609,6 +609,9 @@ model UserProfile {
   goal               String   @default("maintain")
   targetWeightKg     Float?
   dailyCalorieTarget Int?
+  // Measured BMR (InBody / DEXA / metabolic cart) typed in at intake.
+  // Null = estimate with Mifflin-St Jeor from height/weight/age/sex.
+  bmrKcal            Int?
   unit               String   @default("lb")
   hrvBaselineChoice  String   @default("pending") // pending | personalized | standard
   // Weekly run-volume landmarks in km (desktop grid handoff). Null = not set;

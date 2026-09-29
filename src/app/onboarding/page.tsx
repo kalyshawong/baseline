@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { DEMO_USER_ID } from "@/lib/demo/constants";
-import { getIntakeStatus, seedIntakeFromImport } from "@/lib/intake";
+import { getIntakeStatus, seedIntakeFromImport, EMPTY_INTAKE } from "@/lib/intake";
+import { prisma } from "@/lib/db";
 import { OnboardingFlow } from "./onboarding-flow";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,20 @@ export default async function OnboardingPage({
   const editing = params.edit === "1";
   const status = await getIntakeStatus();
   if (!status.needsOnboarding && !editing) redirect("/");
-  const seed = await seedIntakeFromImport(session.userId);
-  return <OnboardingFlow initial={seed} editing={editing} />;
+  const answered = await seedIntakeFromImport(session.userId);
+  // Body basics the profile already knows (weigh-ins, Account) pre-fill the body step.
+  const profile = await prisma.userProfile.findUnique({ where: { userId: session.userId } });
+  const base = answered ?? (profile ? EMPTY_INTAKE : null);
+  const seed = base && profile
+    ? {
+        ...base,
+        unit: base.unit ?? (profile.unit === "kg" ? ("kg" as const) : ("lb" as const)),
+        heightCm: base.heightCm ?? profile.heightCm ?? null,
+        weightKg: base.weightKg ?? profile.bodyWeightKg ?? null,
+        age: base.age ?? profile.age ?? null,
+        bmrKcal: base.bmrKcal ?? profile.bmrKcal ?? null,
+        phase: base.phase ?? (profile.goal === "gain" || profile.goal === "lose" || profile.goal === "maintain" ? profile.goal : null),
+      }
+    : base;
+  return <OnboardingFlow initial={seed} editing={editing} startAt={editing ? null : status.resumeAt} />;
 }
