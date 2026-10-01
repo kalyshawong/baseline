@@ -202,7 +202,10 @@ export async function hybridToday(deckMuscles: string[] = []): Promise<HybridTod
     const day = addDays(today, -i);
     gapDays.push(facts.get(day) ?? { day, logged: false, ran: false, lifted: false, travel: false, brk: false });
   }
-  let gap = findGap(gapDays);
+  // Only ask about gaps after the person started logging: a new account (or
+  // one whose history starts mid-window) has no "missed" days before that.
+  const firstLogged = gapDays.findIndex((d) => d.logged || d.travel || d.brk);
+  let gap = firstLogged < 0 ? null : findGap(gapDays.slice(firstLogged));
   if (gap && addDays(gap.end, HYBRID.gapAskWithinDays) < today) gap = null;
   if (gap && home) {
     // Moved between the workouts either side of the gap → it was a trip; don't ask.

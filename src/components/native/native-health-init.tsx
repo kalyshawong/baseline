@@ -18,10 +18,16 @@ import { startNativeHealth, syncNativeHealthOnResume } from "@/lib/native-health
  * without an app restart. All steps are recorded (src/lib/native-health.ts)
  * and shown on /account, with a manual "Connect Apple Health" fallback.
  */
+const PRE_APP = /^\/(login|signup|onboarding|demo|privacy)(\/|$)/;
+
 export function NativeHealthInit() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // Not before the person is in the app: the Health sheet on top of
+    // sign-in or the questionnaire comes with no context. Finishing intake
+    // navigates to Today, which asks.
+    if (PRE_APP.test(pathname ?? "")) return;
     void startNativeHealth({ trigger: "auto" });
   }, [pathname]);
 

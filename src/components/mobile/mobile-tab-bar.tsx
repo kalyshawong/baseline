@@ -89,9 +89,14 @@ const LIFT_TAB = {
   ),
 };
 
+const PRE_APP = /^\/(login|signup|onboarding|privacy)(\/|$)/;
+
 export function MobileTabBar({ hybrid = false }: { hybrid?: boolean }) {
   const pathname = usePathname() ?? "/";
   const tabs = hybrid ? [TABS[0], TABS[1], RUN_TAB, LIFT_TAB, TABS[3], TABS[4]] : TABS;
+  // Sign-in, signup and the questionnaire aren't in the app yet — tabs there
+  // let a new person skip intake (and show Run/Lift before any answers).
+  if (PRE_APP.test(pathname)) return null;
   return (
     <nav className="m-tabbar md:hidden" aria-label="Primary" style={hybrid ? { gridTemplateColumns: `repeat(${tabs.length}, 1fr)` } : undefined}>
       {tabs.map((t) => (

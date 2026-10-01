@@ -406,13 +406,7 @@ export default async function MindPage({
                     timestamp: latestEnv.timestamp.toISOString(),
                   }}
                 />
-              ) : (
-                <div className="mi-env">
-                  <span className="k">Environment</span>
-                  <span>No sensor data yet.</span>
-                  <span className="linklike">Connect your ESP32</span>
-                </div>
-              )}
+              ) : null /* no sensor → no card (cards show data only) */}
               <div style={{ height: 24 }} />
             </div>
           </div>
@@ -595,12 +589,7 @@ export default async function MindPage({
                     timestamp: latestEnv.timestamp.toISOString(),
                   }}
                 />
-              ) : (
-                <div className="env">
-                  <span className="k">Environment</span>No sensor data yet.
-                  <span className="linklike">Connect your ESP32</span>
-                </div>
-              )}
+              ) : null /* no sensor → no card (cards show data only) */}
             </div>
           </main>
         </div>
