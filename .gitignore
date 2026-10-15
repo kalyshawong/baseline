@@ -57,3 +57,11 @@ counts.after.json
 *.png
 # ...but DO ship the PWA icons in public/
 !public/*.png
+
+# local-only: data backups, scratch scripts, stray stubs
+/Claude outputs/
+/_to_delete/
+/scripts/_chk_*
+/scripts/import/_*
+/app.json
+.env.east
