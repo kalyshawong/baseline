@@ -65,3 +65,4 @@ counts.after.json
 /scripts/import/_*
 /app.json
 .env.east
+.env.ohio-backup
