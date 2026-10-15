@@ -570,6 +570,9 @@ export default async function BodyPage({
                   <Link href="/body/session" className="btn">Start session</Link>
                   <Link href="/body/workout/new?backfill=1" className="linklike">Log past workout</Link>
                 </div>
+                <div style={{ marginTop: 14 }}>
+                  <QuickWorkoutLog key={viewDate.toISOString()} defaultDate={viewDate.toISOString().slice(0, 10)} today={getLocalDayStr(requestTz)} />
+                </div>
               </div>
               <LifterBody data={lifter} blockHref="/body/block" blockLabel={block ? `Block ${block.number} · Week ${block.currentWeek}` : undefined} />
               <div className="wrap" style={{ marginTop: 14 }}>
