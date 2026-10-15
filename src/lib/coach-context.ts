@@ -2,7 +2,9 @@ import { getIntakeStatus } from "@/lib/intake";
 import { proteinPerKg } from "@/lib/protein";
 import { prisma } from "./db";
 import { getCurrentUserId } from "./current-user";
-import { getLocalDay, getRequestTz } from "./date-utils";
+import { getLocalDay, getLocalDayStr, getRequestTz } from "./date-utils";
+import { getSorenessForDay, getSoreDaySetsByPart } from "./soreness";
+import { analyzeSoreness } from "./soreness-analysis";
 import { getScoreForDate } from "./baseline-score";
 import {
   readinessTier,
@@ -890,6 +892,42 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
   }
   addSection("training", trainingLines);
 
+  // --- Soreness (episode model: open until she clears it) ---
+  // Added 2026-10-14: soreness was logged since Aug but never reached the coach.
+  try {
+    const todayStr = getLocalDayStr(await getRequestTz());
+    const [current, soreDays, findings] = await Promise.all([
+      getSorenessForDay(todayStr).catch(() => []),
+      getSoreDaySetsByPart().catch(() => new Map<string, Set<string>>()),
+      analyzeSoreness().catch(() => []),
+    ]);
+    const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+    const last30 = [...soreDays]
+      .map(([part, days]) => [part, [...days].filter((d) => d >= cutoff).length] as const)
+      .filter(([, n]) => n > 0)
+      .sort((a, b) => b[1] - a[1]);
+    if (current.length > 0 || last30.length > 0) {
+      const sorenessLines: string[] = ["## Soreness (self-reported, 1-10)"];
+      if (current.length === 0) sorenessLines.push("- Nothing sore today");
+      for (const e of current) {
+        sorenessLines.push(
+          `- ${e.bodyPart}: ${e.severity}/10, day ${e.streak}${e.carried ? " (carried from earlier log, not re-logged today)" : ""}${e.note ? ` — "${e.note}"` : ""}`,
+        );
+      }
+      if (last30.length > 0) {
+        sorenessLines.push(`- Sore days, last 30: ${last30.map(([p, n]) => `${p} ${n}`).join(", ")}`);
+      }
+      const sig = findings.filter((f) => f.p < 0.1).slice(0, 4);
+      if (sig.length > 0) {
+        sorenessLines.push("- Soreness vs running (her data, small n, not causal):");
+        for (const f of sig) sorenessLines.push(`  - ${f.line}`);
+      }
+      addSection("soreness", sorenessLines);
+    }
+  } catch {
+    // Non-fatal — skip soreness
+  }
+
   // --- Nutrition ---
   const nutritionLines: string[] = [];
   nutritionLines.push("## Today's Nutrition");
@@ -1284,7 +1322,15 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
         : focusGoal.type)
     : null;
   const lens = lensKey ? goalLenses[lensKey] : null;
-  const order = lens?.sectionOrder ?? defaultSectionOrder;
+  const baseOrder = lens?.sectionOrder ?? defaultSectionOrder;
+  // Soreness sits right after readiness for every lens: it's today's
+  // recovery state, same tier as readiness.
+  const order = baseOrder.includes("soreness")
+    ? baseOrder
+    : (() => {
+        const i = baseOrder.indexOf("readiness");
+        return i >= 0 ? [...baseOrder.slice(0, i + 1), "soreness", ...baseOrder.slice(i + 1)] : [...baseOrder, "soreness"];
+      })();
 
   if (focusGoal) {
     const focusLines: string[] = [];
