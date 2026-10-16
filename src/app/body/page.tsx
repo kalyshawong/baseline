@@ -54,6 +54,7 @@ import { MCard } from "@/components/mobile/mobile-metric-card";
 import { MobileTrainingTier } from "@/components/mobile/mobile-training-tier";
 import { SorenessCard } from "@/components/body/soreness-card";
 import { QuickWorkoutLog } from "@/components/body/quick-workout-log";
+import { HealthEventLog } from "@/components/body/health-event-log";
 import { getSorenessForDay, BODY_PARTS } from "@/lib/soreness";
 import { analyzeSoreness } from "@/lib/soreness-analysis";
 import { MobileCycleCard } from "@/components/mobile/mobile-cycle-card";
@@ -573,6 +574,9 @@ export default async function BodyPage({
                 <div style={{ marginTop: 14 }}>
                   <QuickWorkoutLog key={viewDate.toISOString()} defaultDate={viewDate.toISOString().slice(0, 10)} today={getLocalDayStr(requestTz)} />
                 </div>
+                <div style={{ marginTop: 14 }}>
+                  <HealthEventLog key={`ev-${viewDate.toISOString()}`} defaultDate={viewDate.toISOString().slice(0, 10)} today={getLocalDayStr(requestTz)} />
+                </div>
               </div>
               <LifterBody data={lifter} blockHref="/body/block" blockLabel={block ? `Block ${block.number} · Week ${block.currentWeek}` : undefined} />
               <div className="wrap" style={{ marginTop: 14 }}>
@@ -656,6 +660,7 @@ export default async function BodyPage({
                 bodyParts={BODY_PARTS}
                 findings={sorenessFindings.map((f) => ({ line: f.line }))}
               />
+              <HealthEventLog key={`ev-${viewDate.toISOString()}`} defaultDate={viewDate.toISOString().slice(0, 10)} today={getLocalDayStr(requestTz)} />
               {fatigue.score > 0 && (
                 <div className="fatigue">
                   <div className="top">
@@ -897,6 +902,9 @@ export default async function BodyPage({
                 bodyParts={BODY_PARTS}
                 findings={sorenessFindings.map((f) => ({ line: f.line }))}
               />
+      </div>
+      <div className="mt-[14px]">
+        <HealthEventLog key={`ev-${viewDate.toISOString()}`} defaultDate={viewDate.toISOString().slice(0, 10)} today={getLocalDayStr(requestTz)} />
       </div>
 
       {/* ─── CYCLE + FATIGUE ─── */}

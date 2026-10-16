@@ -928,6 +928,28 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
     // Non-fatal — skip soreness
   }
 
+  // --- What happened (her own notes: injuries, soreness causes, illness, treatments) ---
+  try {
+    const since = new Date(Date.now() - 30 * 86_400_000);
+    const events = await prisma.healthEvent.findMany({
+      where: { day: { gte: since } },
+      orderBy: [{ day: "desc" }, { createdAt: "desc" }],
+      take: 20,
+    });
+    if (events.length > 0) {
+      const lines: string[] = ["## What happened (her own notes, last 30 days — treat as fact, she wrote them)"];
+      for (const e of events) {
+        const d = e.day.toISOString().slice(0, 10);
+        const bits = [e.kind, e.bodyParts.length ? e.bodyParts.join(", ") : null, e.cause ? `cause: ${e.cause}` : null, e.severity != null ? `${e.severity}/10` : null].filter(Boolean);
+        lines.push(`- ${d}: ${e.summary} (${bits.join(" · ")}) — she wrote: "${e.text.slice(0, 200)}"`);
+      }
+      lines.push("- When soreness or a bad session lines up with one of these, name the event as the likely reason instead of blaming training load.");
+      addSection("events", lines);
+    }
+  } catch {
+    // Non-fatal — skip events
+  }
+
   // --- Nutrition ---
   const nutritionLines: string[] = [];
   nutritionLines.push("## Today's Nutrition");
@@ -1329,7 +1351,7 @@ export async function buildCoachContext(focusGoalId?: string | null): Promise<st
     ? baseOrder
     : (() => {
         const i = baseOrder.indexOf("readiness");
-        return i >= 0 ? [...baseOrder.slice(0, i + 1), "soreness", ...baseOrder.slice(i + 1)] : [...baseOrder, "soreness"];
+        return i >= 0 ? [...baseOrder.slice(0, i + 1), "soreness", "events", ...baseOrder.slice(i + 1)] : [...baseOrder, "soreness", "events"];
       })();
 
   if (focusGoal) {

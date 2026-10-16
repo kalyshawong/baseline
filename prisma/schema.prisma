@@ -106,6 +106,7 @@ model User {
   chatMessages             ChatMessage[]
   weightLogs               WeightLog[]
   sorenessLogs             SorenessLog[]
+  healthEvents             HealthEvent[]
   healthKitSyncs           HealthKitSync[]
   healthKitWorkouts        HealthKitWorkout[]
   heartRateZoneSummaries   HeartRateZoneSummary[]
@@ -1169,4 +1170,24 @@ model SavedRecipe {
 
   @@unique([userId, name])
   @@index([userId])
+}
+
+// Things that happened to her body, in her own words ("tripped on the stairs,
+// left ankle sore", "calves sore from a bad massage"). Typed into a free-text
+// box and sorted by the model into kind / body parts / cause. Severity is only
+// stored when she gave one — never invented. Feeds the coach context.
+model HealthEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       DateTime // calendar day (UTC midnight) the event is about
+  kind      String   // injury | soreness | illness | treatment | other
+  summary   String   // short label, e.g. "Tripped — rolled left ankle"
+  text      String   // exactly what she typed
+  bodyParts String[] @default([])
+  cause     String?
+  severity  Int?     // 1-10, only when stated
+  createdAt DateTime @default(now())
+
+  @@index([userId, day])
 }

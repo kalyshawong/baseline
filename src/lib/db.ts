@@ -38,7 +38,7 @@ const OWNED_MODELS = new Set([
   "HyroxStationBenchmark", "LifeContextDef", "LifeContextLog",
   "NutritionEntry", "NutritionLog", "OuraSession", "OuraToken", "OuraWorkout",
   "DiagnoseFlow", "DiagnoseCandidateState", "DiagnoseRun",
-  "SleepTimeRecommendation", "SorenessLog", "SyncLog", "UserBaseline",
+  "SleepTimeRecommendation", "SorenessLog", "HealthEvent", "SyncLog", "UserBaseline",
   "UserProfile", "WeightLog", "WorkoutNote", "WorkoutSession", "WorkoutSet",
   "WorkoutTemplate", "SavedRecipe",
 ]);
