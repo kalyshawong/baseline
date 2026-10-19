@@ -40,7 +40,7 @@ const OWNED_MODELS = new Set([
   "DiagnoseFlow", "DiagnoseCandidateState", "DiagnoseRun",
   "SleepTimeRecommendation", "SorenessLog", "HealthEvent", "SyncLog", "UserBaseline",
   "UserProfile", "WeightLog", "WorkoutNote", "WorkoutSession", "WorkoutSet",
-  "WorkoutTemplate", "SavedRecipe",
+  "WorkoutTemplate", "SavedRecipe", "SavedGoalPlan",
 ]);
 
 /**

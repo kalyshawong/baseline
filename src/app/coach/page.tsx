@@ -146,6 +146,14 @@ export default async function CoachPage({
     }),
   ]);
 
+  // "Adjust with coach" from a goal's plan page: focus that goal and prefill
+  // the first message (she still taps Send).
+  const planGoal = typeof params.goal === "string" ? activeGoals.find((g) => g.id === params.goal) ?? null : null;
+  const planStarter = planGoal && params.adjust === "1" && !sessionId
+    ? `Let's adjust my plan for "${planGoal.title}".`
+    : null;
+  const starter = planStarter ?? workoutStarter;
+
   const mobileMessages = (currentSession?.messages ?? []).map((m) => ({
     id: m.id,
     role: m.role as "user" | "assistant",
@@ -170,7 +178,8 @@ export default async function CoachPage({
           initialMessages={mobileMessages}
           sessions={sessions.map((s) => ({ id: s.id, title: s.title, updatedAt: s.updatedAt.toISOString() }))}
           goals={mobileGoals}
-          initialInput={workoutStarter}
+          initialInput={starter}
+          initialFocusGoalId={planGoal?.id ?? null}
           dailyBrief={{ title: briefTitle, body: briefBody }}
         />
       </div>
@@ -224,7 +233,8 @@ export default async function CoachPage({
           isPrimary: g.isPrimary,
           deadline: g.deadline?.toISOString() ?? null,
         }))}
-        initialInput={workoutStarter}
+        initialInput={starter}
+        initialFocusGoalId={planGoal?.id ?? null}
         dailyBrief={{ title: briefTitle, body: briefBody }}
       />
     </div>

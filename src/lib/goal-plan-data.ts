@@ -6,9 +6,13 @@ import {
   type FoodItem,
   type GoalPlan,
   type LoggedMeal,
+  type PlanAdjustments,
+  type PlanFood,
   type PlanInputs,
   type Sex,
 } from "@/lib/goal-plan";
+import { personalBurnFrom, SESSION_TYPES, type SessionType } from "@/lib/exercise-burn";
+import { getFood } from "@/lib/fdc";
 
 /**
  * Server side of the goal plan: gathers the current user's inputs and runs
@@ -32,11 +36,15 @@ function sexFromIntake(raw: string | null | undefined): Sex | null {
   }
 }
 
-export async function loadPlanInputs(goalId: string, today = new Date()): Promise<PlanInputs | null> {
+export async function loadPlanInputs(
+  goalId: string,
+  today = new Date(),
+  adjustments: PlanAdjustments | null = null,
+): Promise<PlanInputs | null> {
   const goal = await prisma.goal.findUnique({ where: { id: goalId } });
   if (!goal) return null;
 
-  const [profile, user, weights, activity, workouts, entries] = await Promise.all([
+  const [profile, user, weights, activity, workouts, entries, burnHistory] = await Promise.all([
     prisma.userProfile.findFirst(),
     prisma.user.findUnique({ where: { id: goal.userId }, select: { intake: true } }),
     prisma.weightLog.findMany({ orderBy: { day: "desc" }, take: 60, select: { day: true, weightKg: true, bodyFatPct: true, leanMassKg: true } }),
@@ -53,6 +61,10 @@ export async function loadPlanInputs(goalId: string, today = new Date()): Promis
     prisma.nutritionEntry.findMany({
       where: { eatenAt: { gte: new Date(today.getTime() - 120 * DAY_MS) } },
       select: { nutritionLogId: true, mealType: true, foodName: true, canonical: true, calories: true, protein: true, carbs: true, fat: true },
+    }),
+    prisma.healthKitWorkout.findMany({
+      where: { startedAt: { gte: new Date(today.getTime() - 180 * DAY_MS) } },
+      select: { name: true, durationSeconds: true, activeCalories: true },
     }),
   ]);
 
@@ -196,10 +208,108 @@ export async function loadPlanInputs(goalId: string, today = new Date()): Promis
     staples,
     mealsPerDay,
     loggedDays: loggedDays.size,
+    personalBurn: personalBurnFrom(burnHistory),
+    adjustments,
   };
 }
 
-export async function getGoalPlan(goalId: string): Promise<GoalPlan | null> {
-  const inputs = await loadPlanInputs(goalId);
+// ---------------------------------------------------------------------------
+// Saved plans + adjustments (coach, 2026-10-19)
+// ---------------------------------------------------------------------------
+
+export interface SavedPlanInfo {
+  id: string;
+  createdAt: Date;
+  summary: string | null;
+  adjustments: PlanAdjustments;
+}
+
+export async function getSavedPlan(goalId: string): Promise<SavedPlanInfo | null> {
+  const row = await prisma.savedGoalPlan.findFirst({ where: { goalId }, orderBy: { createdAt: "desc" } });
+  if (!row) return null;
+  try {
+    return { id: row.id, createdAt: row.createdAt, summary: row.summary, adjustments: JSON.parse(row.adjustments) as PlanAdjustments };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The plan for a goal: the saved coach version when there is one (unless
+ * `view: "calculated"`), or with ad-hoc `adjustments` (coach previews).
+ */
+export async function getGoalPlan(
+  goalId: string,
+  opts: { view?: "saved" | "calculated"; adjustments?: PlanAdjustments | null } = {},
+): Promise<GoalPlan | null> {
+  const saved = opts.adjustments === undefined && opts.view !== "calculated" ? await getSavedPlan(goalId) : null;
+  const adj = opts.adjustments ?? saved?.adjustments ?? null;
+  const inputs = await loadPlanInputs(goalId, new Date(), adj);
   return inputs ? buildGoalPlan(inputs) : null;
+}
+
+/** Raw adjustments as the coach sends them — foods by FDC id + amount only. */
+export interface RawAdjustments {
+  sessions?: { type?: unknown; minutes?: unknown; days_per_week?: unknown }[];
+  calorie_budget_kcal?: unknown;
+  target_body_fat_pct?: unknown;
+  deadline?: unknown;
+  foods?: { fdc_id?: unknown; grams?: unknown; servings?: unknown; kcal?: unknown }[];
+  avoid?: unknown;
+}
+
+const num = (v: unknown, min: number, max: number): number | null =>
+  typeof v === "number" && Number.isFinite(v) && v >= min && v <= max ? v : null;
+
+/**
+ * Validates the coach's adjustments and fetches every food's nutrients from
+ * USDA FoodData Central on the server, so no nutrient number in a plan ever
+ * comes from the model. Returns errors for anything it had to drop.
+ */
+export async function resolveAdjustments(raw: RawAdjustments): Promise<{ adjustments: PlanAdjustments; errors: string[] }> {
+  const errors: string[] = [];
+  const adj: PlanAdjustments = {};
+
+  if (Array.isArray(raw.sessions)) {
+    adj.sessions = [];
+    for (const s of raw.sessions) {
+      const type = typeof s?.type === "string" && (SESSION_TYPES as string[]).includes(s.type) ? (s.type as SessionType) : null;
+      const minutes = num(s?.minutes, 5, 300);
+      if (!type || minutes == null) { errors.push(`Dropped session ${JSON.stringify(s)}: type must be one of ${SESSION_TYPES.join(", ")} and minutes 5–300.`); continue; }
+      adj.sessions.push({ type, minutes, daysPerWeek: num(s?.days_per_week, 1, 7) ?? 7 });
+    }
+  }
+  const budget = num(raw.calorie_budget_kcal, 0, 6000);
+  if (raw.calorie_budget_kcal != null && budget == null) errors.push("calorie_budget_kcal must be 0–6000.");
+  if (budget != null) adj.calorieBudgetKcal = Math.round(budget);
+  const bf = num(raw.target_body_fat_pct, 3, 50);
+  if (bf != null) adj.targetBodyFatPct = bf;
+  if (typeof raw.deadline === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.deadline)) adj.deadline = raw.deadline;
+  if (Array.isArray(raw.avoid)) adj.avoid = raw.avoid.filter((a): a is string => typeof a === "string" && a.trim().length > 0).slice(0, 20);
+
+  if (Array.isArray(raw.foods) && raw.foods.length) {
+    const foods: PlanFood[] = [];
+    for (const f of raw.foods.slice(0, 20)) {
+      const id = num(f?.fdc_id, 1, 1e9);
+      if (id == null) { errors.push(`Dropped food ${JSON.stringify(f)}: needs fdc_id from lookup_food.`); continue; }
+      try {
+        const food = await getFood(id);
+        const unit = food.serving?.unit ?? "g";
+        let grams: number | null = null;
+        let amountLabel = "";
+        const g = num(f.grams, 1, 3000);
+        const sv = num(f.servings, 0.1, 20);
+        const kc = num(f.kcal, 1, 4000);
+        if (g != null) { grams = g; amountLabel = `${Math.round(g)} ${unit === "ml" ? "ml" : "g"}`; }
+        else if (sv != null && food.serving) { grams = sv * food.serving.size; amountLabel = `${sv} × ${food.serving.text ?? "serving"} (${Math.round(food.serving.size)} ${unit})`; }
+        else if (kc != null && food.per100.kcal > 0) { grams = (kc / food.per100.kcal) * 100; amountLabel = `${Math.round(grams)} ${unit === "ml" ? "ml" : "g"} (~${Math.round(kc)} kcal)`; }
+        if (grams == null) { errors.push(`Dropped ${food.description}: give grams, servings (branded only) or kcal.`); continue; }
+        foods.push({ fdcId: food.fdcId, description: food.description, dataType: food.dataType, per100: food.per100, grams, amountLabel, url: food.url });
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : String(e));
+      }
+    }
+    adj.foods = foods;
+  }
+  return { adjustments: adj, errors };
 }

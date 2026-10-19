@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { buildCoachContext } from "@/lib/coach-context";
 import { apiError } from "@/lib/utils";
 import { runCoachTurn } from "@/lib/coach-run";
+import { encodeProposals, stripProposalsForModel } from "@/lib/coach-plan-tools";
 import { getCurrentUserId, SOLO_USER_ID } from "@/lib/current-user";
 import { DEMO_USER_ID } from "@/lib/demo/constants";
 import { demoCoachReply } from "@/lib/demo/coach";
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
     // Prior conversation history
     const history = session.messages.map((m) => ({
       role: m.role as "user" | "assistant",
-      content: m.content,
+      content: m.role === "assistant" ? stripProposalsForModel(m.content) : m.content,
     }));
     history.push({ role: "user", content: message });
 
@@ -154,7 +155,9 @@ export async function POST(request: NextRequest) {
     if (!turn.ok) {
       return NextResponse.json({ error: turn.reason }, { status: 502 });
     }
-    const assistantText = turn.text;
+    // Plan cards ride along inside the stored message (invisible marker the
+    // chat UI turns into a card with a Save button).
+    const assistantText = turn.text + encodeProposals(turn.proposals);
 
     const assistantMsg = await prisma.chatMessage.create({
       data: { userId: await getCurrentUserId(), sessionId: session.id, role: "assistant", content: assistantText },

@@ -1,4 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import { PLAN_TOOLS, runPlanTool, type PlanToolContext } from "@/lib/coach-plan-tools";
+import { isNutritionGoal } from "@/lib/goal-plan";
 import { prisma } from "@/lib/db";
 import { hrvCV } from "@/lib/training";
 import { dateStrToUTC, getLocalDayBounds, getRequestTz } from "@/lib/date-utils";
@@ -74,6 +76,7 @@ function formatLocalDate(d: Date): string {
  */
 
 export const COACH_TOOLS: Anthropic.Tool[] = [
+  ...PLAN_TOOLS,
   {
     name: "get_food_log",
     description:
@@ -656,6 +659,7 @@ async function handleGoals(): Promise<unknown> {
     target: g.target,
     deadline: g.deadline?.toISOString() ?? null,
     is_primary: g.isPrimary,
+    has_nutrition_plan: isNutritionGoal(g),
   }));
 }
 
@@ -854,6 +858,7 @@ function safeParse(s: string): unknown {
 export async function runCoachTool(
   name: string,
   input: unknown,
+  ctx?: PlanToolContext,
 ): Promise<string> {
   const args = (typeof input === "object" && input !== null ? input : {}) as Record<
     string,
@@ -867,6 +872,8 @@ export async function runCoachTool(
     activeTz = undefined;
   }
   try {
+    const planResult = await runPlanTool(name, args, ctx);
+    if (planResult !== undefined) return JSON.stringify(planResult);
     switch (name) {
       case "get_food_log":
         return JSON.stringify(await handleFoodLog(args));

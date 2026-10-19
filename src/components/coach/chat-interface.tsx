@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { PlanProposalCard } from "@/components/coach/plan-proposal-card";
+import { splitPlanProposals } from "@/lib/plan-proposal-marker";
 
 /**
  * Coach chat interface — "Focus" layout.
@@ -87,6 +89,7 @@ export function ChatInterface({
   sessions,
   goals,
   initialInput,
+  initialFocusGoalId,
   dailyBrief,
 }: {
   initialSession: Session | null;
@@ -94,6 +97,7 @@ export function ChatInterface({
   sessions: Session[];
   goals: GoalOption[];
   initialInput?: string | null;
+  initialFocusGoalId?: string | null;
   dailyBrief?: { title: string; body: string } | null;
 }) {
   const router = useRouter();
@@ -108,7 +112,7 @@ export function ChatInterface({
 
   const primaryGoal = goals.find((g) => g.isPrimary);
   const [focusGoalId, setFocusGoalId] = useState<string | null>(
-    primaryGoal?.id ?? null
+    initialFocusGoalId ?? primaryGoal?.id ?? null
   );
   const [coachMode, setCoachMode] = useState<"goal" | "today">("goal");
 
@@ -431,7 +435,15 @@ export function ChatInterface({
                       }
                     >
                       {m.role === "assistant" ? (
-                        <div>{formatMarkdown(m.content)}</div>
+                        (() => {
+                          const { text, proposals } = splitPlanProposals(m.content);
+                          return (
+                            <div>
+                              {formatMarkdown(text)}
+                              {proposals.map((p, i) => <PlanProposalCard key={i} p={p} />)}
+                            </div>
+                          );
+                        })()
                       ) : (
                         <p className="whitespace-pre-wrap">{m.content}</p>
                       )}

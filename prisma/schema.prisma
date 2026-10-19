@@ -107,6 +107,7 @@ model User {
   weightLogs               WeightLog[]
   sorenessLogs             SorenessLog[]
   healthEvents             HealthEvent[]
+  savedGoalPlans           SavedGoalPlan[]
   healthKitSyncs           HealthKitSync[]
   healthKitWorkouts        HealthKitWorkout[]
   heartRateZoneSummaries   HeartRateZoneSummary[]
@@ -642,6 +643,7 @@ model Goal {
 
   workoutTags GoalWorkoutTag[]
   hyroxPlan   HyroxPlan?
+  savedPlans  SavedGoalPlan[]
 
   @@index([userId])
 }
@@ -1190,4 +1192,24 @@ model HealthEvent {
   createdAt DateTime @default(now())
 
   @@index([userId, day])
+}
+
+// A goal's nutrition plan as adjusted with the coach and saved by the user
+// (2026-10-19). Stores only the ADJUSTMENTS (training sessions, calorie
+// budget, target body fat, foods by USDA FoodData Central id with the
+// nutrients fetched server-side), never computed numbers: the plan is
+// recomputed from them on every view so it tracks new weigh-ins. Latest row
+// per goal is the active one; older rows are the history.
+model SavedGoalPlan {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goalId      String
+  goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  adjustments String   // JSON PlanAdjustments (src/lib/goal-plan.ts)
+  summary     String?  // one line from the coach, e.g. "Run + lift + stairs daily, 700 kcal protein + rice"
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([goalId, createdAt])
 }

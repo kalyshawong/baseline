@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { PlanProposalCard } from "@/components/coach/plan-proposal-card";
+import { splitPlanProposals } from "@/lib/plan-proposal-marker";
 
 /**
  * Mobile Coach — faithful to the "Baseline iOS" Coach mock (coachhead, lens bar,
@@ -39,6 +41,7 @@ export function MobileCoach({
   sessions,
   goals,
   initialInput,
+  initialFocusGoalId,
   dailyBrief,
 }: {
   initialSession: Session | null;
@@ -46,6 +49,7 @@ export function MobileCoach({
   sessions: Session[];
   goals: GoalOption[];
   initialInput?: string | null;
+  initialFocusGoalId?: string | null;
   dailyBrief?: { title: string; body: string } | null;
 }) {
   const router = useRouter();
@@ -57,7 +61,7 @@ export function MobileCoach({
   const endRef = useRef<HTMLDivElement>(null);
 
   const primaryGoal = goals.find((g) => g.isPrimary);
-  const [focusGoalId, setFocusGoalId] = useState<string | null>(primaryGoal?.id ?? null);
+  const [focusGoalId, setFocusGoalId] = useState<string | null>(initialFocusGoalId ?? primaryGoal?.id ?? null);
   const [coachMode, setCoachMode] = useState<"goal" | "today">("goal");
 
   useEffect(() => {
@@ -165,7 +169,15 @@ export function MobileCoach({
             <div className="msg ai" key={m.id}>
               <div className="bubble ai">
                 <div className="lenslabel">{activeLensName} lens</div>
-                <div className="md">{md(m.content)}</div>
+                {(() => {
+                  const { text, proposals } = splitPlanProposals(m.content);
+                  return (
+                    <>
+                      <div className="md">{md(text)}</div>
+                      {proposals.map((p, i) => <PlanProposalCard key={i} p={p} />)}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )

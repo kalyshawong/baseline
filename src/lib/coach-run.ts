@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { buildCoachContext, COACH_SYSTEM_PROMPT, goalSystemPromptSection } from "@/lib/coach-context";
 import { withAnthropicRetry } from "@/lib/anthropic-retry";
 import { COACH_TOOLS, runCoachTool } from "@/lib/coach-tools";
+import { PLAN_SYSTEM_SECTION, type PlanProposal, type PlanToolContext } from "@/lib/coach-plan-tools";
 
 /**
  * One coach turn: system prompt + context block + tool-use loop → the
@@ -17,7 +18,7 @@ const client = new Anthropic();
 export const MAX_TOOL_ITERATIONS = 8;
 
 export type CoachTurnResult =
-  | { ok: true; text: string }
+  | { ok: true; text: string; proposals: PlanProposal[] }
   | { ok: false; reason: string };
 
 export async function runCoachTurn(opts: {
@@ -42,7 +43,8 @@ export async function runCoachTurn(opts: {
 Keep it under 250 words. Be direct and specific with numbers.`
     : "";
 
-  const systemPrompt = `${COACH_SYSTEM_PROMPT}${goalPromptSection}${dailyBriefSection}\n\n---\n\n${contextBlock}`;
+  const systemPrompt = `${COACH_SYSTEM_PROMPT}${PLAN_SYSTEM_SECTION}${goalPromptSection}${dailyBriefSection}\n\n---\n\n${contextBlock}`;
+  const toolCtx: PlanToolContext = { proposals: [] };
 
   // Tool-use loop: send → text (done) or tool_use (run tools, append
   // tool_results, loop). MAX_TOOL_ITERATIONS bounds runaway tool chains.
@@ -76,7 +78,7 @@ Keep it under 250 words. Be direct and specific with numbers.`
       toolUses.map(async (tu) => ({
         type: "tool_result" as const,
         tool_use_id: tu.id,
-        content: await runCoachTool(tu.name, tu.input),
+        content: await runCoachTool(tu.name, tu.input, toolCtx),
       })),
     );
     messages.push({ role: "user", content: toolResults });
@@ -99,5 +101,7 @@ Keep it under 250 words. Be direct and specific with numbers.`
           : "Coach returned an empty response. Try rephrasing your question.",
     };
   }
-  return { ok: true, text };
+  // Only the last card per goal — earlier ones in the same turn were drafts.
+  const latest = new Map(toolCtx.proposals.map((p) => [p.goalId, p]));
+  return { ok: true, text, proposals: [...latest.values()] };
 }

@@ -185,6 +185,18 @@ export const CITATIONS = {
     url: "https://doi.org/10.1186/1550-2783-11-20",
     peerReviewed: true,
   },
+  herrmann2024: {
+    short: "Compendium 2024",
+    full: "Herrmann SD, Willis EA, Ainsworth BE, et al. 2024 Adult Compendium of Physical Activities: a third update of the energy costs of human activities. J Sport Health Sci. 2024;13(1):6-12.",
+    url: "https://pubmed.ncbi.nlm.nih.gov/38242596/",
+    peerReviewed: true,
+  },
+  usdaFdc: {
+    short: "USDA FoodData Central",
+    full: "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov. (Nutrient database: Foundation, SR Legacy, FNDDS and Branded label data.)",
+    url: "https://fdc.nal.usda.gov/",
+    peerReviewed: false,
+  },
   iraki2019: {
     short: "Iraki 2019",
     full: "Iraki J, Fitschen P, Espinar S, Helms E. Nutrition recommendations for bodybuilders in the off-season: a narrative review. Sports (Basel). 2019;7(7):154.",

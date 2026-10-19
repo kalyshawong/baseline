@@ -23,6 +23,7 @@
  */
 import type { CitationId } from "@/lib/citations";
 import { proteinPerKg } from "@/lib/protein";
+import { sessionBurn, type PersonalBurn, type SessionBurn, type SessionType } from "@/lib/exercise-burn";
 
 // ---------------------------------------------------------------------------
 // Constants (each one either cited or called out as an app default)
@@ -61,6 +62,13 @@ export const DRINK_L_BASE = { female: 1.6, male: 2.0 } as const;
 export const DRINK_L_PER_TRAINING_HOUR = 0.75;
 
 const DAY_MS = 86_400_000;
+
+function eaText(ea: number | null): string {
+  if (ea == null) return "";
+  return ea <= 0
+    ? " (training would burn more than you eat, so nothing is left for the rest of the body)"
+    : ` (about ${Math.round(ea)} kcal per kg of lean mass left after training, vs ${EA_FLOOR_KCAL_PER_KG_FFM})`;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -123,6 +131,41 @@ export interface PlanInputs {
   /** Median number of non-snack meals on a logged day. */
   mealsPerDay: number | null;
   loggedDays: number;
+  /** Her watch's kcal/min by workout type (for planned sessions). */
+  personalBurn?: PersonalBurn;
+  /** Changes made with the coach (saved or proposed). */
+  adjustments?: PlanAdjustments | null;
+}
+
+/** A food pinned into the plan, with nutrients fetched from USDA FDC server-side. */
+export interface PlanFood {
+  fdcId: number;
+  description: string;
+  dataType: string;
+  per100: { kcal: number; protein: number; carbs: number; fat: number };
+  grams: number; // grams (or ml for drinks) eaten per day
+  amountLabel: string; // "1 bottle (414 ml)", "388 g"
+  url: string;
+}
+
+/**
+ * Changes the user makes with the coach (2026-10-19). Only inputs — the
+ * engine recomputes everything from them, so the coach never supplies a
+ * number of its own.
+ */
+export interface PlanAdjustments {
+  /** Training she plans to do; replaces her current average watch training in the burn. */
+  sessions?: { type: SessionType; minutes: number; daysPerWeek?: number }[];
+  /** Fixed daily intake. The plan then shows where that lands by the date. */
+  calorieBudgetKcal?: number | null;
+  /** Overrides the goal's / default body-fat target. */
+  targetBodyFatPct?: number | null;
+  /** Overrides the goal's date (YYYY-MM-DD). */
+  deadline?: string | null;
+  /** A fixed day of eating from USDA FDC foods. Sets intake when no budget is given. */
+  foods?: PlanFood[];
+  /** Words to keep out of the menu built from her log ("yogurt"). */
+  avoid?: string[];
 }
 
 export interface PlanNote {
@@ -141,6 +184,9 @@ export interface MenuLine {
   timesEaten: number;
   fromLog: boolean;
   servings?: number;
+  /** Where the numbers come from when not her log, e.g. "USDA FoodData Central #2742751". */
+  source?: string;
+  url?: string;
 }
 
 export interface GoalPlan {
@@ -163,8 +209,13 @@ export interface GoalPlan {
     deadline: Date | null;
     projectedDate: Date | null;
     onTime: boolean | null;
+    /** With a fixed calorie budget: where she'd be on the date (assumes the loss is fat). */
+    atDeadline?: { weightKg: number; bodyFatPct: number | null } | null;
   };
   tdee: { kcal: number; label: string; cite: CitationId[] } | null;
+  /** Planned training from the coach, if any. */
+  exercise: { sessions: (SessionBurn & { daysPerWeek: number })[]; perDayKcal: number; replacedKcal: number } | null;
+  adjustments: PlanAdjustments | null;
   daily: {
     kcal: number;
     kcalFloor: number | null;
@@ -227,7 +278,10 @@ export function isNutritionGoal(g: Pick<PlanGoal, "type" | "subtype" | "title" |
 const round = (v: number, step = 1) => Math.round(v / step) * step;
 
 export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
-  const g = inp.goal;
+  const adj = inp.adjustments ?? null;
+  const g: PlanGoal = adj?.deadline
+    ? { ...inp.goal, deadline: new Date(`${adj.deadline}T00:00:00Z`) }
+    : inp.goal;
   if (!isNutritionGoal(g)) return null;
 
   const notes: PlanNote[] = [];
@@ -243,7 +297,7 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
 
   // ---- What the goal is asking for ----
   const abs = g.subtype === "visible_abs" || mentionsAbs(text);
-  const bfExplicit = parseBodyFat(text);
+  const bfExplicit = adj?.targetBodyFatPct ?? parseBodyFat(text);
   const wt = parseWeight(text);
   const gainGoal = g.subtype === "bulk" || /\b(bulk|gain|build)\b/.test(text) || (wt?.gain ?? false);
 
@@ -256,7 +310,7 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
     kind = abs ? "visible_abs" : "body_fat";
     targetBf = bfExplicit ?? (sex ? ABS_BF_DEFAULT[sex] : null);
     targetSource = bfExplicit != null
-      ? `${bfExplicit}% body fat (from your goal)`
+      ? `${bfExplicit}% body fat (${adj?.targetBodyFatPct != null ? "set with coach" : "from your goal"})`
       : sex
         ? `${ABS_BF_DEFAULT[sex]}% body fat — where ${sex === "female" ? "women's" : "men's"} abs usually start to show (rule of thumb, not a study number)`
         : "visible-abs body fat (needs your sex)";
@@ -327,6 +381,21 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
     : inp.formulaTdee
       ? { kcal: round(inp.formulaTdee.kcal, 10), label: inp.formulaTdee.label, cite: inp.formulaTdee.cite }
       : null;
+  // Planned training (coach): swap her current average watch training for the
+  // planned sessions' burn — her watch's own kcal/min, else Compendium 2024.
+  let exercise: GoalPlan["exercise"] = null;
+  if (tdee && w != null && adj?.sessions?.length) {
+    const sessions = adj.sessions.map((s) => ({
+      ...sessionBurn(s.type, s.minutes, w, inp.personalBurn ?? {}),
+      daysPerWeek: Math.min(7, Math.max(1, s.daysPerWeek ?? 7)),
+    }));
+    const perDayKcal = Math.round(sessions.reduce((t, s) => t + (s.kcal * s.daysPerWeek) / 7, 0));
+    const replacedKcal = Math.round(inp.training?.kcalPerDay ?? 0);
+    exercise = { sessions, perDayKcal, replacedKcal };
+    tdee.kcal = round(tdee.kcal - replacedKcal + perDayKcal, 10);
+    tdee.label += ` − your recent workouts (~${replacedKcal} kcal/day) + planned training (~${perDayKcal} kcal/day)`;
+    if (sessions.some((s) => !s.fromWatch)) tdee.cite = [...tdee.cite, "herrmann2024"];
+  }
   if (inp.measuredTdee) {
     const stale = Math.floor((inp.today.getTime() - inp.measuredTdee.lastDay.getTime()) / DAY_MS);
     if (stale > 7) {
@@ -347,7 +416,50 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
     notes.push({ level: "warn", text: "This goal's date has passed. Set a new date to get a pace." });
   }
 
-  if (tdee && w != null) {
+  // A fixed day of eating sets intake when no budget was given.
+  const foodsTotal = adj?.foods?.length
+    ? adj.foods.reduce((t, f) => t + (f.per100.kcal * f.grams) / 100, 0)
+    : null;
+  const budget = adj?.calorieBudgetKcal ?? (foodsTotal != null ? Math.round(foodsTotal) : null);
+  const exKcalPerDay = exercise?.perDayKcal ?? inp.training?.kcalPerDay ?? 0;
+  let atDeadline: GoalPlan["pace"]["atDeadline"] = null;
+
+  if (tdee && w != null && budget != null) {
+    // Coach budget: show where this intake lands, with the same warnings.
+    kcal = budget;
+    const kgWk = ((tdee.kcal - budget) * 7) / KCAL_PER_KG; // + = losing
+    plannedKgWk = Math.abs(kgWk);
+    plannedPct = (plannedKgWk / w) * 100;
+    if (weeksLeft != null && weeksLeft > 0 && changeKg != null) {
+      neededPct = (Math.abs(changeKg) / weeksLeft / w) * 100;
+    }
+    if (changeKg != null && Math.abs(changeKg) > 0.2 && Math.sign(kgWk) === Math.sign(changeKg) && plannedKgWk > 0) {
+      projectedDate = new Date(inp.today.getTime() + (Math.abs(changeKg) / plannedKgWk) * 7 * DAY_MS);
+      onTime = g.deadline ? projectedDate.getTime() <= g.deadline.getTime() + DAY_MS : null;
+    } else if (changeKg != null && Math.abs(changeKg) > 0.2) {
+      notes.push({ level: "warn", text: `At ${budget} kcal you'd ${kgWk > 0 ? "lose" : "gain"} weight, the opposite of this goal.` });
+    }
+    if (weeksLeft != null && weeksLeft > 0) {
+      const wD = w - kgWk * weeksLeft;
+      atDeadline = { weightKg: wD, bodyFatPct: lean != null && wD > lean ? (1 - lean / wD) * 100 : null };
+    }
+    kcalFloor = lean != null ? EA_FLOOR_KCAL_PER_KG_FFM * lean + exKcalPerDay : null;
+    if (kcalFloor != null && budget < kcalFloor) {
+      const ea = lean != null ? (budget - exKcalPerDay) / lean : null;
+      notes.push({
+        level: "warn",
+        text: `${budget} kcal is under the ${round(kcalFloor, 10)} kcal floor${eaText(ea)}. Below that floor, low energy availability starts to affect hormones, bone and training.`,
+        cite: ["loucks2011", "mountjoy2023"],
+      });
+    }
+    if (kgWk > 0 && plannedPct > MAX_LOSS_PCT_PER_WK) {
+      notes.push({
+        level: "warn",
+        text: `That's ${plannedPct.toFixed(1)}% of body weight a week. Above ~1%/week more of the loss comes from muscle, so the body-fat number on the date is a best case.`,
+        cite: ["helms2014b", "garthe2011"],
+      });
+    }
+  } else if (tdee && w != null) {
     if (direction === "lose" && changeKg != null) {
       // A set date wins (2026-10-18, Kalysha): the plan hits the date and the
       // safety limits become warnings for her / her coach to weigh. With no
@@ -375,14 +487,14 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
         kcal = tdee.kcal - (plannedKgWk * KCAL_PER_KG) / 7;
       }
 
-      const exKcal = inp.training?.kcalPerDay ?? 0;
+      const exKcal = exKcalPerDay;
       kcalFloor = lean != null ? EA_FLOOR_KCAL_PER_KG_FFM * lean + exKcal : null;
       if (kcalFloor != null && kcal < kcalFloor) {
         if (followDate) {
           const ea = lean != null ? (kcal - exKcal) / lean : null;
           notes.push({
             level: "warn",
-            text: `${unreachable ? "At 1%/week" : "To make your date"}, calories sit at ${round(kcal, 10)}, under the ${round(kcalFloor, 10)} kcal floor${ea != null ? ` (about ${Math.round(ea)} kcal per kg of lean mass left after training, vs ${EA_FLOOR_KCAL_PER_KG_FFM})` : ""}. Below that floor, low energy availability starts to affect hormones, bone and training. Shown because you set the date.`,
+            text: `${unreachable ? "At 1%/week" : "To make your date"}, calories sit at ${round(kcal, 10)}, under the ${round(kcalFloor, 10)} kcal floor${eaText(ea)}. Below that floor, low energy availability starts to affect hormones, bone and training. Shown because you set the date.`,
             cite: ["loucks2011", "mountjoy2023"],
           });
         } else {
@@ -432,6 +544,7 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
       kcal = tdee.kcal;
     }
   }
+  if (exercise) kcalFloor = kcalFloor ?? (lean != null ? EA_FLOOR_KCAL_PER_KG_FFM * lean + exercise.perDayKcal : null);
 
   let daily: GoalPlan["daily"] = null;
   if (kcal != null && w != null) {
@@ -442,7 +555,8 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
     const fatG = round((kcalR * FAT_SHARE) / 9);
     const carbsG = Math.max(0, round((kcalR - proteinG * 4 - fatG * 9) / 4));
     const base = DRINK_L_BASE[sex ?? "female"];
-    const sessionH = (inp.training?.avgSessionMin ?? 60) / 60;
+    const plannedMin = exercise ? exercise.sessions.reduce((t, s) => t + s.minutes, 0) : null;
+    const sessionH = (plannedMin ?? inp.training?.avgSessionMin ?? 60) / 60;
     daily = {
       kcal: kcalR,
       kcalFloor: kcalFloor != null ? round(kcalFloor, 10) : null,
@@ -456,7 +570,37 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
     if (!sex) notes.push({ level: "info", text: "Water uses the women's reference until your sex is set." });
   }
 
-  const menu = daily ? buildMenu(inp, daily.kcal, daily.proteinG) : null;
+  let menu: GoalPlan["menu"] = null;
+  if (daily && adj?.foods?.length) {
+    const lines: MenuLine[] = adj.foods.map((f) => ({
+      slot: "Every day",
+      label: `${f.description} — ${f.amountLabel}`,
+      kcal: Math.round((f.per100.kcal * f.grams) / 100),
+      protein: Math.round((f.per100.protein * f.grams) / 100),
+      carbs: Math.round((f.per100.carbs * f.grams) / 100),
+      fat: Math.round((f.per100.fat * f.grams) / 100),
+      timesEaten: 0,
+      fromLog: false,
+      source: `USDA FoodData Central #${f.fdcId}`,
+      url: f.url,
+    }));
+    const totals = sum(lines);
+    menu = { lines, totals, fromLogShare: 0 };
+    if (totals.protein < daily.proteinG * 0.9) {
+      notes.push({ level: "warn", text: `These foods give ${Math.round(totals.protein)} g protein, under the ${daily.proteinG} g target (${daily.proteinGPerKg} g/kg).`, cite: ["morton2018", "helms2014"] });
+    }
+    if (totals.kcal > 0 && (totals.fat * 9) / totals.kcal < 0.15) {
+      notes.push({ level: "warn", text: `Fat is ${Math.round(((totals.fat * 9) / totals.kcal) * 100)}% of calories (${Math.round(totals.fat)} g), under the 15–30% range.`, cite: ["helms2014b"] });
+    }
+    if (adj.calorieBudgetKcal != null && Math.abs(totals.kcal - adj.calorieBudgetKcal) > adj.calorieBudgetKcal * 0.05) {
+      notes.push({ level: "info", text: `These foods add up to ${Math.round(totals.kcal)} kcal; the budget is ${adj.calorieBudgetKcal}.` });
+    }
+  } else if (daily) {
+    menu = buildMenu(inp, daily.kcal, daily.proteinG);
+    if (menu && menu.totals.protein < daily.proteinG * 0.9) {
+      notes.push({ level: "warn", text: `The day built from your log reaches ${Math.round(menu.totals.protein)} g protein, under the ${daily.proteinG} g target.`, cite: ["morton2018", "helms2014"] });
+    }
+  }
   if (daily && menu && inp.loggedDays < 5) {
     notes.push({ level: "info", text: `Only ${inp.loggedDays} logged food day${inp.loggedDays === 1 ? "" : "s"} so far, so the menu has little of your own food to draw on. It fills in as you log.` });
   }
@@ -468,8 +612,10 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
     missing,
     current: { weightKg: w, bodyFatPct: bf, leanMassKg: lean },
     target: { weightKg: targetWeight, bodyFatPct: targetBf, changeKg, source: targetSource },
-    pace: { neededPctPerWk: neededPct, plannedPctPerWk: plannedPct, plannedKgPerWk: plannedKgWk, deadline: g.deadline, projectedDate, onTime },
+    pace: { neededPctPerWk: neededPct, plannedPctPerWk: plannedPct, plannedKgPerWk: plannedKgWk, deadline: g.deadline, projectedDate, onTime, atDeadline },
     tdee,
+    exercise,
+    adjustments: adj,
     daily,
     menu,
     notes,
@@ -493,7 +639,9 @@ function sum(lines: { kcal: number; protein: number; carbs: number; fat: number 
 }
 
 export function buildMenu(inp: PlanInputs, kcalTarget: number, proteinTarget: number): GoalPlan["menu"] {
-  const meals = inp.meals.filter((m) => m.kcal >= 1);
+  const avoid = (inp.adjustments?.avoid ?? []).map((a) => a.toLowerCase().trim()).filter(Boolean);
+  const ok = (label: string) => !avoid.some((a) => label.toLowerCase().includes(a));
+  const meals = inp.meals.filter((m) => m.kcal >= 1 && ok(m.label));
   const lines: MenuLine[] = [];
 
   // 1) Daily habits: small things she has on most days (coffee). Kept as-is.
@@ -528,7 +676,7 @@ export function buildMenu(inp: PlanInputs, kcalTarget: number, proteinTarget: nu
 
   const habitTotals = sum(lines);
   const staples = inp.staples
-    .filter((s) => s.kcal > 0 && s.protein / s.kcal >= 0.08)
+    .filter((s) => s.kcal > 0 && s.protein / s.kcal >= 0.08 && ok(s.name))
     .sort((a, b) => b.protein / b.kcal - a.protein / a.kcal)
     .slice(0, 5);
 
@@ -583,7 +731,7 @@ export function buildMenu(inp: PlanInputs, kcalTarget: number, proteinTarget: nu
   }
 
   let totals = sum(lines);
-  if (totals.protein < proteinTarget * 0.85 && totals.kcal + GENERIC_PROTEIN.kcal <= kcalTarget * 1.1) {
+  if (ok(GENERIC_PROTEIN.name) && totals.protein < proteinTarget * 0.85 && totals.kcal + GENERIC_PROTEIN.kcal <= kcalTarget * 1.1) {
     lines.push({ slot: "Add", label: GENERIC_PROTEIN.name, kcal: GENERIC_PROTEIN.kcal, protein: GENERIC_PROTEIN.protein, carbs: GENERIC_PROTEIN.carbs, fat: GENERIC_PROTEIN.fat, timesEaten: 0, fromLog: false });
     totals = sum(lines);
   }
