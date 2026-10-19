@@ -432,7 +432,7 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
   const exKcalPerDay = exercise?.perDayKcal ?? inp.training?.kcalPerDay ?? 0;
   const floorNow = lean != null ? EA_FLOOR_KCAL_PER_KG_FFM * lean + exKcalPerDay : null;
   const budget = adj?.atFloor && floorNow != null
-    ? Math.round(floorNow)
+    ? Math.ceil(floorNow / 10) * 10
     : adj?.calorieBudgetKcal ?? (foodsTotal != null ? Math.round(foodsTotal) : null);
   if (adj?.atFloor && floorNow == null) {
     notes.push({ level: "warn", text: "The energy floor needs a body-fat reading (lean mass), so the most-aggressive plan can't be built yet." });
@@ -461,10 +461,10 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
       atDeadline = { weightKg: wD, bodyFatPct: lean != null && wD > lean ? (1 - lean / wD) * 100 : null };
     }
     if (adj?.atFloor && floorNow != null) {
-      notes.push({ level: "info", text: `Intake is set at the energy floor (${Math.round(floorNow)} kcal = ${EA_FLOOR_KCAL_PER_KG_FFM} kcal per kg lean mass + planned training). This is the most aggressive plan the app builds; below it, extra loss is mostly water and muscle rather than fat.`, cite: ["loucks2011", "mountjoy2023"] });
+      notes.push({ level: "info", text: `Intake is set at the energy floor (${Math.ceil(floorNow / 10) * 10} kcal ≈ ${EA_FLOOR_KCAL_PER_KG_FFM} kcal per kg lean mass + planned training). This is the most aggressive plan the app builds; below it, extra loss is mostly water and muscle rather than fat.`, cite: ["loucks2011", "mountjoy2023"] });
     }
     kcalFloor = lean != null ? EA_FLOOR_KCAL_PER_KG_FFM * lean + exKcalPerDay : null;
-    if (kcalFloor != null && budget < kcalFloor) {
+    if (kcalFloor != null && budget < kcalFloor - 0.5) {
       const ea = lean != null ? (budget - exKcalPerDay) / lean : null;
       notes.push({
         level: "warn",
