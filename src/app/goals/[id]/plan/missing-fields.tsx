@@ -30,7 +30,7 @@ export function MissingFields({ missing }: { missing: string[] }) {
 
   return (
     <div className="panel" style={{ padding: 16, marginTop: 12 }}>
-      <p style={{ fontSize: 13 }}>The plan needs your sex for the abs target, the energy floor and water.</p>
+      <p style={{ fontSize: 13 }}>The plan needs your sex for body-fat targets, the energy floor and water.</p>
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
         {(["female", "male"] as const).map((s) => (
           <button key={s} type="button" onClick={() => setSex(s)} aria-pressed={sex === s}
