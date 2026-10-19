@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { findRecipeItems, logRecipeEntries, removeRecipeEntries } from "@/lib/recipes";
+import { findTagRecipe, logRecipeEntries, removeRecipeEntries } from "@/lib/recipes";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
 import { apiError } from "@/lib/utils";
@@ -97,17 +97,18 @@ export async function POST(request: NextRequest) {
     // tag's metadata so DELETE can take them back out.
     let meta: Record<string, unknown> | null =
       metadata && typeof metadata === "object" ? { ...metadata } : null;
-    const recipeItems = category === "nutrition" ? null : await findRecipeItems(userId, tagName);
-    if (recipeItems) {
+    // Caffeine tags without a recipe of their own fall back to "coffee".
+    const recipe = category === "nutrition" ? null : await findTagRecipe(userId, tagName, String(category ?? ""));
+    if (recipe) {
       const ids = await logRecipeEntries({
         userId,
-        items: recipeItems,
+        items: recipe.items,
         eatenAt: tagTime,
         tz: await getUserTz(),
         dayStr: typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined,
         timeUnknown: meta?.timeUnknown === true,
       });
-      meta = { ...(meta ?? {}), recipe: tagName, recipeEntryIds: ids };
+      meta = { ...(meta ?? {}), recipe: recipe.name, recipeEntryIds: ids };
       revalidatePath("/mind");
       revalidatePath("/");
     }

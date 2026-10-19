@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { presetTags, tagKcal } from "@/lib/recipe-chips";
 
 /**
  * Mobile Quick Tag — faithful to the "Baseline iOS" Mind mock (chips → specific
@@ -37,8 +38,8 @@ export function MobileQuickTag({
   recipes?: { name: string; kcal: number }[];
 } = {}) {
   // Tags named like a saved recipe log its calories (see /api/tags).
-  const chipLabel = (tag: string) => {
-    const k = recipes.find((r) => r.name === tag.toLowerCase())?.kcal;
+  const chipLabel = (tag: string, category?: string) => {
+    const k = tagKcal(recipes, tag, category);
     return k != null ? `${tag} · ${k} cal` : tag;
   };
   const router = useRouter();
@@ -73,7 +74,7 @@ export function MobileQuickTag({
         }),
       });
       if (res.ok) {
-        setFlash(chipLabel(tag));
+        setFlash(chipLabel(tag, category));
         setCustomTag("");
         setTime(currentTimeString());
         setTimeUnknown(false);
@@ -116,7 +117,7 @@ export function MobileQuickTag({
                 disabled={isPending}
                 className="tagchip"
               >
-                {chipLabel(f.tag)}
+                {chipLabel(f.tag, f.category)}
               </button>
             ))}
           </div>
@@ -144,7 +145,7 @@ export function MobileQuickTag({
         <div style={{ marginTop: 11, border: "1px solid var(--line)", background: "var(--surf2)", padding: 11 }}>
           <div className="ov" style={{ marginBottom: 8 }}>Select specific tag</div>
           <div className="chips">
-            {activePreset.tags.map((tag) => (
+            {presetTags(activePreset.category, activePreset.tags, recipes).map((tag) => (
               <button
                 key={tag}
                 type="button"
@@ -152,7 +153,7 @@ export function MobileQuickTag({
                 disabled={isPending}
                 className="tagchip"
               >
-                {chipLabel(tag)}
+                {chipLabel(tag, activePreset.category)}
               </button>
             ))}
           </div>

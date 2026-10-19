@@ -22,6 +22,31 @@ export async function findRecipeItems(userId: string, name: string): Promise<Mac
   }
 }
 
+/**
+ * The recipe a tag logs (2026-10-19): an exact name match first; otherwise
+ * any caffeine tag ("caffeine", or a caffeine-category chip like "espresso"
+ * with no recipe of its own) logs her "coffee" recipe — she shouldn't have
+ * to pick the word "coffee" for her usual cup to count.
+ */
+export async function findTagRecipe(
+  userId: string,
+  tagName: string,
+  category: string,
+): Promise<{ name: string; items: MacroEstimate[] } | null> {
+  const name = tagName.trim().toLowerCase();
+  const own = await findRecipeItems(userId, name);
+  if (own) return { name, items: own };
+  if (isCaffeineTag(name, category)) {
+    const coffee = await findRecipeItems(userId, "coffee");
+    if (coffee) return { name: "coffee", items: coffee };
+  }
+  return null;
+}
+
+export function isCaffeineTag(tagName: string, category: string): boolean {
+  return category === "caffeine" || tagName.trim().toLowerCase() === "caffeine";
+}
+
 /** YYYY-MM-DD of an instant as seen in tz. */
 function dayStrOf(at: Date, tz: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(at);

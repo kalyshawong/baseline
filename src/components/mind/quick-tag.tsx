@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { presetTags, tagKcal } from "@/lib/recipe-chips";
 
 const presets = [
   { category: "music", tags: ["lo-fi", "classical", "ambient", "binaural"] },
@@ -32,9 +33,8 @@ export function QuickTag({
 } = {}) {
   // Tags named like a saved recipe log its calories (see /api/tags) — say so
   // on the chip so it isn't invisible.
-  const kcalOf = (tag: string) => recipes.find((r) => r.name === tag.toLowerCase())?.kcal;
-  const chipLabel = (tag: string) => {
-    const k = kcalOf(tag);
+  const chipLabel = (tag: string, category?: string) => {
+    const k = tagKcal(recipes, tag, category);
     return k != null ? `${tag} · ${k} cal` : tag;
   };
   const router = useRouter();
@@ -85,7 +85,7 @@ export function QuickTag({
         }),
       });
       if (res.ok) {
-        setFlash(chipLabel(tag));
+        setFlash(chipLabel(tag, category));
         resetForm();
         setTimeout(() => {
           setFlash(null);
@@ -118,7 +118,7 @@ export function QuickTag({
             <div className="chips">
               {frequentTags.map((f) => (
                 <button key={f.tag} type="button" onClick={() => handleTag(f.category, f.tag)} disabled={isPending} className="tagchip">
-                  {chipLabel(f.tag)}
+                  {chipLabel(f.tag, f.category)}
                 </button>
               ))}
             </div>
@@ -143,11 +143,10 @@ export function QuickTag({
         {activeCategory && (
           <div className="drill">
             <div className="chips">
-              {presets
-                .find((p) => p.category === activeCategory)
-                ?.tags.map((tag) => (
+              {presetTags(activeCategory, presets.find((p) => p.category === activeCategory)?.tags ?? [], recipes)
+                .map((tag) => (
                   <button key={tag} type="button" onClick={() => handleTag(activeCategory, tag)} disabled={isPending} className="tagchip disabled:opacity-50">
-                    {chipLabel(tag)}
+                    {chipLabel(tag, activeCategory)}
                   </button>
                 ))}
             </div>
@@ -249,16 +248,15 @@ export function QuickTag({
           <div>
             <p className="ov mb-2">Select specific tag</p>
             <div className="flex flex-wrap gap-2">
-              {presets
-                .find((p) => p.category === activeCategory)
-                ?.tags.map((tag) => (
+              {presetTags(activeCategory, presets.find((p) => p.category === activeCategory)?.tags ?? [], recipes)
+                .map((tag) => (
                   <button
                     key={tag}
                     onClick={() => handleTag(activeCategory, tag)}
                     disabled={isPending}
                     className="tagchip disabled:opacity-50"
                   >
-                    {tag}
+                    {chipLabel(tag, activeCategory)}
                   </button>
                 ))}
             </div>
