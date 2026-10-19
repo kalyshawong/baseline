@@ -622,7 +622,9 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
     }
   }
   if (daily && menu && inp.loggedDays < 5) {
-    notes.push({ level: "info", text: `Only ${inp.loggedDays} logged food day${inp.loggedDays === 1 ? "" : "s"} so far, so the menu has little of your own food to draw on. It fills in as you log.` });
+    notes.push({ level: "info", text: inp.loggedDays === 0
+      ? "No logged food yet, so the menu has none of your own food to draw on. It fills in as you log."
+      : `Only ${inp.loggedDays} logged food day${inp.loggedDays === 1 ? "" : "s"} so far, so the menu has little of your own food to draw on. It fills in as you log.` });
   }
 
   return {
