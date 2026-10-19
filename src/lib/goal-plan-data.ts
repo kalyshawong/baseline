@@ -113,7 +113,7 @@ export async function loadPlanInputs(
       targetWeightKg: profile.targetWeightKg,
       bmrKcal: bmr ? Math.round(bmr) : null,
     });
-    if (kcal) formulaTdee = { kcal, label: bmr ? label : "rough weight-based estimate (add height, age and sex for better)", cite };
+    if (kcal) formulaTdee = { kcal, label: bmr ? label : "rough weight-based estimate (add height, age and sex for better)", cite, bmr: bmr ? Math.round(bmr) : null };
   }
 
   // ---- Training, last 28 days of watch workouts ----
@@ -256,6 +256,7 @@ export interface RawAdjustments {
   deadline?: unknown;
   foods?: { fdc_id?: unknown; grams?: unknown; servings?: unknown; kcal?: unknown }[];
   avoid?: unknown;
+  at_floor?: unknown;
 }
 
 const num = (v: unknown, min: number, max: number): number | null =>
@@ -285,6 +286,7 @@ export async function resolveAdjustments(raw: RawAdjustments): Promise<{ adjustm
   const bf = num(raw.target_body_fat_pct, 3, 50);
   if (bf != null) adj.targetBodyFatPct = bf;
   if (typeof raw.deadline === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.deadline)) adj.deadline = raw.deadline;
+  if (raw.at_floor === true) adj.atFloor = true;
   if (Array.isArray(raw.avoid)) adj.avoid = raw.avoid.filter((a): a is string => typeof a === "string" && a.trim().length > 0).slice(0, 20);
 
   if (Array.isArray(raw.foods) && raw.foods.length) {

@@ -48,6 +48,7 @@ const adjustmentsSchema = {
       },
     },
     avoid: { type: "array", items: { type: "string" }, description: "Words to keep out of the menu built from their log, e.g. 'yogurt'." },
+    at_floor: { type: "boolean", description: "Set intake exactly at the energy-availability floor, computed with these sessions. Use this — not a number of your own — for 'the most I can lose' questions." },
   },
 };
 
@@ -96,7 +97,9 @@ export const PLAN_SYSTEM_SECTION = `
 - Training: pass sessions (type + minutes). The tool says whether each burn came from the user's own watch or the 2024 Compendium; tell them which.
 - Cite with the short source names the tool returns (e.g. "Helms 2014b"). Repeat every warning the tool returns, in plain words; never drop or soften one.
 - Whenever the user changes their plan, call propose_goal_plan so they get a plan card with a Save button. Keep your text to a few lines — the card shows the numbers.
-- Limits: if asked for "the most I can lose", extreme effort or fasting, propose the plan with the most training they describe and intake at the energy floor the tool reports (daily.kcal_floor). Say plainly that going further costs mostly water and muscle, not fat. Never write fasting protocols or suggest a budget below the floor yourself. If the user sets one, run it so they see the warnings, show the warnings, and suggest reviewing it with their own coach or clinician.`;
+- Never state a number from memory, even as an approximation: no "~40 kcal", no typical package or can sizes, no burn rates. If you need an amount you don't have (e.g. the weight of their can), ask the user for it.
+- Cite a source only for the claim it's listed against in the tool's "sources" (each entry says what it supports). Never attach a source to a different claim.
+- Limits: if asked for "the most I can lose", extreme effort or fasting, call propose_goal_plan with the training they describe and at_floor: true. The tool sets intake at the floor for that training. Say plainly that going further costs mostly water and muscle, not fat. Never write fasting protocols or suggest a budget below the floor yourself. If the user sets one, run it so they see the warnings, show the warnings, and suggest reviewing it with their own coach or clinician.`;
 
 export interface PlanProposal {
   goalId: string;
@@ -128,14 +131,33 @@ export interface PlanToolContext {
 const r1 = (v: number | null | undefined) => (v == null ? null : Math.round(v * 10) / 10);
 const day = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
 
+/** What each source is used for — the coach may cite it only for this. */
+const SUPPORTS: Partial<Record<CitationId, string>> = {
+  helms2014b: "loss pace 0.5–1% body weight/week to keep lean mass; fat 15–30% of calories",
+  garthe2011: "slower loss (~0.7%/wk vs ~1.4%/wk) kept more lean mass in athletes",
+  hall2008: "~7700 kcal per kg of weight change is an approximation",
+  loucks2011: "energy availability floor ~30 kcal per kg lean mass",
+  mountjoy2023: "low energy availability harms hormones, bone, health and performance (REDs)",
+  morton2018: "protein ~1.6 g/kg, upper range 2.2 g/kg for muscle with training",
+  helms2014: "higher protein (2.3–3.1 g/kg lean mass) during a cut for lean trained people",
+  efsa2010: "water reference intakes (2.0 L women / 2.5 L men total water)",
+  sawka2007: "sweat rates ~0.5–2 L/h during exercise",
+  herrmann2024: "MET values for activities without watch history",
+  usdaFdc: "food nutrients",
+  iraki2019: "lean gain pace ~0.25–0.5% body weight/week",
+  cunningham1980: "resting energy from lean mass (500 + 22 × lean kg)",
+  mifflin1990: "resting energy from weight, height, age, sex",
+  acsm2021: "essential fat ~10–13% women, ~2–5% men",
+};
+
 function cites(plan: GoalPlan): Record<string, string> {
-  const ids = new Set<CitationId>(["helms2014b", "garthe2011", "hall2008", "loucks2011", "mountjoy2023", "morton2018", "helms2014", "efsa2010", "sawka2007"]);
+  const ids = new Set<CitationId>(["helms2014b", "garthe2011", "hall2008", "loucks2011", "mountjoy2023", "morton2018", "helms2014", "efsa2010", "sawka2007", "acsm2021"]);
   for (const n of plan.notes) for (const c of n.cite ?? []) ids.add(c);
   for (const c of plan.tdee?.cite ?? []) ids.add(c);
   if (plan.exercise?.sessions.some((s) => !s.fromWatch)) ids.add("herrmann2024");
   if (plan.adjustments?.foods?.length) ids.add("usdaFdc");
   if (plan.direction === "gain") ids.add("iraki2019");
-  return Object.fromEntries([...ids].map((id) => [CITATIONS[id].short, CITATIONS[id].full]));
+  return Object.fromEntries([...ids].map((id) => [CITATIONS[id].short, SUPPORTS[id] ?? CITATIONS[id].full]));
 }
 
 /** Compact plan for the model: numbers + where each comes from. */
@@ -201,6 +223,7 @@ function toRaw(adj: PlanAdjustments): RawAdjustments {
     deadline: adj.deadline ?? undefined,
     foods: adj.foods?.map((f) => ({ fdc_id: f.fdcId, grams: Math.round(f.grams * 10) / 10 })),
     avoid: adj.avoid,
+    at_floor: adj.atFloor || undefined,
   };
 }
 

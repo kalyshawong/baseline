@@ -122,7 +122,7 @@ export interface PlanInputs {
   /** Mean of her wearable's total daily burn. */
   measuredTdee: { kcal: number; days: number; lastDay: Date; source: string } | null;
   /** Formula fallback and what it was built from. */
-  formulaTdee: { kcal: number; label: string; cite: CitationId[] } | null;
+  formulaTdee: { kcal: number; label: string; cite: CitationId[]; bmr?: number | null } | null;
   /** Averages over the last 28 days of watch workouts. */
   training: { kcalPerDay: number; sessionsPerWeek: number; avgSessionMin: number } | null;
   meals: LoggedMeal[];
@@ -166,6 +166,8 @@ export interface PlanAdjustments {
   foods?: PlanFood[];
   /** Words to keep out of the menu built from her log ("yogurt"). */
   avoid?: string[];
+  /** Eat exactly at the energy-availability floor (the most aggressive plan the app builds). */
+  atFloor?: boolean;
 }
 
 export interface PlanNote {
@@ -392,8 +394,15 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
     const perDayKcal = Math.round(sessions.reduce((t, s) => t + (s.kcal * s.daysPerWeek) / 7, 0));
     const replacedKcal = Math.round(inp.training?.kcalPerDay ?? 0);
     exercise = { sessions, perDayKcal, replacedKcal };
-    tdee.kcal = round(tdee.kcal - replacedKcal + perDayKcal, 10);
-    tdee.label += ` − your recent workouts (~${replacedKcal} kcal/day) + planned training (~${perDayKcal} kcal/day)`;
+    if (!inp.measuredTdee && inp.formulaTdee?.bmr) {
+      // An activity multiplier already counts exercise, so rebuild from
+      // BMR × 1.2 (the sedentary factor: daily life, no workouts) + planned.
+      tdee.kcal = round(inp.formulaTdee.bmr * 1.2 + perDayKcal, 10);
+      tdee.label = `${inp.formulaTdee.label.replace(/ × activity level$/, "")} × 1.2 (daily life, no workouts) + planned training (~${perDayKcal} kcal/day)`;
+    } else {
+      tdee.kcal = round(tdee.kcal - replacedKcal + perDayKcal, 10);
+      tdee.label += ` − your recent workouts (~${replacedKcal} kcal/day) + planned training (~${perDayKcal} kcal/day)`;
+    }
     if (sessions.some((s) => !s.fromWatch)) tdee.cite = [...tdee.cite, "herrmann2024"];
   }
   if (inp.measuredTdee) {
@@ -420,8 +429,14 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
   const foodsTotal = adj?.foods?.length
     ? adj.foods.reduce((t, f) => t + (f.per100.kcal * f.grams) / 100, 0)
     : null;
-  const budget = adj?.calorieBudgetKcal ?? (foodsTotal != null ? Math.round(foodsTotal) : null);
   const exKcalPerDay = exercise?.perDayKcal ?? inp.training?.kcalPerDay ?? 0;
+  const floorNow = lean != null ? EA_FLOOR_KCAL_PER_KG_FFM * lean + exKcalPerDay : null;
+  const budget = adj?.atFloor && floorNow != null
+    ? Math.round(floorNow)
+    : adj?.calorieBudgetKcal ?? (foodsTotal != null ? Math.round(foodsTotal) : null);
+  if (adj?.atFloor && floorNow == null) {
+    notes.push({ level: "warn", text: "The energy floor needs a body-fat reading (lean mass), so the most-aggressive plan can't be built yet." });
+  }
   let atDeadline: GoalPlan["pace"]["atDeadline"] = null;
 
   if (tdee && w != null && budget != null) {
@@ -439,9 +454,14 @@ export function buildGoalPlan(inp: PlanInputs): GoalPlan | null {
     } else if (changeKg != null && Math.abs(changeKg) > 0.2) {
       notes.push({ level: "warn", text: `At ${budget} kcal you'd ${kgWk > 0 ? "lose" : "gain"} weight, the opposite of this goal.` });
     }
-    if (weeksLeft != null && weeksLeft > 0) {
+    // Where she'd be on the date — only when the target isn't reached first
+    // (the plan ends at the target).
+    if (weeksLeft != null && weeksLeft > 0 && !(projectedDate && g.deadline && projectedDate.getTime() <= g.deadline.getTime())) {
       const wD = w - kgWk * weeksLeft;
       atDeadline = { weightKg: wD, bodyFatPct: lean != null && wD > lean ? (1 - lean / wD) * 100 : null };
+    }
+    if (adj?.atFloor && floorNow != null) {
+      notes.push({ level: "info", text: `Intake is set at the energy floor (${Math.round(floorNow)} kcal = ${EA_FLOOR_KCAL_PER_KG_FFM} kcal per kg lean mass + planned training). This is the most aggressive plan the app builds; below it, extra loss is mostly water and muscle rather than fat.`, cite: ["loucks2011", "mountjoy2023"] });
     }
     kcalFloor = lean != null ? EA_FLOOR_KCAL_PER_KG_FFM * lean + exKcalPerDay : null;
     if (kcalFloor != null && budget < kcalFloor) {
