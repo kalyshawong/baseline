@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { isNutritionGoal } from "@/lib/goal-plan";
 
 /**
  * Mobile Goals — faithful to the "Baseline iOS" Goals mock (primary-focus hero
@@ -112,7 +114,9 @@ export function MobileGoals({ initialGoals }: { initialGoals: Goal[] }) {
         const created = await res.json();
         setGoals((p) => [...p, created]);
         setTitle(""); setTarget(""); setDeadline(""); setType("race"); setShowForm(false);
-        router.refresh();
+        // Physique / weight goals open their nutrition plan right away.
+        if (isNutritionGoal(created)) router.push(`/goals/${created.id}/plan`);
+        else router.refresh();
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error ?? "Failed to create goal");
@@ -176,6 +180,8 @@ export function MobileGoals({ initialGoals }: { initialGoals: Goal[] }) {
                 </div>
                 <div className="title">{primary.title}</div>
                 {primary.target && <div className="tgt">Target <b>{primary.target}</b></div>}
+                {/* Plain placeholder link (2026-10-18) — Kalysha to place/style */}
+                {isNutritionGoal(primary) && <Link href={`/goals/${primary.id}/plan`} className="tgt" style={{ textDecoration: "underline" }}>See plan</Link>}
                 <div className="meta">
                   {shortDate(primary.deadline) && <b>{shortDate(primary.deadline)}</b>}
                   {daysUntil(primary.deadline) && <> · {daysUntil(primary.deadline)}</>}
@@ -199,6 +205,8 @@ export function MobileGoals({ initialGoals }: { initialGoals: Goal[] }) {
                 {shortDate(g.deadline) ? <><b>{shortDate(g.deadline)}</b> · {daysUntil(g.deadline)}</> : "Ongoing"}
               </div>
               <div className="badges">{badge(g.type)}</div>
+              {/* Plain placeholder link (2026-10-18) — Kalysha to place/style */}
+              {isNutritionGoal(g) && <Link href={`/goals/${g.id}/plan`} className="dt" style={{ textDecoration: "underline" }}>See plan</Link>}
             </div>
           ))}
         </div>

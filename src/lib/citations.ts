@@ -177,6 +177,56 @@ export const CITATIONS = {
     url: "https://doi.org/10.1371/journal.pone.0280800",
     peerReviewed: true,
   },
+
+  // --- Goal nutrition plans (lib/goal-plan.ts, 2026-10-18) ---
+  helms2014b: {
+    short: "Helms 2014b",
+    full: "Helms ER, Aragon AA, Fitschen PJ. Evidence-based recommendations for natural bodybuilding contest preparation: nutrition and supplementation. J Int Soc Sports Nutr. 2014;11:20.",
+    url: "https://doi.org/10.1186/1550-2783-11-20",
+    peerReviewed: true,
+  },
+  iraki2019: {
+    short: "Iraki 2019",
+    full: "Iraki J, Fitschen P, Espinar S, Helms E. Nutrition recommendations for bodybuilders in the off-season: a narrative review. Sports (Basel). 2019;7(7):154.",
+    url: "https://pubmed.ncbi.nlm.nih.gov/31247944/",
+    peerReviewed: true,
+  },
+  garthe2011: {
+    short: "Garthe 2011",
+    full: "Garthe I, Raastad T, Refsnes PE, Koivisto A, Sundgot-Borgen J. Effect of two different weight-loss rates on body composition and strength and power-related performance in elite athletes. Int J Sport Nutr Exerc Metab. 2011;21(2):97-104.",
+    url: "https://doi.org/10.1123/ijsnem.21.2.97",
+    peerReviewed: true,
+  },
+  hall2008: {
+    short: "Hall 2008",
+    full: "Hall KD. What is the required energy deficit per unit weight loss? Int J Obes (Lond). 2008;32(3):573-576.",
+    url: "https://pubmed.ncbi.nlm.nih.gov/17848938/",
+    peerReviewed: true,
+  },
+  cunningham1980: {
+    short: "Cunningham 1980",
+    full: "Cunningham JJ. A reanalysis of the factors influencing basal metabolic rate in normal adults. Am J Clin Nutr. 1980;33(11):2372-2374.",
+    url: "https://doi.org/10.1093/ajcn/33.11.2372",
+    peerReviewed: true,
+  },
+  efsa2010: {
+    short: "EFSA 2010",
+    full: "EFSA Panel on Dietetic Products, Nutrition, and Allergies (NDA). Scientific Opinion on Dietary Reference Values for water. EFSA Journal. 2010;8(3):1459.",
+    url: "https://doi.org/10.2903/j.efsa.2010.1459",
+    peerReviewed: true,
+  },
+  sawka2007: {
+    short: "Sawka 2007",
+    full: "American College of Sports Medicine; Sawka MN, Burke LM, Eichner ER, Maughan RJ, Montain SJ, Stachenfeld NS. ACSM position stand: exercise and fluid replacement. Med Sci Sports Exerc. 2007;39(2):377-390.",
+    url: "https://doi.org/10.1249/mss.0b013e31802ca597",
+    peerReviewed: true,
+  },
+  acsm2021: {
+    short: "ACSM 2021",
+    full: "American College of Sports Medicine. ACSM's Guidelines for Exercise Testing and Prescription. 11th ed. Philadelphia: Wolters Kluwer; 2021. (Essential fat ranges.)",
+    url: "https://www.acsm.org/education-resources/books/guidelines-exercise-testing-prescription",
+    peerReviewed: false,
+  },
 } as const satisfies Record<string, Citation>;
 
 export type CitationId = keyof typeof CITATIONS;

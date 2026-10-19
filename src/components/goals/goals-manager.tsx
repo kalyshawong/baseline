@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { CountdownRing } from "./countdown-ring";
+import { isNutritionGoal } from "@/lib/goal-plan";
 
 interface Goal {
   id: string;
@@ -20,7 +22,7 @@ interface Goal {
 const goalTypes = [
   { id: "race", label: "Race", subtypes: ["hyrox", "marathon", "half_marathon", "5k", "10k", "triathlon", "custom"] },
   { id: "strength", label: "Strength", subtypes: ["powerlifting_meet", "bodybuilding", "general_strength", "custom"] },
-  { id: "physique", label: "Physique", subtypes: ["bodybuilding", "recomp", "custom"] },
+  { id: "physique", label: "Physique", subtypes: ["visible_abs", "bodybuilding", "recomp", "custom"] },
   { id: "cognitive", label: "Cognitive", subtypes: ["cfa", "finals", "certification", "custom"] },
   { id: "weight", label: "Weight", subtypes: ["cut", "bulk", "recomp", "maintain"] },
   { id: "health", label: "Health", subtypes: ["sleep_optimization", "hrv_baseline", "stress_management", "custom"] },
@@ -170,7 +172,9 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
           setGoals((prev) => [...prev, created]);
         }
         resetForm();
-        router.refresh();
+        // Physique / weight goals open their nutrition plan right away.
+        if (isNutritionGoal(created)) router.push(`/goals/${created.id}/plan`);
+        else router.refresh();
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error ?? "Failed to create goal");
@@ -406,6 +410,10 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
               {/* Target + deadline */}
               <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-[var(--color-text-muted)]">
                 {primaryGoal.target && <span>Target: {primaryGoal.target}</span>}
+                {/* Plain placeholder link (2026-10-18) — Kalysha to place/style */}
+                {isNutritionGoal(primaryGoal) && (
+                  <Link href={`/goals/${primaryGoal.id}/plan`} className="underline">Plan</Link>
+                )}
                 {primaryGoal.deadline && (
                   <span>
                     {new Date(primaryGoal.deadline).toLocaleDateString("en-US", {
@@ -602,6 +610,10 @@ export function GoalsManager({ initialGoals }: { initialGoals: Goal[] }) {
                   {/* Type badge */}
                   <div className="mt-3">
                     <TypeBadge type={g.type} />
+                    {/* Plain placeholder link (2026-10-18) — Kalysha to place/style */}
+                    {isNutritionGoal(g) && (
+                      <Link href={`/goals/${g.id}/plan`} className="ml-2 text-xs underline text-[var(--color-text-muted)]">Plan</Link>
+                    )}
                   </div>
 
                   {/* Hover actions */}
