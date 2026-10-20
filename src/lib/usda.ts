@@ -78,6 +78,7 @@ For each item return:
   "canonicalUnit": "" for things counted whole (eggs, bananas), else a simple unit: 'slice', 'can', 'cup', 'tbsp', 'g', 'ml', 'serving'
 }
 
+Return each food ONCE. If the text is a dish made of named ingredients ("egg white omelette with spinach and cheese", "avocado turkey toast"), return EITHER one item for the whole dish OR one item per ingredient — NEVER both, or the meal is counted twice. Use ingredients when the text gives their amounts, otherwise one item for the dish. Never repeat the same item.
 Use standard USDA nutritional values. Be accurate with portion sizes — "1 cup rice" means ~200g cooked white rice, "3 eggs" means 3 large eggs (~150g total, ~50g each). Round to 1 decimal place for macros, whole numbers for calories.`,
           },
         ],
@@ -106,7 +107,7 @@ Use standard USDA nutritional values. Be accurate with portion sizes — "1 cup 
       console.error("Failed to parse Claude macro response:", jsonMatch[0].slice(0, 200));
       return [];
     }
-    return parsed.map((item) => ({
+    return dedupeEstimates(parsed.map((item) => ({
       description: item.description || rawInput,
       foodName: item.foodName || item.description,
       quantity: item.quantity || 1,
@@ -120,9 +121,67 @@ Use standard USDA nutritional values. Be accurate with portion sizes — "1 cup 
         (item as unknown as Record<string, unknown>).canonicalCount,
         (item as unknown as Record<string, unknown>).canonicalUnit,
       ),
-    }));
+    })));
   } catch (e) {
     console.error("Failed to parse JSON from Claude:", e, text);
     return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate guard (2026-10-19)
+// ---------------------------------------------------------------------------
+
+const STOP = new Set(["with", "and", "the", "of", "a", "an", "in", "on", "from", "large", "small", "medium", "slice", "piece", "cup", "approx", "about", "cooked", "raw"]);
+
+function words(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/\(.*?\)/g, " ")
+    .replace(/[^a-z ]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP.has(w))
+    .map((w) => (w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w));
+}
+
+/**
+ * The estimator sometimes returns a dish AND its ingredients for one input
+ * ("Egg white omelette with spinach, mushroom and white cheese" → the
+ * omelette + egg whites + spinach + mushroom + cheese), or the same item
+ * twice, so one meal is counted twice. Drops:
+ *  - exact repeats (same description, food and macros);
+ *  - a "whole dish" item when 2+ other items are named inside it and some
+ *    of them add up to 60–140% of its calories (the ingredients are kept —
+ *    they carry the amounts).
+ */
+export function dedupeEstimates(items: MacroEstimate[]): MacroEstimate[] {
+  const seen = new Set<string>();
+  let out = items.filter((i) => {
+    const k = `${i.description}|${i.foodName}|${i.calories}|${i.protein}`.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  const drop = new Set<MacroEstimate>();
+  for (const dish of out) {
+    if (dish.calories <= 0) continue;
+    const dishWords = new Set([...words(dish.foodName), ...words(dish.description)]);
+    const parts = out.filter((o) => {
+      if (o === dish || drop.has(o)) return false;
+      const w = words(o.foodName);
+      return w.length > 0 && w.every((x) => dishWords.has(x));
+    });
+    if (parts.length < 2 || parts.length > 10) continue;
+    // Any subset of 2+ named parts that adds up to roughly the dish.
+    let match = false;
+    for (let mask = 1; mask < 1 << parts.length && !match; mask++) {
+      const sub = parts.filter((_, i) => mask & (1 << i));
+      if (sub.length < 2) continue;
+      const kcal = sub.reduce((t, p) => t + p.calories, 0);
+      if (kcal >= dish.calories * 0.6 && kcal <= dish.calories * 1.4) match = true;
+    }
+    if (match) drop.add(dish);
+  }
+  if (drop.size) out = out.filter((i) => !drop.has(i));
+  return out;
 }
