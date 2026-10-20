@@ -71,7 +71,8 @@ ${library.map((e) => e.name).join(", ")}
 Rules:
 - date: use the chosen workout date (${defaultDate}) UNLESS the text itself names a day ("yesterday", "two days ago", "Sunday", "Sep 21") — then resolve that against today's date. Never a date after today.
 - NEVER collapse a variant into its parent exercise: "single leg RDL" is NOT "Romanian Deadlift", "paused bench" is NOT "Bench Press", "incline curl" is NOT "Bicep Curl". Only map to a library name when it is the SAME movement. If a qualified variant isn't in the library, keep the user's qualified name in Title Case (e.g. "Single Leg Romanian Deadlift") — it will be created.
-- Weights: assume kg unless "lb" stated (convert lb→kg, 1 decimal).
+- Weights: assume kg unless "lb" stated (convert lb→kg, 1 decimal). Treat "ib"/"lbs" as lb.
+- Bodyweight work with no weight stated ("ab crunches 3x10", "push-ups 3x15"): weightKg 0.
 - "3x8 @25" = 3 sets of 8 reps at 25kg. "4x70lb of lat pulldowns" = 4 sets at 70 lb with NO reps stated. "60lb x 3 x 7" = 60 lb, 3 sets of 7.
 - Reps can come from elsewhere in the text: "(8 reps)" after an exercise, or "(all 8 reps)" / "all 8 reps" applying to every exercise that lacks its own reps.
 - NEVER invent or guess sets or reps, and never read a weight as reps. If an exercise still has no reps (or no sets), OMIT it from entries entirely (never emit null sets/reps) — it will be reported back as skipped.
@@ -125,13 +126,21 @@ Workout log: ${text.trim()}`,
     // Drop entries the model shouldn't have emitted (null/absent sets,
     // reps, or weight) rather than crashing the set-creation loop — and
     // tell the user what was skipped instead of silently eating it.
-    const allEntries = parsed.entries ?? [];
-    const skipped = allEntries
-      .filter((e) => !(Number(e.sets) > 0 && Number(e.reps) > 0 && Number(e.weightKg) >= 0))
-      .map((e) => e.exercise ?? "unknown");
-    parsed.entries = allEntries.filter(
-      (e) => Number(e.sets) > 0 && Number(e.reps) > 0 && Number(e.weightKg) >= 0,
-    );
+    // A missing weight is bodyweight (0), not an error: "ab crunches 3x10"
+    // used to pass the filter as null and crash the insert (2026-10-19).
+    const allEntries = (parsed.entries ?? []).map((e) => ({
+      ...e,
+      sets: Math.round(Number(e.sets)),
+      reps: Math.round(Number(e.reps)),
+      weightKg: e.weightKg == null || e.weightKg === ("" as unknown) ? 0 : Number(e.weightKg),
+    }));
+    const valid = (e: ParsedSet) =>
+      typeof e.exercise === "string" && e.exercise.trim().length > 0 &&
+      Number.isFinite(e.sets) && e.sets > 0 && e.sets <= 20 &&
+      Number.isFinite(e.reps) && e.reps > 0 && e.reps <= 200 &&
+      Number.isFinite(e.weightKg) && e.weightKg >= 0;
+    const skipped = allEntries.filter((e) => !valid(e)).map((e) => e.exercise ?? "unknown");
+    parsed.entries = allEntries.filter(valid);
     if (!parsed.entries?.length) {
       return NextResponse.json(
         {
@@ -144,14 +153,21 @@ Workout log: ${text.trim()}`,
       );
     }
 
-    // Resolve/create exercises.
+    // Guard the model's date: malformed or future → the chosen date.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(parsed.date ?? "") || parsed.date > todayStr) parsed.date = defaultDate;
+    const date = new Date(`${parsed.date}T00:00:00.000Z`);
+    const entries = parsed.entries;
+
+    // One transaction: a failed insert no longer leaves new exercises behind
+    // with no session (what happened with "Ab Crunches" on 2026-10-19).
+    const { session, resolved } = await prisma.$transaction(async (tx) => {
     const byLower = new Map(library.map((e) => [e.name.toLowerCase(), e]));
     const resolved: { exerciseId: string; name: string; p: ParsedSet }[] = [];
-    for (const entry of parsed.entries) {
+    for (const entry of entries) {
       const name = entry.exercise.trim();
       let ex = byLower.get(name.toLowerCase());
       if (!ex) {
-        const created = await prisma.exercise.create({
+        const created = await tx.exercise.create({
           data: {
             userId,
             name,
@@ -169,15 +185,12 @@ Workout log: ${text.trim()}`,
       resolved.push({ exerciseId: ex.id, name: ex.name, p: entry });
     }
 
-    // Guard the model's date: malformed or future → the chosen date.
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(parsed.date ?? "") || parsed.date > todayStr) parsed.date = defaultDate;
-    const date = new Date(`${parsed.date}T00:00:00.000Z`);
     const sessionVolume = resolved.reduce(
       (sum, r) => sum + r.p.sets * r.p.reps * r.p.weightKg,
       0,
     );
 
-    const session = await prisma.workoutSession.create({
+    const session = await tx.workoutSession.create({
       data: {
         userId,
         date,
@@ -198,6 +211,8 @@ Workout log: ${text.trim()}`,
           ),
         },
       },
+    });
+    return { session, resolved };
     });
 
     return NextResponse.json({

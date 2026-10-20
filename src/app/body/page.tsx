@@ -574,9 +574,10 @@ export default async function BodyPage({
                 <div style={{ marginTop: 14 }}>
                   <QuickWorkoutLog key={viewDate.toISOString()} defaultDate={viewDate.toISOString().slice(0, 10)} today={getLocalDayStr(requestTz)} />
                 </div>
-                <div style={{ marginTop: 14 }}>
-                  <HealthEventLog key={`ev-${viewDate.toISOString()}`} defaultDate={viewDate.toISOString().slice(0, 10)} today={getLocalDayStr(requestTz)} />
-                </div>
+                {/* "What happened?" lived here too (2026-10-19 removed): two
+                    identical-looking boxes stacked, and a workout typed into
+                    the wrong one became a health event. It stays under
+                    Soreness on the Run/Body view, same as desktop. */}
               </div>
               <LifterBody data={lifter} blockHref="/body/block" blockLabel={block ? `Block ${block.number} · Week ${block.currentWeek}` : undefined} />
               <div className="wrap" style={{ marginTop: 14 }}>
