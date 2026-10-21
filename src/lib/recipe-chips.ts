@@ -4,12 +4,12 @@
  */
 export type RecipeChip = { name: string; kcal: number };
 
-/** kcal a tag will log: its own recipe, else "coffee" for any caffeine tag. */
-export function tagKcal(recipes: RecipeChip[], tag: string, category?: string): number | undefined {
+/** kcal a tag will log: its own recipe, else "coffee" for a plain "caffeine" tag. */
+export function tagKcal(recipes: RecipeChip[], tag: string, _category?: string): number | undefined {
   const t = tag.trim().toLowerCase();
   const own = recipes.find((r) => r.name === t)?.kcal;
   if (own != null) return own;
-  if (category === "caffeine" || t === "caffeine") return recipes.find((r) => r.name === "coffee")?.kcal;
+  if (t === "caffeine") return recipes.find((r) => r.name === "coffee")?.kcal;
   return undefined;
 }
 
