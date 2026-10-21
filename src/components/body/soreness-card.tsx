@@ -4,7 +4,7 @@ import { useState } from "react";
 
 /**
  * Soreness logger — EPISODE model: tap a body part, pick severity 1-10, and
- * it stays ("day N" keeps counting) until ✕ clears it. Tapping a logged
+ * it stays ("day N" keeps counting) until "Not sore" ends it. Tapping a logged
  * part again updates today's severity mid-episode. Streaks/carry-forward
  * are computed server-side (lib/soreness.ts). Findings come from
  * soreness-analysis.ts via the page.
@@ -56,7 +56,7 @@ export function SorenessCard({ dateStr, initialEntries, bodyParts, findings }: P
     }
   }
 
-  // ✕ = "not sore anymore": ends the episode as of today (today becomes the
+  // "Not sore" (was a bare ×, which read like delete-a-mistake): ends the episode as of today (today becomes the
   // first not-sore day). History is kept — this is not a delete.
   async function clearPart(bodyPart: string) {
     const res = await fetch("/api/soreness", {
@@ -90,8 +90,12 @@ export function SorenessCard({ dateStr, initialEntries, bodyParts, findings }: P
                 <span className="num font-bold" style={{ color: e.severity >= 7 ? "var(--color-red)" : e.severity >= 4 ? "var(--color-yellow)" : "var(--color-green)" }}>
                   {e.severity}/10
                 </span>
-                <button onClick={() => clearPart(e.bodyPart)} className="text-[var(--color-faint)] hover:text-[var(--color-text)]" aria-label={`${e.bodyPart} not sore anymore`} title="Not sore anymore">
-                  ×
+                <button
+                  onClick={() => clearPart(e.bodyPart)}
+                  className="cursor-pointer border-none bg-[var(--color-surface)] px-2 py-[4px] text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                  aria-label={`${e.bodyPart}: not sore anymore, end it today`}
+                >
+                  Not sore
                 </button>
               </span>
             </div>
