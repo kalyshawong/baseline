@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { FoodConfirm, useFoodDraft } from "@/components/mind/food-confirm";
 import { useRouter } from "next/navigation";
 
 interface MacroEstimate {
@@ -42,60 +43,44 @@ export function NutritionInput({
   const [source, setSource] = useState<string>("home_cooked");
   const [time, setTime] = useState(currentTimeString);
   const [timeUnknown, setTimeUnknown] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const [results, setResults] = useState<MacroEstimate[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Form fields sent with both steps (preview and confirm). eatenAt kept as a
+  // legacy fallback; the server prefers the literal wall time in `time`.
+  function fields() {
+    const base = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+    const [h, m] = timeUnknown ? [0, 0] : time.split(":").map(Number);
+    const eatenAt = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m);
+    return { mealType, source, time: timeUnknown ? null : time, eatenAt: eatenAt.toISOString(), date: dateStr, timeUnknown };
+  }
+  const flow = useFoodDraft(fields);
+  const isPending = flow.isPending;
+  const error = flow.error;
+
+  // Tier 1: estimate and show it back. Nothing is saved until she confirms.
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim()) return;
-    setError(null);
     setResults(null);
-
-    const baseDate = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
-    const [h, m] = timeUnknown ? [0, 0] : time.split(":").map(Number);
-    const eatenAt = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), h, m);
-
-    startTransition(async () => {
-      try {
-        const res = await fetch("/api/nutrition", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: text.trim(),
-            mealType,
-            source,
-            // Literal wall time as typed; the server interprets it in the
-            // viewer's timezone (bl_tz) so a device with a wrong OS timezone
-            // can't skew eaten-times. eatenAt kept as legacy fallback.
-            time: timeUnknown ? null : time,
-            eatenAt: eatenAt.toISOString(),
-            date: dateStr,
-            timeUnknown,
-          }),
-        });
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error ?? "Failed to log nutrition");
-        }
-        const data = await res.json();
-        setNotice(
-          data.savedRecipes?.length
-            ? `You log this a lot — saved as a recipe: ${data.savedRecipes.join(", ")}`
-            : null,
-        );
-        setResults(data.estimates);
-        setText("");
-        setSource("home_cooked");
-        setTime(currentTimeString());
-        setTimeUnknown(false);
-        router.refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
-      }
-    });
+    setNotice(null);
+    flow.estimate(text.trim());
   }
+
+  function onLogged(data: { savedRecipes?: string[]; estimates: MacroEstimate[] }) {
+    setNotice(
+      data.savedRecipes?.length
+        ? `You log this a lot — saved as a recipe: ${data.savedRecipes.join(", ")}`
+        : null,
+    );
+    setResults(data.estimates);
+    setText("");
+    setSource("home_cooked");
+    setTime(currentTimeString());
+    setTimeUnknown(false);
+    router.refresh();
+  }
+
 
   const resultsList = results && results.length > 0 && (
     <ul className="items-l" style={{ padding: "10px 0 0" }}>
@@ -168,16 +153,20 @@ export function NutritionInput({
         )}
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setText(e.target.value); if (flow.draft) flow.cancel(); }}
           placeholder="3 eggs, 200g ground beef, 1 cup rice, 1 avocado"
           rows={2}
           className="field"
           style={{ marginTop: 10 }}
         />
-        <button type="submit" disabled={isPending || !text.trim()} className="btn block disabled:opacity-30" style={{ marginTop: 10 }}>
-          {isPending ? "Estimating macros..." : "Log Meal"}
-        </button>
-        {error && <p className="err">{error}</p>}
+        {flow.draft ? (
+          <FoodConfirm flow={flow} onLogged={onLogged} />
+        ) : (
+          <button type="submit" disabled={isPending || !text.trim()} className="btn block disabled:opacity-30" style={{ marginTop: 10 }}>
+            {isPending ? "Estimating..." : "Estimate"}
+          </button>
+        )}
+        {error && !flow.draft && <p className="err">{error}</p>}
         {notice && <p className="note" style={{ marginTop: 8 }}>{notice}</p>}
         {resultsList}
       </form>
@@ -240,21 +229,25 @@ export function NutritionInput({
         {/* Food text */}
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setText(e.target.value); if (flow.draft) flow.cancel(); }}
           placeholder="3 eggs, 200g ground beef, 1 cup rice, 1 avocado"
           rows={2}
           className="field resize-none"
         />
-        <button
-          type="submit"
-          disabled={isPending || !text.trim()}
-          className="btn mt-3 w-full disabled:opacity-30"
-        >
-          {isPending ? "Estimating macros..." : "Log Meal"}
-        </button>
+        {flow.draft ? (
+          <FoodConfirm flow={flow} onLogged={onLogged} />
+        ) : (
+          <button
+            type="submit"
+            disabled={isPending || !text.trim()}
+            className="btn mt-3 w-full disabled:opacity-30"
+          >
+            {isPending ? "Estimating..." : "Estimate"}
+          </button>
+        )}
       </form>
 
-      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {error && !flow.draft && <p className="mt-2 text-xs text-red-400">{error}</p>}
 
       {results && results.length > 0 && (
         <div className="mt-3 space-y-1.5">

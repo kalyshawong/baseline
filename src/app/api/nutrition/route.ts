@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/current-user";
 import { getLocalDay, getLocalDayStr, getRequestTz, getUserTz, wallTimeToUtc } from "@/lib/date-utils";
-import { estimateMacros, type MacroEstimate, type RecipeContext } from "@/lib/usda";
+import { estimateMeal, type MacroEstimate, type RecipeContext } from "@/lib/usda";
 import { autoSaveRecurringMeals } from "@/lib/recipes";
 import { apiError } from "@/lib/utils";
 
@@ -26,9 +26,52 @@ const NUTRITION_TEXT_MAX_LEN = 4_000;
 const VALID_MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"] as const;
 const VALID_MEAL_SOURCES = ["home_cooked", "takeout", "restaurant", "pre_packaged"] as const;
 
+function parseAnswers(raw: unknown): { question: string; answer: string }[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .flatMap((a) =>
+      a && typeof a.question === "string" && typeof a.answer === "string"
+        ? [{ question: a.question.slice(0, 200), answer: a.answer.slice(0, 200) }]
+        : [],
+    )
+    .slice(0, 6);
+}
+
+/** Items she approved on the confirm step. Null when malformed. */
+function parseConfirmedItems(raw: unknown): MacroEstimate[] | null {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 30) return null;
+  const out: MacroEstimate[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== "object") return null;
+    const i = r as Record<string, unknown>;
+    const n = (v: unknown, max: number) =>
+      typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= max ? v : null;
+    const calories = n(i.calories, 10_000);
+    const protein = n(i.protein, 1_000);
+    const carbs = n(i.carbs, 2_000);
+    const fat = n(i.fat, 1_000);
+    if (calories == null || protein == null || carbs == null || fat == null) return null;
+    const s = (v: unknown, fallback: string) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 300) : fallback);
+    const description = s(i.description, "Food");
+    out.push({
+      description,
+      foodName: s(i.foodName, description),
+      quantity: n(i.quantity, 100_000) || 1,
+      unit: s(i.unit, "serving"),
+      calories: Math.round(calories),
+      protein: Math.round(protein * 10) / 10,
+      carbs: Math.round(carbs * 10) / 10,
+      fat: Math.round(fat * 10) / 10,
+      canonical: typeof i.canonical === "string" ? i.canonical.slice(0, 200) : undefined,
+    });
+  }
+  return out;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { text, mealType, eatenAt, date, time, timeUnknown, source } = await request.json();
+    const { text, mealType, eatenAt, date, time, timeUnknown, source, preview, items, answers } =
+      await request.json();
 
     if (!text || typeof text !== "string") {
       return NextResponse.json({ error: "text is required" }, { status: 400 });
@@ -105,7 +148,34 @@ export async function POST(request: NextRequest) {
     });
     const key = String(text).trim().toLowerCase().replace(/^my\s+/, "").replace(/[.!\s]+$/, "");
     const recipe = recipes.find((r) => r.name.toLowerCase() === key);
-    const estimates = recipe ? recipe.items : await estimateMacros(text, recipes);
+
+    // Two-step logging (2026-10-21).
+    //  Tier 1 — { preview: true, answers? }: estimate only, nothing saved.
+    //    Returns items (each with a note of what was assumed) and up to two
+    //    questions; answering one re-previews with the answer folded in.
+    //  Tier 2 — { items }: she confirmed these exact items; save them as-is,
+    //    no second estimate (it could disagree with what she approved).
+    // A bare { text } still estimates and saves in one go (old clients).
+    if (preview === true) {
+      if (recipe) {
+        return NextResponse.json({
+          estimates: recipe.items.map((i) => ({ ...i, note: `Your saved recipe "${recipe.name}".` })),
+          questions: [],
+        });
+      }
+      const meal = await estimateMeal(text, recipes, parseAnswers(answers));
+      return NextResponse.json({ estimates: meal.items, questions: meal.questions });
+    }
+    let estimates: MacroEstimate[];
+    if (items != null) {
+      const confirmed = parseConfirmedItems(items);
+      if (!confirmed) {
+        return NextResponse.json({ error: "items must be 1–30 food items with numeric macros" }, { status: 400 });
+      }
+      estimates = confirmed;
+    } else {
+      estimates = recipe ? recipe.items : (await estimateMeal(text, recipes)).items;
+    }
 
     // The log day is dayStr (page date param, else viewer-tz today) as a UTC
     // midnight anchor for the userId_day unique key.
